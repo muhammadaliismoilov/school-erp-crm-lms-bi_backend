@@ -221,7 +221,7 @@ export class AcademicController {
     type: LessonPeriodListResponseEnvelopeDto,
   })
   findLessonPeriods() {
-    return this.academicService.findLessonPeriods();
+    return this.academicService.listLessonPeriods();
   }
 
   @Post("lesson-periods")
@@ -244,8 +244,12 @@ export class AcademicController {
     description: "Dars vaqti envelope ichida yaratildi.",
     type: LessonPeriodResponseEnvelopeDto,
   })
-  createLessonPeriod(@Body() dto: CreateLessonPeriodDto) {
-    return this.academicService.createLessonPeriod(dto);
+  createLessonPeriod(
+    @Body() dto: CreateLessonPeriodDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.academicService.createLessonPeriod(dto, this.buildActor(user, request));
   }
 
   @Get("lesson-periods/:id")
@@ -272,8 +276,10 @@ export class AcademicController {
   updateLessonPeriod(
     @Param() params: UuidParamDto,
     @Body() dto: UpdateLessonPeriodDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
   ) {
-    return this.academicService.updateLessonPeriod(params.id, dto);
+    return this.academicService.updateLessonPeriod(params.id, dto, this.buildActor(user, request));
   }
 
   @Delete("lesson-periods/:id")
@@ -284,8 +290,12 @@ export class AcademicController {
   @ApiNoContentResponse({
     description: "Dars vaqti arxivlandi. Body qaytmaydi.",
   })
-  deleteLessonPeriod(@Param() params: UuidParamDto) {
-    return this.academicService.deleteLessonPeriod(params.id);
+  deleteLessonPeriod(
+    @Param() params: UuidParamDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.academicService.deleteLessonPeriod(params.id, this.buildActor(user, request));
   }
 
   @Get("subjects")

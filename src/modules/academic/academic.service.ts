@@ -27,7 +27,10 @@ import { CreateQuarterDto } from "./dto/create-quarter.dto";
 import { CreateSubjectDto } from "./dto/create-subject.dto";
 import { SubjectQueryDto } from "./dto/subject-query.dto";
 import { SubjectResponseDto } from "./dto/subject-response.dto";
-import { LessonPeriodResponseDto } from "./dto/lesson-period-response.dto";
+import {
+  LessonPeriodListResponseDto,
+  LessonPeriodResponseDto,
+} from "./dto/lesson-period-response.dto";
 import { QuarterQueryDto } from "./dto/quarter-query.dto";
 import {
   QuarterListResponseDto,
@@ -411,7 +414,10 @@ export class AcademicService {
     await this.audit(actor, "quarter.archived", id, { quarterNumber: quarter.quarterNumber }, "quarter");
   }
 
-  async createLessonPeriod(dto: CreateLessonPeriodDto): Promise<LessonPeriodResponseDto> {
+  async createLessonPeriod(
+    dto: CreateLessonPeriodDto,
+    actor?: AcademicActor,
+  ): Promise<LessonPeriodResponseDto> {
     const input = this.buildLessonPeriodInput(dto);
     this.validateLessonPeriodTimes(input);
     await this.ensureLessonPeriodCanBeSaved(input);
@@ -425,12 +431,21 @@ export class AcademicService {
       }),
     );
 
+    await this.audit(actor, "lesson_period.created", lessonPeriod.id, { code: lessonPeriod.code }, "lesson_period");
     return this.toLessonPeriodResponse(lessonPeriod);
   }
 
-  async findLessonPeriods(): Promise<LessonPeriodResponseDto[]> {
+  /** Lists lesson periods (ordered) with summary stats for the management table. */
+  async listLessonPeriods(): Promise<LessonPeriodListResponseDto> {
     const lessonPeriods = await this.lessonPeriods.find({ order: { order: "ASC" } });
-    return lessonPeriods.map((lessonPeriod) => this.toLessonPeriodResponse(lessonPeriod));
+    const items = lessonPeriods.map((lessonPeriod) => this.toLessonPeriodResponse(lessonPeriod));
+    return {
+      items,
+      stats: {
+        total: items.length,
+        firstStartTime: items[0]?.startTime ?? null,
+      },
+    };
   }
 
   async findLessonPeriod(id: string): Promise<LessonPeriodResponseDto> {
@@ -441,6 +456,7 @@ export class AcademicService {
   async updateLessonPeriod(
     id: string,
     dto: UpdateLessonPeriodDto,
+    actor?: AcademicActor,
   ): Promise<LessonPeriodResponseDto> {
     if (Object.keys(dto).length === 0) {
       throw new BadRequestException("At least one lesson period field must be provided");
@@ -463,12 +479,15 @@ export class AcademicService {
       order: input.order,
     });
 
-    return this.toLessonPeriodResponse(await this.lessonPeriods.save(lessonPeriod));
+    const saved = await this.lessonPeriods.save(lessonPeriod);
+    await this.audit(actor, "lesson_period.updated", saved.id, { changed: Object.keys(dto) }, "lesson_period");
+    return this.toLessonPeriodResponse(saved);
   }
 
-  async deleteLessonPeriod(id: string): Promise<void> {
-    await this.findLessonPeriodEntity(id);
+  async deleteLessonPeriod(id: string, actor?: AcademicActor): Promise<void> {
+    const lessonPeriod = await this.findLessonPeriodEntity(id);
     await this.lessonPeriods.softDelete(id);
+    await this.audit(actor, "lesson_period.archived", id, { code: lessonPeriod.code }, "lesson_period");
   }
 
   async createSubject(dto: CreateSubjectDto): Promise<SubjectResponseDto> {

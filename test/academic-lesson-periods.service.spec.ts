@@ -100,14 +100,25 @@ describe('AcademicService lesson periods CRUD', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
-  it('lists lesson periods ordered by lesson number', async () => {
+  it('lists lesson periods ordered by lesson number with stats', async () => {
+    lessonPeriods.find.mockResolvedValue([
+      { id: 'a', code: '1-Dars', startTime: '08:00:00', endTime: '08:45:00', order: 1 },
+      { id: 'b', code: '2-Dars', startTime: '08:45:00', endTime: '09:30:00', order: 2 },
+    ] as LessonPeriod[]);
+
+    const result = await service.listLessonPeriods();
+
+    expect(lessonPeriods.find).toHaveBeenCalledWith({ order: { order: 'ASC' } });
+    expect(result.items).toHaveLength(2);
+    expect(result.stats).toEqual({ total: 2, firstStartTime: '08:00' });
+  });
+
+  it('returns null firstStartTime when there are no lesson periods', async () => {
     lessonPeriods.find.mockResolvedValue([]);
 
-    await service.findLessonPeriods();
+    const result = await service.listLessonPeriods();
 
-    expect(lessonPeriods.find).toHaveBeenCalledWith({
-      order: { order: 'ASC' },
-    });
+    expect(result.stats).toEqual({ total: 0, firstStartTime: null });
   });
 
   it('throws NotFoundException when a lesson period does not exist', async () => {

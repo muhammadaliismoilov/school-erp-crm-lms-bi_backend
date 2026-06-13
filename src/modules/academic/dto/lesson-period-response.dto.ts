@@ -32,6 +32,22 @@ export class LessonPeriodResponseDto {
   version?: number;
 }
 
+export class LessonPeriodStatsDto {
+  @ApiProperty({ example: 8, minimum: 0 })
+  total: number;
+
+  @ApiPropertyOptional({ example: '08:00', nullable: true, pattern: 'HH:mm' })
+  firstStartTime?: string | null;
+}
+
+export class LessonPeriodListResponseDto {
+  @ApiProperty({ type: [LessonPeriodResponseDto] })
+  items: LessonPeriodResponseDto[];
+
+  @ApiProperty({ type: LessonPeriodStatsDto })
+  stats: LessonPeriodStatsDto;
+}
+
 export class LessonPeriodResponseEnvelopeDto {
   @ApiProperty({ example: true })
   success: true;
