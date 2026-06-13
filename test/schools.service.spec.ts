@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import type { Repository } from 'typeorm';
+import type { Repository, SelectQueryBuilder } from 'typeorm';
 import { CommonStatus } from '../src/common/enums/common-status.enum';
 import type { School } from '../src/modules/settings/entities/school.entity';
 import { SchoolsService } from '../src/modules/schools/schools.service';
@@ -7,10 +7,20 @@ import { PaymentPeriodUnit, PaymentStartStrategy, SchoolType, WorkDays } from '.
 
 describe('SchoolsService', () => {
   const schoolId = 'f0ff63e5-9fc8-4a9a-83de-9453d328d0d7';
-  let schools: jest.Mocked<Pick<Repository<School>, 'create' | 'save' | 'findOne' | 'find' | 'findAndCount' | 'softDelete'>>;
+  let schools: jest.Mocked<
+    Pick<Repository<School>, 'create' | 'save' | 'findOne' | 'find' | 'findAndCount' | 'softDelete' | 'createQueryBuilder'>
+  >;
+  let statsQueryBuilder: { getRawOne: jest.Mock } & Record<string, jest.Mock>;
   let service: SchoolsService;
 
   beforeEach(() => {
+    // Stats aggregatsiyasi uchun zanjirlanadigan query builder mock'i.
+    statsQueryBuilder = {
+      andWhere: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn(),
+    };
     schools = {
       create: jest.fn(),
       save: jest.fn(),
@@ -18,6 +28,7 @@ describe('SchoolsService', () => {
       find: jest.fn(),
       findAndCount: jest.fn(),
       softDelete: jest.fn(),
+      createQueryBuilder: jest.fn(() => statsQueryBuilder as unknown as SelectQueryBuilder<School>),
     };
     service = new SchoolsService(schools as unknown as Repository<School>);
   });
@@ -104,6 +115,11 @@ describe('SchoolsService', () => {
     } as School;
     schools.findAndCount.mockResolvedValue([[entity], 1]);
     schools.find.mockResolvedValue([entity]);
+    statsQueryBuilder.getRawOne.mockResolvedValue({
+      count: '1',
+      totalCapacity: '400',
+      monthlyPaymentTotal: '1000000',
+    });
 
     const result = await service.findSchools({ page: 1, limit: 20 });
 

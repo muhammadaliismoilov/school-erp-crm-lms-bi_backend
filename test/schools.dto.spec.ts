@@ -12,7 +12,6 @@ describe('CreateSchoolDto', () => {
       legalName: 'Toshkent Intellekt Xususiy Maktabi MCHJ',
       region: 'Toshkent shahri',
       district: 'Yunusobod tumani',
-      city: 'Toshkent',
       address: 'Yunusobod tumani, 4-mavze, 15-uy',
       websiteUrl: 'https://intellekt.example.uz',
       schoolType: SchoolType.PRIVATE,
