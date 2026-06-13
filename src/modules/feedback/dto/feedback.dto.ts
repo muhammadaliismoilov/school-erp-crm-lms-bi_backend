@@ -1,0 +1,7 @@
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, IsUUID, Length, Max, Min } from 'class-validator';
+import { FeedbackStatus, FeedbackType } from '../enums/feedback.enums';
+export class CreateFeedbackTicketDto { @ApiProperty({ enum: FeedbackType }) @IsEnum(FeedbackType) type: FeedbackType; @ApiPropertyOptional({ format: 'uuid' }) @IsOptional() @IsUUID() senderId?: string; @ApiPropertyOptional({ format: 'uuid' }) @IsOptional() @IsUUID() studentId?: string; @ApiProperty() @IsString() @Length(2, 180) subject: string; @ApiProperty() @IsString() @Length(2, 5000) message: string; @ApiPropertyOptional() @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(5) rating?: number; }
+export class UpdateFeedbackTicketDto extends PartialType(CreateFeedbackTicketDto) { @ApiPropertyOptional({ enum: FeedbackStatus }) @IsOptional() @IsEnum(FeedbackStatus) status?: FeedbackStatus; @ApiPropertyOptional({ format: 'uuid' }) @IsOptional() @IsUUID() assignedTo?: string; }
+export class CreateFeedbackCommentDto { @ApiProperty({ format: 'uuid' }) @IsUUID() ticketId: string; @ApiPropertyOptional({ format: 'uuid' }) @IsOptional() @IsUUID() authorId?: string; @ApiProperty() @IsString() @Length(1, 5000) message: string; @ApiPropertyOptional() @IsOptional() @Type(() => Boolean) @IsBoolean() isInternal?: boolean; }

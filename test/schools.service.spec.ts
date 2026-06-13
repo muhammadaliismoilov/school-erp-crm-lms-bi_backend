@@ -1,0 +1,151 @@
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import type { Repository } from 'typeorm';
+import { CommonStatus } from '../src/common/enums/common-status.enum';
+import type { School } from '../src/modules/settings/entities/school.entity';
+import { SchoolsService } from '../src/modules/schools/schools.service';
+import { PaymentPeriodUnit, PaymentStartStrategy, SchoolType, WorkDays } from '../src/modules/schools/enums/school.enums';
+
+describe('SchoolsService', () => {
+  const schoolId = 'f0ff63e5-9fc8-4a9a-83de-9453d328d0d7';
+  let schools: jest.Mocked<Pick<Repository<School>, 'create' | 'save' | 'findOne' | 'find' | 'findAndCount' | 'softDelete'>>;
+  let service: SchoolsService;
+
+  beforeEach(() => {
+    schools = {
+      create: jest.fn(),
+      save: jest.fn(),
+      findOne: jest.fn(),
+      find: jest.fn(),
+      findAndCount: jest.fn(),
+      softDelete: jest.fn(),
+    };
+    service = new SchoolsService(schools as unknown as Repository<School>);
+  });
+
+  const createPayload = {
+    name: 'Imkon School',
+    legalName: 'Imkon School MCHJ',
+    schoolType: SchoolType.PRIVATE,
+    totalCapacity: 400,
+    elementaryCapacity: 140,
+    upperCapacity: 260,
+    phone: '+998901234567',
+    monthlyPayment: 1000000,
+    paymentStartStrategy: PaymentStartStrategy.FULL_ACADEMIC_YEAR,
+    paymentPeriodUnit: PaymentPeriodUnit.YEAR,
+    workDays: WorkDays.FIVE_DAYS,
+  };
+
+  it('creates a school with normalized name, localized name, capacities, and payment settings', async () => {
+    schools.findOne.mockResolvedValue(null);
+    schools.create.mockImplementation((value) => value as School);
+    schools.save.mockImplementation(async (value) => ({
+      id: schoolId,
+      createdAt: new Date('2026-06-08T00:00:00.000Z'),
+      updatedAt: new Date('2026-06-08T00:00:00.000Z'),
+      version: 1,
+      ...value,
+    }) as School);
+
+    const result = await service.createSchool(createPayload);
+
+    expect(schools.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: { uz: 'Imkon School', ru: 'Imkon School', en: 'Imkon School' },
+        normalizedName: 'imkon school',
+        legalName: 'Imkon School MCHJ',
+        schoolType: SchoolType.PRIVATE,
+        totalCapacity: 400,
+        elementaryCapacity: 140,
+        upperCapacity: 260,
+        status: CommonStatus.ACTIVE,
+      }),
+    );
+    expect(result).toMatchObject({
+      id: schoolId,
+      name: 'Imkon School',
+      schoolType: SchoolType.PRIVATE,
+      capacities: { total: 400, elementary: 140, upper: 260 },
+      payment: { monthlyPayment: 1000000 },
+    });
+  });
+
+  it('rejects duplicate active school name', async () => {
+    schools.findOne.mockResolvedValue({ id: schoolId } as School);
+
+    await expect(service.createSchool(createPayload)).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('rejects capacity totals that do not match section capacities', async () => {
+    await expect(
+      service.createSchool({
+        ...createPayload,
+        totalCapacity: 400,
+        elementaryCapacity: 100,
+        upperCapacity: 260,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('returns paginated schools with stats for the management table', async () => {
+    const entity = {
+      id: schoolId,
+      name: { uz: 'Imkon School', ru: 'Imkon School', en: 'Imkon School' },
+      normalizedName: 'imkon school',
+      schoolType: SchoolType.PRIVATE,
+      totalCapacity: 400,
+      elementaryCapacity: 140,
+      upperCapacity: 260,
+      monthlyPayment: 1000000,
+      status: CommonStatus.ACTIVE,
+      createdAt: new Date('2026-06-08T00:00:00.000Z'),
+      updatedAt: new Date('2026-06-08T00:00:00.000Z'),
+      version: 1,
+    } as School;
+    schools.findAndCount.mockResolvedValue([[entity], 1]);
+    schools.find.mockResolvedValue([entity]);
+
+    const result = await service.findSchools({ page: 1, limit: 20 });
+
+    expect(result.stats).toEqual({
+      schoolCount: 1,
+      totalCapacity: 400,
+      monthlyPaymentTotal: 1000000,
+    });
+    expect(result.items).toHaveLength(1);
+  });
+
+  it('updates a school and preserves existing values when fields are omitted', async () => {
+    schools.findOne.mockResolvedValueOnce({
+      id: schoolId,
+      name: { uz: 'Imkon School', ru: 'Imkon School', en: 'Imkon School' },
+      normalizedName: 'imkon school',
+      schoolType: SchoolType.PRIVATE,
+      totalCapacity: 400,
+      elementaryCapacity: 140,
+      upperCapacity: 260,
+      status: CommonStatus.ACTIVE,
+    } as School).mockResolvedValueOnce(null);
+    schools.save.mockImplementation(async (value) => value as School);
+
+    const result = await service.updateSchool(schoolId, { name: 'Imkon School Plus' });
+
+    expect(schools.save).toHaveBeenCalledWith(expect.objectContaining({ normalizedName: 'imkon school plus' }));
+    expect(result.name).toBe('Imkon School Plus');
+  });
+
+  it('throws NotFoundException when school does not exist', async () => {
+    schools.findOne.mockResolvedValue(null);
+
+    await expect(service.findSchool(schoolId)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('archives a school with soft delete', async () => {
+    schools.findOne.mockResolvedValue({ id: schoolId } as School);
+    schools.softDelete.mockResolvedValue({ affected: 1, raw: {}, generatedMaps: [] });
+
+    await service.deleteSchool(schoolId);
+
+    expect(schools.softDelete).toHaveBeenCalledWith(schoolId);
+  });
+});

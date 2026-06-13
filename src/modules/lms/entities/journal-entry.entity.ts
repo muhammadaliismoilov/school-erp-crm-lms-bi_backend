@@ -1,0 +1,17 @@
+import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
+import { Student } from '../../students/entities/student.entity';
+import { LessonSchedule } from './lesson-schedule.entity';
+
+@Entity('lms_journal_entries')
+@Index('idx_lms_journal_lesson', ['lessonId'])
+@Index('idx_lms_journal_student', ['studentId'])
+export class JournalEntry extends UuidAuditEntity {
+  @Column({ name: 'lesson_id', type: 'uuid' }) lessonId: string;
+  @ManyToOne(() => LessonSchedule, (lesson) => lesson.journalEntries, { onDelete: 'CASCADE' }) @JoinColumn({ name: 'lesson_id' }) lesson: LessonSchedule;
+  @Column({ name: 'student_id', type: 'uuid' }) studentId: string;
+  @ManyToOne(() => Student, { onDelete: 'CASCADE' }) @JoinColumn({ name: 'student_id' }) student: Student;
+  @Column({ type: 'smallint', nullable: true }) grade?: number | null;
+  @Column({ name: 'homework_done', type: 'boolean', default: false }) homeworkDone: boolean;
+  @Column({ type: 'text', nullable: true }) comment?: string | null;
+}
