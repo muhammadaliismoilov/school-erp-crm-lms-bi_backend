@@ -1,5 +1,6 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
+import { AuditService } from "../audit/audit.service";
 import { ILike, In, LessThan, LessThanOrEqual, MoreThan, MoreThanOrEqual, Not, Repository } from "typeorm";
 import type { FindOptionsWhere } from "typeorm";
 import { CommonStatus } from "../../common/enums/common-status.enum";
@@ -104,8 +105,27 @@ interface ClassSaveInput {
   curator: User;
 }
 
+/** Who performed the action — used for the academic-year audit trail. */
+export interface AcademicActor {
+  userId?: string;
+  ipAddress?: string;
+}
+
+export interface AcademicYearStats {
+  totalCount: number;
+  currentYearName: string | null;
+  currentCalendarYear: number;
+}
+
+export interface AcademicYearListResult {
+  items: AcademicYear[];
+  stats: AcademicYearStats;
+}
+
 @Injectable()
 export class AcademicService {
+  private readonly logger = new Logger(AcademicService.name);
+
   constructor(
     @InjectRepository(AcademicYear)
     private readonly academicYears: Repository<AcademicYear>,
@@ -125,14 +145,50 @@ export class AcademicService {
     private readonly students?: Repository<Student>,
     @InjectRepository(Course)
     private readonly courses?: Repository<Course>,
+    @Optional()
+    private readonly auditService?: AuditService,
   ) {}
 
-  createAcademicYear(dto: CreateAcademicYearDto): Promise<AcademicYear> {
-    return this.academicYears.save(this.academicYears.create(dto));
+  async createAcademicYear(dto: CreateAcademicYearDto, actor?: AcademicActor): Promise<AcademicYear> {
+    this.validateYearDates(dto.startDate, dto.endDate);
+    await this.ensureNameAvailable(dto.name);
+    await this.ensureNoOverlap(dto.startDate, dto.endDate);
+
+    // First year ever is implicitly the current one, even if the client omits the flag.
+    const existingCount = await this.academicYears.count();
+    const makeCurrent = dto.isCurrent === true || existingCount === 0;
+
+    const saved = await this.academicYears.save(
+      this.academicYears.create({
+        name: dto.name.trim(),
+        startDate: dto.startDate,
+        endDate: dto.endDate,
+        isCurrent: makeCurrent,
+      }),
+    );
+
+    if (makeCurrent) {
+      await this.unsetOtherCurrent(saved.id);
+    }
+    await this.audit(actor, "academic_year.created", saved.id, { name: saved.name });
+    return saved;
   }
 
   findAcademicYears(): Promise<AcademicYear[]> {
     return this.academicYears.find({ order: { startDate: "DESC" } });
+  }
+
+  async listAcademicYears(): Promise<AcademicYearListResult> {
+    const items = await this.academicYears.find({ order: { startDate: "DESC" } });
+    const current = items.find((year) => year.isCurrent) ?? null;
+    return {
+      items,
+      stats: {
+        totalCount: items.length,
+        currentYearName: current?.name ?? null,
+        currentCalendarYear: new Date().getFullYear(),
+      },
+    };
   }
 
   async findAcademicYear(id: string): Promise<AcademicYear> {
@@ -144,15 +200,118 @@ export class AcademicService {
     return academicYear;
   }
 
-  async updateAcademicYear(id: string, dto: UpdateAcademicYearDto): Promise<AcademicYear> {
+  async updateAcademicYear(id: string, dto: UpdateAcademicYearDto, actor?: AcademicActor): Promise<AcademicYear> {
     const academicYear = await this.findAcademicYear(id);
-    Object.assign(academicYear, dto);
-    return this.academicYears.save(academicYear);
+    const startDate = dto.startDate ?? academicYear.startDate;
+    const endDate = dto.endDate ?? academicYear.endDate;
+
+    if (dto.startDate !== undefined || dto.endDate !== undefined) {
+      this.validateYearDates(startDate, endDate);
+      await this.ensureNoOverlap(startDate, endDate, id);
+    }
+    if (dto.name !== undefined && dto.name.trim() !== academicYear.name) {
+      await this.ensureNameAvailable(dto.name, id);
+    }
+
+    if (dto.name !== undefined) academicYear.name = dto.name.trim();
+    if (dto.startDate !== undefined) academicYear.startDate = dto.startDate;
+    if (dto.endDate !== undefined) academicYear.endDate = dto.endDate;
+    if (dto.isCurrent !== undefined) academicYear.isCurrent = dto.isCurrent;
+
+    const saved = await this.academicYears.save(academicYear);
+    if (dto.isCurrent === true) {
+      await this.unsetOtherCurrent(saved.id);
+    }
+    await this.audit(actor, "academic_year.updated", saved.id, { changed: Object.keys(dto) });
+    return saved;
   }
 
-  async deleteAcademicYear(id: string): Promise<void> {
-    await this.findAcademicYear(id);
+  /** Marks one year as current and clears the flag on every other year. */
+  async setCurrentAcademicYear(id: string, actor?: AcademicActor): Promise<AcademicYear> {
+    const academicYear = await this.findAcademicYear(id);
+    academicYear.isCurrent = true;
+    const saved = await this.academicYears.save(academicYear);
+    await this.unsetOtherCurrent(saved.id);
+    await this.audit(actor, "academic_year.set_current", saved.id, { name: saved.name });
+    return saved;
+  }
+
+  async deleteAcademicYear(id: string, actor?: AcademicActor): Promise<void> {
+    const academicYear = await this.findAcademicYear(id);
+
+    if (academicYear.isCurrent) {
+      throw new ConflictException("Joriy o‘quv yilini o‘chirib bo‘lmaydi");
+    }
+
+    const quarterCount = await this.quarters.count({ where: { academicYearId: id } });
+    if (quarterCount > 0) {
+      throw new ConflictException("Choraklari mavjud o‘quv yilini o‘chirib bo‘lmaydi");
+    }
+
     await this.academicYears.softDelete(id);
+    await this.audit(actor, "academic_year.archived", id, { name: academicYear.name });
+  }
+
+  // ---- Academic-year helpers ----
+
+  private validateYearDates(startDate: string, endDate: string): void {
+    const start = new Date(startDate).getTime();
+    const end = new Date(endDate).getTime();
+    if (Number.isNaN(start) || Number.isNaN(end)) {
+      throw new BadRequestException("Sana formati noto‘g‘ri");
+    }
+    if (start >= end) {
+      throw new BadRequestException("Boshlanish sanasi tugash sanasidan oldin bo‘lishi kerak");
+    }
+  }
+
+  private async ensureNameAvailable(name: string, excludeId?: string): Promise<void> {
+    const existing = await this.academicYears.findOne({
+      where: { name: name.trim(), ...(excludeId ? { id: Not(excludeId) } : {}) },
+    });
+    if (existing) {
+      throw new ConflictException("Bunday nomli o‘quv yili allaqachon mavjud");
+    }
+  }
+
+  /** Rejects a date range that intersects any other (non-deleted) academic year. */
+  private async ensureNoOverlap(startDate: string, endDate: string, excludeId?: string): Promise<void> {
+    const overlap = await this.academicYears.findOne({
+      where: {
+        startDate: LessThanOrEqual(endDate),
+        endDate: MoreThanOrEqual(startDate),
+        ...(excludeId ? { id: Not(excludeId) } : {}),
+      },
+    });
+    if (overlap) {
+      throw new ConflictException("O‘quv yili sanasi mavjud yil bilan ustma-ust tushadi");
+    }
+  }
+
+  private async unsetOtherCurrent(currentId: string): Promise<void> {
+    await this.academicYears.update({ id: Not(currentId), isCurrent: true }, { isCurrent: false });
+  }
+
+  private async audit(
+    actor: AcademicActor | undefined,
+    action: string,
+    entityId: string,
+    details?: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      await this.auditService?.log({
+        userId: actor?.userId,
+        action,
+        entity: "academic_year",
+        entityId,
+        ipAddress: actor?.ipAddress,
+        details,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Failed to write academic year audit log: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   async createQuarter(dto: CreateQuarterDto): Promise<Quarter> {
