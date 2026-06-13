@@ -1,6 +1,5 @@
 import { validateDto } from '../src/common/validation/validate-dto';
 import { CreateQuarterDto } from '../src/modules/academic/dto/create-quarter.dto';
-import { QuarterStatus } from '../src/modules/academic/enums/quarter-status.enum';
 
 describe('CreateQuarterDto', () => {
   it('accepts a production-ready quarter payload', async () => {
@@ -9,7 +8,6 @@ describe('CreateQuarterDto', () => {
       quarterNumber: 1,
       startDate: '2025-09-01',
       endDate: '2025-11-05',
-      status: QuarterStatus.COMPLETED,
     });
 
     expect(errors).toHaveLength(0);
@@ -29,6 +27,7 @@ describe('CreateQuarterDto', () => {
     expect(serialized).toContain('academicYearId');
     expect(serialized).toContain('quarterNumber');
     expect(serialized).toContain('startDate');
+    // status endi DTO maydoni emas — whitelist uni ham rad etadi.
     expect(serialized).toContain('status');
     expect(serialized).toContain('extra');
   });

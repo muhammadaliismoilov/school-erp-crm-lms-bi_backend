@@ -29,6 +29,11 @@ import { SubjectQueryDto } from "./dto/subject-query.dto";
 import { SubjectResponseDto } from "./dto/subject-response.dto";
 import { LessonPeriodResponseDto } from "./dto/lesson-period-response.dto";
 import { QuarterQueryDto } from "./dto/quarter-query.dto";
+import {
+  QuarterListResponseDto,
+  QuarterResponseDto,
+  QuarterStatsDto,
+} from "./dto/quarter-response.dto";
 import { TransferClassStudentsDto } from "./dto/transfer-class-students.dto";
 import { UpdateAcademicYearDto } from "./dto/update-academic-year.dto";
 import { UpdateClassDto } from "./dto/update-class.dto";
@@ -49,7 +54,6 @@ interface QuarterValidationInput {
   quarterNumber: number;
   startDate: string;
   endDate: string;
-  status: QuarterStatus;
 }
 
 interface LessonPeriodValidationInput {
@@ -297,27 +301,32 @@ export class AcademicService {
     action: string,
     entityId: string,
     details?: Record<string, unknown>,
+    entity = "academic_year",
   ): Promise<void> {
     try {
       await this.auditService?.log({
         userId: actor?.userId,
         action,
-        entity: "academic_year",
+        entity,
         entityId,
         ipAddress: actor?.ipAddress,
         details,
       });
     } catch (error) {
       this.logger.warn(
-        `Failed to write academic year audit log: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to write ${entity} audit log: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
 
-  async createQuarter(dto: CreateQuarterDto): Promise<Quarter> {
-    const status = dto.status ?? QuarterStatus.PLANNED;
+  async createQuarter(dto: CreateQuarterDto, actor?: AcademicActor): Promise<QuarterResponseDto> {
     const academicYear = await this.findAcademicYear(dto.academicYearId);
-    const input = { ...dto, status };
+    const input: QuarterValidationInput = {
+      academicYearId: dto.academicYearId,
+      quarterNumber: dto.quarterNumber,
+      startDate: dto.startDate,
+      endDate: dto.endDate,
+    };
 
     this.validateQuarterDates(input, academicYear);
     await this.ensureQuarterCanBeSaved(input);
@@ -325,20 +334,32 @@ export class AcademicService {
     const quarter = this.quarters.create({
       ...input,
       name: this.buildQuarterName(dto.quarterNumber),
+      status: this.computeQuarterStatus(input.startDate, input.endDate),
     });
 
-    return this.quarters.save(quarter);
+    const saved = await this.quarters.save(quarter);
+    saved.academicYear = academicYear;
+    await this.audit(actor, "quarter.created", saved.id, { quarterNumber: saved.quarterNumber }, "quarter");
+    return this.toQuarterResponse(saved);
   }
 
-  findQuarters(query: QuarterQueryDto = {}): Promise<Quarter[]> {
-    return this.quarters.find({
+  /** Lists quarters of an academic year (ordered) together with status counts. */
+  async listQuarters(query: QuarterQueryDto = {}): Promise<QuarterListResponseDto> {
+    const quarters = await this.quarters.find({
       where: query.academicYearId ? { academicYearId: query.academicYearId } : {},
       relations: { academicYear: true },
-      order: { startDate: "ASC" },
+      order: { quarterNumber: "ASC" },
     });
+
+    const items = quarters.map((quarter) => this.toQuarterResponse(quarter));
+    return { items, stats: this.buildQuarterStats(items) };
   }
 
-  async findQuarter(id: string): Promise<Quarter> {
+  async findQuarter(id: string): Promise<QuarterResponseDto> {
+    return this.toQuarterResponse(await this.findQuarterEntity(id));
+  }
+
+  private async findQuarterEntity(id: string): Promise<Quarter> {
     const quarter = await this.quarters.findOne({
       where: { id },
       relations: { academicYear: true },
@@ -350,8 +371,8 @@ export class AcademicService {
     return quarter;
   }
 
-  async updateQuarter(id: string, dto: UpdateQuarterDto): Promise<Quarter> {
-    const quarter = await this.findQuarter(id);
+  async updateQuarter(id: string, dto: UpdateQuarterDto, actor?: AcademicActor): Promise<QuarterResponseDto> {
+    const quarter = await this.findQuarterEntity(id);
     const academicYearId = dto.academicYearId ?? quarter.academicYearId;
     const academicYear =
       academicYearId === quarter.academicYearId && quarter.academicYear
@@ -362,7 +383,6 @@ export class AcademicService {
       quarterNumber: dto.quarterNumber ?? quarter.quarterNumber,
       startDate: dto.startDate ?? quarter.startDate,
       endDate: dto.endDate ?? quarter.endDate,
-      status: dto.status ?? quarter.status,
     };
 
     this.validateQuarterDates(input, academicYear);
@@ -371,14 +391,24 @@ export class AcademicService {
     Object.assign(quarter, input, {
       academicYear,
       name: this.buildQuarterName(input.quarterNumber),
+      status: this.computeQuarterStatus(input.startDate, input.endDate),
     });
 
-    return this.quarters.save(quarter);
+    const saved = await this.quarters.save(quarter);
+    await this.audit(actor, "quarter.updated", saved.id, { changed: Object.keys(dto) }, "quarter");
+    return this.toQuarterResponse(saved);
   }
 
-  async deleteQuarter(id: string): Promise<void> {
-    await this.findQuarter(id);
+  async deleteQuarter(id: string, actor?: AcademicActor): Promise<void> {
+    const quarter = await this.findQuarterEntity(id);
+
+    const courseCount = (await this.courses?.count({ where: { quarterId: id } })) ?? 0;
+    if (courseCount > 0) {
+      throw new ConflictException("Kurslari mavjud chorakni o‘chirib bo‘lmaydi");
+    }
+
     await this.quarters.softDelete(id);
+    await this.audit(actor, "quarter.archived", id, { quarterNumber: quarter.quarterNumber }, "quarter");
   }
 
   async createLessonPeriod(dto: CreateLessonPeriodDto): Promise<LessonPeriodResponseDto> {
@@ -753,20 +783,42 @@ export class AcademicService {
     if (overlappingQuarter) {
       throw new ConflictException("Quarter dates overlap with an existing quarter");
     }
+  }
 
-    if (input.status === QuarterStatus.CURRENT) {
-      const currentQuarter = await this.quarters.findOne({
-        where: {
-          academicYearId: input.academicYearId,
-          status: QuarterStatus.CURRENT,
-          ...excludedIdWhere,
-        },
-      });
+  /** Derives quarter status from today's date — never persisted as source of truth. */
+  private computeQuarterStatus(startDate: string, endDate: string, today: Date = new Date()): QuarterStatus {
+    const now = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+    const start = this.toDate(startDate);
+    const end = this.toDate(endDate);
+    if (now < start) return QuarterStatus.PLANNED;
+    if (now > end) return QuarterStatus.COMPLETED;
+    return QuarterStatus.CURRENT;
+  }
 
-      if (currentQuarter) {
-        throw new ConflictException("Only one current quarter is allowed per academic year");
-      }
-    }
+  private toQuarterResponse(quarter: Quarter): QuarterResponseDto {
+    return {
+      id: quarter.id,
+      academicYearId: quarter.academicYearId,
+      quarterNumber: quarter.quarterNumber,
+      name: quarter.name?.uz ?? `${quarter.quarterNumber}-chorak`,
+      startDate: quarter.startDate,
+      endDate: quarter.endDate,
+      status: this.computeQuarterStatus(quarter.startDate, quarter.endDate),
+      academicYear: quarter.academicYear
+        ? { id: quarter.academicYear.id, name: quarter.academicYear.name }
+        : null,
+      createdAt: quarter.createdAt?.toISOString?.() ?? undefined,
+      updatedAt: quarter.updatedAt?.toISOString?.() ?? undefined,
+    };
+  }
+
+  private buildQuarterStats(items: QuarterResponseDto[]): QuarterStatsDto {
+    return {
+      total: items.length,
+      planned: items.filter((item) => item.status === QuarterStatus.PLANNED).length,
+      current: items.filter((item) => item.status === QuarterStatus.CURRENT).length,
+      completed: items.filter((item) => item.status === QuarterStatus.COMPLETED).length,
+    };
   }
 
   private buildLessonPeriodInput(dto: CreateLessonPeriodDto): LessonPeriodValidationInput {
@@ -975,7 +1027,7 @@ export class AcademicService {
     completedLessonCount = 0,
   ): Promise<CourseSaveInput> {
     const [quarter, room, subject, teacher] = await Promise.all([
-      this.findQuarter(dto.quarterId),
+      this.findQuarterEntity(dto.quarterId),
       this.findRoomEntity(dto.roomId),
       this.findSubjectEntity(dto.subjectId),
       this.findUserEntity(dto.teacherId),

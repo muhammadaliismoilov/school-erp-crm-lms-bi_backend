@@ -165,15 +165,15 @@ export class AcademicController {
   @ApiOperation({ summary: "Choraklar ro‘yxatini olish" })
   @ApiOkResponse({ description: "Choraklar qaytarildi." })
   findQuarters(@Query() query: QuarterQueryDto) {
-    return this.academicService.findQuarters(query);
+    return this.academicService.listQuarters(query);
   }
 
   @Post("quarters")
   @Permissions([AppPermission.ACADEMIC_MANAGE])
   @ApiOperation({ summary: "Chorak yaratish" })
   @ApiCreatedResponse({ description: "Chorak yaratildi." })
-  createQuarter(@Body() dto: CreateQuarterDto) {
-    return this.academicService.createQuarter(dto);
+  createQuarter(@Body() dto: CreateQuarterDto, @CurrentUser() user: AuthenticatedUser, @Req() request: Request) {
+    return this.academicService.createQuarter(dto, this.buildActor(user, request));
   }
 
   @Get("quarters/:id")
@@ -190,8 +190,13 @@ export class AcademicController {
   @ApiOperation({ summary: "Chorakni tahrirlash" })
   @ApiParam(uuidParamDocs)
   @ApiOkResponse({ description: "Chorak tahrirlandi." })
-  updateQuarter(@Param() params: UuidParamDto, @Body() dto: UpdateQuarterDto) {
-    return this.academicService.updateQuarter(params.id, dto);
+  updateQuarter(
+    @Param() params: UuidParamDto,
+    @Body() dto: UpdateQuarterDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.academicService.updateQuarter(params.id, dto, this.buildActor(user, request));
   }
 
   @Delete("quarters/:id")
@@ -200,8 +205,8 @@ export class AcademicController {
   @ApiOperation({ summary: "Chorakni arxivlash" })
   @ApiParam(uuidParamDocs)
   @ApiNoContentResponse({ description: "Chorak arxivlandi. Body qaytmaydi." })
-  deleteQuarter(@Param() params: UuidParamDto) {
-    return this.academicService.deleteQuarter(params.id);
+  deleteQuarter(@Param() params: UuidParamDto, @CurrentUser() user: AuthenticatedUser, @Req() request: Request) {
+    return this.academicService.deleteQuarter(params.id, this.buildActor(user, request));
   }
 
   @Get("lesson-periods")

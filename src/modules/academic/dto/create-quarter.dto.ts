@@ -1,7 +1,6 @@
 import { Type } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsISO8601, IsOptional, IsUUID, Max, Min } from 'class-validator';
-import { QuarterStatus } from '../enums/quarter-status.enum';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsInt, IsISO8601, IsUUID, Max, Min } from 'class-validator';
 
 export class CreateQuarterDto {
   @ApiProperty({
@@ -31,13 +30,4 @@ export class CreateQuarterDto {
   @ApiProperty({ example: '2025-11-05', format: 'date' })
   @IsISO8601({ strict: true })
   endDate: string;
-
-  @ApiPropertyOptional({
-    enum: QuarterStatus,
-    default: QuarterStatus.PLANNED,
-    example: QuarterStatus.CURRENT,
-  })
-  @IsOptional()
-  @IsEnum(QuarterStatus)
-  status?: QuarterStatus;
 }
