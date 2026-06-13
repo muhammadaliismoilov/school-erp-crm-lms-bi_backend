@@ -11,8 +11,10 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from "@nestjs/common";
+import type { Request } from "express";
 import {
   ApiBearerAuth,
   ApiBody,
@@ -22,10 +24,12 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import { AppPermission } from "../../common/constants/permissions";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Permissions } from "../../common/decorators/permissions.decorator";
 import { UuidParamDto } from "../../common/dto/uuid-param.dto";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../../common/guards/permissions.guard";
+import type { AuthenticatedUser } from "../../common/security/authenticated-user.interface";
 import { ApiLocalizedErrorResponses } from "../../common/swagger/api-localized-error-responses.decorator";
 import { CreateIntegrationDto } from "./dto/create-integration.dto";
 import { IntegrationQueryDto } from "./dto/integration-query.dto";
@@ -35,7 +39,7 @@ import {
   IntegrationCode,
   OpenAiModel,
 } from "./entities/integration.entity";
-import { IntegrationsService } from "./integrations.service";
+import { IntegrationActor, IntegrationsService } from "./integrations.service";
 import {
   IntegrationListResponseSchema,
   IntegrationResponseSchema,
@@ -127,9 +131,13 @@ export class IntegrationsController {
     description: "Integratsiya muvaffaqiyatli yaratildi.",
     type: IntegrationResponseSchema,
   })
-  async create(@Body() dto: CreateIntegrationDto) {
+  async create(
+    @Body() dto: CreateIntegrationDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
     try {
-      return await this.integrationsService.create(dto);
+      return await this.integrationsService.create(dto, this.buildActor(user, request));
     } catch (error) {
       this.handleError(
         error,
@@ -194,14 +202,48 @@ export class IntegrationsController {
   async update(
     @Param() params: UuidParamDto,
     @Body() dto: UpdateIntegrationDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
   ) {
     try {
-      return await this.integrationsService.update(params.id, dto);
+      return await this.integrationsService.update(params.id, dto, this.buildActor(user, request));
     } catch (error) {
       this.handleError(
         error,
         "Integratsiyani tahrirlashda server xatosi yuz berdi",
       );
+    }
+  }
+
+  @Post(":id/test")
+  @HttpCode(HttpStatus.OK)
+  @Permissions([AppPermission.INTEGRATIONS_MANAGE])
+  @ApiOperation({
+    summary: "Integratsiya ulanishini tekshirish",
+    description:
+      "Saqlangan credential'lar bilan provayderga test so‘rov yuboradi (OpenAI: model ro‘yxati, OnlinePBX: domen javobi). { ok, message } qaytaradi.",
+  })
+  @ApiParam(uuidParamDocs)
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "Test natijasi: ok va xabar.",
+    schema: {
+      type: "object",
+      properties: {
+        ok: { type: "boolean", example: true },
+        message: { type: "string", example: "OpenAI ulanishi muvaffaqiyatli" },
+      },
+    },
+  })
+  async test(
+    @Param() params: UuidParamDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    try {
+      return await this.integrationsService.testConnection(params.id, this.buildActor(user, request));
+    } catch (error) {
+      this.handleError(error, "Integratsiyani tekshirishda server xatosi yuz berdi");
     }
   }
 
@@ -218,15 +260,23 @@ export class IntegrationsController {
     status: HttpStatus.NO_CONTENT,
     description: "Integratsiya arxivlandi. Body qaytmaydi.",
   })
-  async remove(@Param() params: UuidParamDto) {
+  async remove(
+    @Param() params: UuidParamDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
     try {
-      await this.integrationsService.remove(params.id);
+      await this.integrationsService.remove(params.id, this.buildActor(user, request));
     } catch (error) {
       this.handleError(
         error,
         "Integratsiyani arxivlashda server xatosi yuz berdi",
       );
     }
+  }
+
+  private buildActor(user: AuthenticatedUser, request: Request): IntegrationActor {
+    return { userId: user?.id, ipAddress: request?.ip };
   }
 
   private handleError(error: unknown, fallbackMessage: string): never {
