@@ -9,8 +9,10 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from "@nestjs/common";
+import type { Request } from "express";
 import {
   ApiBearerAuth,
   ApiBody,
@@ -22,12 +24,14 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import { AppPermission } from "../../common/constants/permissions";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Permissions } from "../../common/decorators/permissions.decorator";
 import { UuidParamDto } from "../../common/dto/uuid-param.dto";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../../common/guards/permissions.guard";
+import type { AuthenticatedUser } from "../../common/security/authenticated-user.interface";
 import { ApiLocalizedErrorResponses } from "../../common/swagger/api-localized-error-responses.decorator";
-import { AcademicService } from "./academic.service";
+import { AcademicActor, AcademicService } from "./academic.service";
 import { ClassQueryDto } from "./dto/class-query.dto";
 import {
   ClassDetailResponseEnvelopeDto,
@@ -92,15 +96,15 @@ export class AcademicController {
   @ApiOperation({ summary: "O‘quv yillar ro‘yxatini olish" })
   @ApiOkResponse({ description: "O‘quv yillar qaytarildi." })
   findYears() {
-    return this.academicService.findAcademicYears();
+    return this.academicService.listAcademicYears();
   }
 
   @Post("years")
   @Permissions([AppPermission.ACADEMIC_MANAGE])
   @ApiOperation({ summary: "O‘quv yili yaratish" })
   @ApiCreatedResponse({ description: "O‘quv yili yaratildi." })
-  createYear(@Body() dto: CreateAcademicYearDto) {
-    return this.academicService.createAcademicYear(dto);
+  createYear(@Body() dto: CreateAcademicYearDto, @CurrentUser() user: AuthenticatedUser, @Req() request: Request) {
+    return this.academicService.createAcademicYear(dto, this.buildActor(user, request));
   }
 
   @Get("years/:id")
@@ -120,8 +124,24 @@ export class AcademicController {
   updateYear(
     @Param() params: UuidParamDto,
     @Body() dto: UpdateAcademicYearDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
   ) {
-    return this.academicService.updateAcademicYear(params.id, dto);
+    return this.academicService.updateAcademicYear(params.id, dto, this.buildActor(user, request));
+  }
+
+  @Post("years/:id/set-current")
+  @HttpCode(HttpStatus.OK)
+  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @ApiOperation({ summary: "O‘quv yilini joriy qilish" })
+  @ApiParam(uuidParamDocs)
+  @ApiOkResponse({ description: "O‘quv yili joriy qilindi; qolganlari joriylikdan chiqarildi." })
+  setCurrentYear(
+    @Param() params: UuidParamDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.academicService.setCurrentAcademicYear(params.id, this.buildActor(user, request));
   }
 
   @Delete("years/:id")
@@ -132,8 +152,12 @@ export class AcademicController {
   @ApiNoContentResponse({
     description: "O‘quv yili arxivlandi. Body qaytmaydi.",
   })
-  deleteYear(@Param() params: UuidParamDto) {
-    return this.academicService.deleteAcademicYear(params.id);
+  deleteYear(@Param() params: UuidParamDto, @CurrentUser() user: AuthenticatedUser, @Req() request: Request) {
+    return this.academicService.deleteAcademicYear(params.id, this.buildActor(user, request));
+  }
+
+  private buildActor(user: AuthenticatedUser, request: Request): AcademicActor {
+    return { userId: user?.id, ipAddress: request?.ip };
   }
 
   @Get("quarters")

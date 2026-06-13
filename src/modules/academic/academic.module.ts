@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { AuditModule } from "../audit/audit.module";
 import { User } from "../identity/entities/user.entity";
 import { Room } from "../settings/entities/room.entity";
 import { Student } from "../students/entities/student.entity";
@@ -25,6 +26,7 @@ import { Subject } from "./entities/subject.entity";
       User,
       Student,
     ]),
+    AuditModule,
   ],
   controllers: [AcademicController],
   providers: [AcademicService],
