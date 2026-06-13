@@ -26,6 +26,32 @@ export class AppealResponseSchema {
   @ApiProperty({ enum: AppealStatus, example: AppealStatus.PENDING, description: 'Murojaat holati.' })
   status: AppealStatus;
 
+  @ApiPropertyOptional({
+    example: '0f8fad5b-d9cb-469f-a165-70867728950e',
+    format: 'uuid',
+    nullable: true,
+    description: 'Murojaat biriktirilgan xodim IDsi.',
+  })
+  assigneeUserId?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'Masala hal qilindi, ota-onaga qo‘ng‘iroq qilindi.',
+    nullable: true,
+    description: 'Murojaat yopilganda kiritilgan izoh.',
+  })
+  resolutionNote?: string | null;
+
+  @ApiPropertyOptional({
+    example: '0f8fad5b-d9cb-469f-a165-70867728950e',
+    format: 'uuid',
+    nullable: true,
+    description: 'Murojaatni yopgan xodim IDsi.',
+  })
+  resolvedById?: string | null;
+
+  @ApiPropertyOptional({ example: null, format: 'date-time', nullable: true })
+  resolvedAt?: Date | null;
+
   @ApiProperty({ example: '2026-06-09T10:00:00.000Z', format: 'date-time' })
   createdAt: Date;
 

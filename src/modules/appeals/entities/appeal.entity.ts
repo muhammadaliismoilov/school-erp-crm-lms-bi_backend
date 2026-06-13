@@ -35,6 +35,7 @@ export enum TargetRole {
 @Index('idx_appeals_type', ['type'])
 @Index('idx_appeals_target_role', ['targetRole'])
 @Index('idx_appeals_phone', ['phone'])
+@Index('idx_appeals_assignee', ['assigneeUserId'])
 export class Appeal extends UuidAuditEntity {
   @Column({ name: 'full_name', type: 'varchar', length: 150, nullable: false })
   fullName: string;
@@ -75,4 +76,19 @@ export class Appeal extends UuidAuditEntity {
     nullable: false,
   })
   status: AppealStatus;
+
+  /** User the appeal is assigned to for handling. Null until an admin assigns it. */
+  @Column({ name: 'assignee_user_id', type: 'uuid', nullable: true })
+  assigneeUserId?: string | null;
+
+  /** Mandatory explanation captured when an appeal is resolved or rejected. */
+  @Column({ name: 'resolution_note', type: 'text', nullable: true })
+  resolutionNote?: string | null;
+
+  /** User who moved the appeal into a terminal (resolved/rejected) state. */
+  @Column({ name: 'resolved_by_id', type: 'uuid', nullable: true })
+  resolvedById?: string | null;
+
+  @Column({ name: 'resolved_at', type: 'timestamptz', nullable: true })
+  resolvedAt?: Date | null;
 }

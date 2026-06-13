@@ -11,8 +11,10 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from "@nestjs/common";
+import type { Request } from "express";
 import {
   ApiBearerAuth,
   ApiBody,
@@ -30,6 +32,7 @@ import { PermissionsGuard } from "../../common/guards/permissions.guard";
 import type { AuthenticatedUser } from "../../common/security/authenticated-user.interface";
 import { ApiLocalizedErrorResponses } from "../../common/swagger/api-localized-error-responses.decorator";
 import { AppealQueryDto } from "./dto/appeal-query.dto";
+import { AssignAppealDto } from "./dto/assign-appeal.dto";
 import { CreateAppealDto } from "./dto/create-appeal.dto";
 import { UpdateAppealDto } from "./dto/update-appeal.dto";
 import {
@@ -38,7 +41,7 @@ import {
   AppealType,
   TargetRole,
 } from "./entities/appeal.entity";
-import { AppealsService } from "./appeals.service";
+import { AppealActor, AppealsService } from "./appeals.service";
 import {
   AppealListResponseSchema,
   AppealResponseSchema,
@@ -120,9 +123,13 @@ export class AppealsController {
     description: "Murojaat muvaffaqiyatli yaratildi.",
     type: AppealResponseSchema,
   })
-  async create(@Body() dto: CreateAppealDto) {
+  async create(
+    @Body() dto: CreateAppealDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
     try {
-      return await this.appealsService.create(dto);
+      return await this.appealsService.create(dto, this.buildActor(user, request));
     } catch (error) {
       this.handleError(error, "Murojaat yaratishda server xatosi yuz berdi");
     }
@@ -205,14 +212,58 @@ export class AppealsController {
     description: "Murojaat muvaffaqiyatli tahrirlandi.",
     type: AppealResponseSchema,
   })
-  async update(@Param() params: UuidParamDto, @Body() dto: UpdateAppealDto) {
+  async update(
+    @Param() params: UuidParamDto,
+    @Body() dto: UpdateAppealDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
     try {
-      return await this.appealsService.update(params.id, dto);
+      return await this.appealsService.update(params.id, dto, this.buildActor(user, request));
     } catch (error) {
       this.handleError(
         error,
         "Murojaatni tahrirlashda server xatosi yuz berdi",
       );
+    }
+  }
+
+  @Patch(":id/assign")
+  @Permissions([AppPermission.APPEALS_MANAGE])
+  @ApiOperation({
+    summary: "Murojaatni xodimga biriktirish",
+    description:
+      "Murojaatni mas’ul xodimga biriktiradi yoki biriktirishni bekor qiladi (assigneeUserId: null). Biriktirilgan xodimga bildirishnoma yuboriladi.",
+  })
+  @ApiParam(uuidParamDocs)
+  @ApiBody({
+    type: AssignAppealDto,
+    examples: {
+      assign: {
+        summary: "Xodimga biriktirish",
+        value: { assigneeUserId: "4a2e4bf2-0d57-45aa-a3b2-a8c8a7a6f4d1" },
+      },
+      unassign: {
+        summary: "Biriktirishni bekor qilish",
+        value: { assigneeUserId: null },
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "Murojaat biriktirildi.",
+    type: AppealResponseSchema,
+  })
+  async assign(
+    @Param() params: UuidParamDto,
+    @Body() dto: AssignAppealDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    try {
+      return await this.appealsService.assign(params.id, dto, this.buildActor(user, request));
+    } catch (error) {
+      this.handleError(error, "Murojaatni biriktirishda server xatosi yuz berdi");
     }
   }
 
@@ -229,12 +280,20 @@ export class AppealsController {
     status: HttpStatus.NO_CONTENT,
     description: "Murojaat arxivlandi. Body qaytmaydi.",
   })
-  async remove(@Param() params: UuidParamDto) {
+  async remove(
+    @Param() params: UuidParamDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
     try {
-      await this.appealsService.remove(params.id);
+      await this.appealsService.remove(params.id, this.buildActor(user, request));
     } catch (error) {
       this.handleError(error, "Murojaatni arxivlashda server xatosi yuz berdi");
     }
+  }
+
+  private buildActor(user: AuthenticatedUser, request: Request): AppealActor {
+    return { userId: user?.id, ipAddress: request?.ip };
   }
 
   private handleError(error: unknown, fallbackMessage: string): never {

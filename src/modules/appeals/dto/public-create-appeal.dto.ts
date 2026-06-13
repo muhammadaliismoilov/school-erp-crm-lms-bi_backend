@@ -1,6 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsEnum, IsString, Length, Matches } from 'class-validator';
+import { IsEnum, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
 import { AppealType, TargetRole } from '../entities/appeal.entity';
 
 const normalizePhone = ({ value }: { value: unknown }): unknown =>
@@ -35,4 +35,17 @@ export class PublicCreateAppealDto {
   @IsString({ message: 'Tavsif matn formatida bo‘lishi kerak' })
   @Length(5, 5000, { message: 'Tavsif uzunligi 5 dan 5000 belgigacha bo‘lishi kerak' })
   description: string;
+
+  /**
+   * Honeypot: a hidden field never shown to real users. Bots auto-fill it, so any
+   * non-empty value marks the submission as spam and it is silently discarded.
+   */
+  @ApiPropertyOptional({
+    description: 'Honeypot maydoni — odam foydalanuvchi uchun ko‘rinmaydi, bo‘sh qoldiring.',
+    example: '',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  website?: string;
 }
