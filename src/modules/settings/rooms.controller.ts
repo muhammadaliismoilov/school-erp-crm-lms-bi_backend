@@ -31,6 +31,7 @@ import { ApiLocalizedErrorResponses } from "../../common/swagger/api-localized-e
 import { CreateRoomDto } from "./dto/create-room.dto";
 import { RoomQueryDto } from "./dto/room-query.dto";
 import {
+  RoomListResponseDto,
   RoomListResponseEnvelopeDto,
   RoomResponseEnvelopeDto,
 } from "./dto/room-response.dto";
@@ -73,10 +74,10 @@ export class RoomsController {
     example: "10",
   })
   @ApiOkResponse({
-    description: "Xonalar envelope ichida qaytarildi.",
+    description: "Xonalar va statistikalar envelope ichida qaytarildi.",
     type: RoomListResponseEnvelopeDto,
   })
-  findRooms(@Query() query: RoomQueryDto) {
+  findRooms(@Query() query: RoomQueryDto): Promise<RoomListResponseDto> {
     return this.roomsService.findRooms(query);
   }
 

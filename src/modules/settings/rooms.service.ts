@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { FindManyOptions, FindOptionsWhere, ILike, Not, Repository } from 'typeorm';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { RoomQueryDto } from './dto/room-query.dto';
-import { RoomResponseDto } from './dto/room-response.dto';
+import { RoomListResponseDto, RoomResponseDto } from './dto/room-response.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
 import { Room } from './entities/room.entity';
 
@@ -28,7 +28,7 @@ export class RoomsService {
     return this.toRoomResponse(room);
   }
 
-  async findRooms(query: RoomQueryDto = {}): Promise<RoomResponseDto[]> {
+  async findRooms(query: RoomQueryDto = {}): Promise<RoomListResponseDto> {
     const options: FindManyOptions<Room> = {
       order: { floor: 'ASC', normalizedRoomNumber: 'ASC' },
     };
@@ -46,8 +46,24 @@ export class RoomsService {
       options.where = where;
     }
 
-    const rooms = await this.rooms.find(options);
-    return rooms.map((room) => this.toRoomResponse(room));
+    const [filteredRooms, allRooms] = await Promise.all([
+      this.rooms.find(options),
+      this.rooms.find({ select: ['floor', 'createdAt'] }),
+    ]);
+
+    const floorSet = new Set(allRooms.map((r) => r.floor));
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const addedToday = allRooms.filter((r) => r.createdAt && r.createdAt >= todayStart).length;
+
+    return {
+      items: filteredRooms.map((room) => this.toRoomResponse(room)),
+      stats: {
+        total: allRooms.length,
+        totalFloors: floorSet.size,
+        addedToday,
+      },
+    };
   }
 
   async findRoom(id: string): Promise<RoomResponseDto> {

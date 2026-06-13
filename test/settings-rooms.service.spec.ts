@@ -3,6 +3,20 @@ import type { Repository } from 'typeorm';
 import { RoomsService } from '../src/modules/settings/rooms.service';
 import type { Room } from '../src/modules/settings/entities/room.entity';
 
+function makeRoom(overrides: Partial<Room> = {}): Room {
+  return {
+    id: 'f0ff63e5-9fc8-4a9a-83de-9453d328d0d7',
+    floor: 1,
+    roomNumber: '101',
+    normalizedRoomNumber: '101',
+    createdAt: new Date('2026-06-01T00:00:00Z'),
+    updatedAt: new Date('2026-06-01T00:00:00Z'),
+    deletedAt: null,
+    version: 1,
+    ...overrides,
+  } as Room;
+}
+
 describe('RoomsService CRUD', () => {
   const roomId = 'f0ff63e5-9fc8-4a9a-83de-9453d328d0d7';
 
@@ -47,7 +61,7 @@ describe('RoomsService CRUD', () => {
   });
 
   it('rejects duplicate active room numbers', async () => {
-    rooms.findOne.mockResolvedValue({ id: roomId } as Room);
+    rooms.findOne.mockResolvedValue(makeRoom());
 
     await expect(
       service.createRoom({
@@ -59,14 +73,31 @@ describe('RoomsService CRUD', () => {
     expect(rooms.create).not.toHaveBeenCalled();
   });
 
-  it('lists rooms ordered by floor and room number', async () => {
-    rooms.find.mockResolvedValue([]);
+  it('returns items array and stats when listing rooms', async () => {
+    const room102 = makeRoom({ id: 'aaa', floor: 2, roomNumber: '201', normalizedRoomNumber: '201' });
+    const room101 = makeRoom();
+    rooms.find
+      .mockResolvedValueOnce([room101]) // filtered query
+      .mockResolvedValueOnce([room101, room102]); // all-rooms stats query
 
-    await service.findRooms();
+    const result = await service.findRooms({ floor: 1 });
 
-    expect(rooms.find).toHaveBeenCalledWith({
-      order: { floor: 'ASC', normalizedRoomNumber: 'ASC' },
-    });
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].floor).toBe(1);
+    expect(result.stats.total).toBe(2);
+    expect(result.stats.totalFloors).toBe(2);
+    expect(result.stats.addedToday).toBe(0);
+  });
+
+  it('counts addedToday from rooms created today', async () => {
+    const todayRoom = makeRoom({ createdAt: new Date() });
+    rooms.find
+      .mockResolvedValueOnce([todayRoom])
+      .mockResolvedValueOnce([todayRoom]);
+
+    const result = await service.findRooms();
+
+    expect(result.stats.addedToday).toBe(1);
   });
 
   it('throws NotFoundException when a room does not exist', async () => {
@@ -76,12 +107,7 @@ describe('RoomsService CRUD', () => {
   });
 
   it('updates an existing room and refreshes its normalized number', async () => {
-    const existing = {
-      id: roomId,
-      floor: 1,
-      roomNumber: '101',
-      normalizedRoomNumber: '101',
-    } as Room;
+    const existing = makeRoom();
     rooms.findOne.mockResolvedValueOnce(existing).mockResolvedValueOnce(null);
     rooms.save.mockImplementation(async (value) => value as Room);
 
@@ -110,7 +136,7 @@ describe('RoomsService CRUD', () => {
   });
 
   it('soft deletes an existing room', async () => {
-    rooms.findOne.mockResolvedValue({ id: roomId } as Room);
+    rooms.findOne.mockResolvedValue(makeRoom());
     rooms.softDelete.mockResolvedValue({ affected: 1, raw: {}, generatedMaps: [] });
 
     await service.deleteRoom(roomId);

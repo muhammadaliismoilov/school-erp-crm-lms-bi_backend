@@ -37,6 +37,25 @@ export class RoomResponseDto {
   version?: number;
 }
 
+export class RoomStatsDto {
+  @ApiProperty({ example: 12, minimum: 0 })
+  total: number;
+
+  @ApiProperty({ example: 3, minimum: 0 })
+  totalFloors: number;
+
+  @ApiProperty({ example: 2, minimum: 0 })
+  addedToday: number;
+}
+
+export class RoomListResponseDto {
+  @ApiProperty({ type: [RoomResponseDto] })
+  items: RoomResponseDto[];
+
+  @ApiProperty({ type: RoomStatsDto })
+  stats: RoomStatsDto;
+}
+
 export class RoomResponseEnvelopeDto {
   @ApiProperty({ example: true })
   success: true;
@@ -52,8 +71,8 @@ export class RoomListResponseEnvelopeDto {
   @ApiProperty({ example: true })
   success: true;
 
-  @ApiProperty({ type: [RoomResponseDto] })
-  data: RoomResponseDto[];
+  @ApiProperty({ type: RoomListResponseDto })
+  data: RoomListResponseDto;
 
   @ApiProperty({ example: '2026-06-07T12:00:00.000Z', format: 'date-time' })
   timestamp: string;
