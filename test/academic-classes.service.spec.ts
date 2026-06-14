@@ -1,6 +1,11 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { AcademicService } from '../src/modules/academic/academic.service';
+import type { AttendanceRecord } from '../src/modules/attendance/entities/attendance-record.entity';
+import type { JournalEntry } from '../src/modules/lms/entities/journal-entry.entity';
+import type { CommunicationService } from '../src/modules/communication/communication.service';
+import { CampaignStatus } from '../src/modules/communication/enums/communication.enums';
+import type { AuditService } from '../src/modules/audit/audit.service';
 import type { AcademicYear } from '../src/modules/academic/entities/academic-year.entity';
 import type { LessonPeriod } from '../src/modules/academic/entities/lesson-period.entity';
 import type { Quarter } from '../src/modules/academic/entities/quarter.entity';
@@ -214,5 +219,190 @@ describe('AcademicService classes CRUD', () => {
         targetClassId,
       }),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('refuses to delete a class that still has students', async () => {
+    classes.findOne.mockResolvedValue({ id: classId, name: '1-A' } as SchoolClass);
+    students.find.mockResolvedValue([{ id: 'student-1' }] as Student[]);
+
+    await expect(service.deleteClass(classId)).rejects.toBeInstanceOf(ConflictException);
+    expect(classes.softDelete).not.toHaveBeenCalled();
+  });
+
+  it('soft-deletes an empty class', async () => {
+    classes.findOne.mockResolvedValue({ id: classId, name: '1-A' } as SchoolClass);
+    students.find.mockResolvedValue([] as Student[]);
+
+    await service.deleteClass(classId);
+    expect(classes.softDelete).toHaveBeenCalledWith(classId);
+  });
+
+  it('rejects a transfer that exceeds the target class capacity', async () => {
+    classes.findOne
+      .mockResolvedValueOnce({ id: classId, academicYearId } as SchoolClass)
+      .mockResolvedValueOnce({ id: targetClassId, academicYearId, capacity: 2 } as SchoolClass);
+    students.find
+      .mockResolvedValueOnce([
+        { id: 'student-1' },
+        { id: 'student-2' },
+      ] as Student[])
+      .mockResolvedValueOnce([{ id: 'existing-1' }] as Student[]);
+
+    await expect(
+      service.transferClassStudents(classId, { academicYearId, targetClassId }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(students.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('AcademicService classes hardening', () => {
+  const academicYearId = '5c617a45-57a4-4864-89c8-96e299173908';
+  const classId = 'f0ff63e5-9fc8-4a9a-83de-9453d328d0d7';
+
+  const academicYear = { id: academicYearId, name: '2025/2026' } as AcademicYear;
+  const room = { id: 'r1', floor: 1, roomNumber: '101' } as Room;
+  const curator = { id: 'c1', firstName: 'Aziz', lastName: 'Toshmatov', username: 'aziz' } as User;
+  const schoolClass = {
+    id: classId,
+    name: '1-A',
+    gradeLevel: 1,
+    section: 'A',
+    language: ClassLanguage.UZ,
+    capacity: 30,
+    academicYear,
+    academicYearId,
+    room,
+    roomId: 'r1',
+    curator,
+    curatorId: 'c1',
+  } as SchoolClass;
+
+  const makeQueryBuilder = (rows: unknown[]) => ({
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    setParameter: jest.fn().mockReturnThis(),
+    groupBy: jest.fn().mockReturnThis(),
+    getRawMany: jest.fn().mockResolvedValue(rows),
+  });
+
+  let classes: jest.Mocked<Pick<Repository<SchoolClass>, 'findOne' | 'save' | 'create'>>;
+  let students: jest.Mocked<Pick<Repository<Student>, 'find'>>;
+  let attendance: { createQueryBuilder: jest.Mock };
+  let journal: { createQueryBuilder: jest.Mock };
+  let communication: jest.Mocked<Pick<CommunicationService, 'createClassCampaign' | 'findTemplateById'>>;
+  let audit: jest.Mocked<Pick<AuditService, 'log'>>;
+  let service: AcademicService;
+
+  beforeEach(() => {
+    classes = { findOne: jest.fn(), save: jest.fn(), create: jest.fn() };
+    students = { find: jest.fn() };
+    attendance = { createQueryBuilder: jest.fn() };
+    journal = { createQueryBuilder: jest.fn() };
+    communication = { createClassCampaign: jest.fn(), findTemplateById: jest.fn() };
+    audit = { log: jest.fn() };
+
+    service = new AcademicService(
+      emptyRepository<AcademicYear>(),
+      emptyRepository<Quarter>(),
+      emptyRepository<LessonPeriod>(),
+      emptyRepository<Subject>(),
+      classes as unknown as Repository<SchoolClass>,
+      emptyRepository<Room>(),
+      emptyRepository<User>(),
+      students as unknown as Repository<Student>,
+      undefined,
+      attendance as unknown as Repository<AttendanceRecord>,
+      journal as unknown as Repository<JournalEntry>,
+      communication as unknown as CommunicationService,
+      audit as unknown as AuditService,
+    );
+  });
+
+  it('computes real attendance and mastery metrics for the class detail', async () => {
+    classes.findOne.mockResolvedValue(schoolClass);
+    students.find.mockResolvedValue([
+      { id: 'student-1', firstName: 'A', lastName: 'A', gender: Gender.MALE },
+    ] as Student[]);
+    attendance.createQueryBuilder.mockReturnValue(
+      makeQueryBuilder([{ studentId: 'student-1', total: '10', present: '9' }]),
+    );
+    journal.createQueryBuilder.mockReturnValue(
+      makeQueryBuilder([{ studentId: 'student-1', avgGrade: '4.5' }]),
+    );
+
+    const result = await service.findClass(classId);
+
+    expect(result.stats.averageAttendance).toBe(90);
+    expect(result.stats.averageMastery).toBe(4.5);
+    expect(result.students[0]).toMatchObject({ attendance: 90, mastery: 4.5 });
+  });
+
+  it('sends an immediate SMS to students with a resolved parent phone', async () => {
+    classes.findOne.mockResolvedValue(schoolClass);
+    students.find.mockResolvedValue([
+      {
+        id: 'student-1',
+        firstName: 'A',
+        lastName: 'A',
+        parents: [{ isPrimary: true, parent: { phone: '+998901234567' } }],
+      },
+      {
+        id: 'student-2',
+        firstName: 'B',
+        lastName: 'B',
+        parents: [],
+      },
+    ] as unknown as Student[]);
+    communication.createClassCampaign.mockResolvedValue({
+      campaignId: 'campaign-1',
+      totalRecipients: 1,
+      status: CampaignStatus.RUNNING,
+      scheduledAt: null,
+    });
+
+    const result = await service.sendClassSms(classId, { body: 'Salom' });
+
+    expect(result).toMatchObject({
+      campaignId: 'campaign-1',
+      channel: 'sms',
+      totalRecipients: 1,
+      skippedCount: 1,
+      status: CampaignStatus.RUNNING,
+      scheduledAt: null,
+    });
+    expect(communication.createClassCampaign).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: 'Salom',
+        recipients: [{ studentId: 'student-1', phone: '+998901234567' }],
+      }),
+    );
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'class.sms_sent', entity: 'class' }),
+    );
+  });
+
+  it('rejects an SMS without a template or body', async () => {
+    classes.findOne.mockResolvedValue(schoolClass);
+    students.find.mockResolvedValue([
+      {
+        id: 'student-1',
+        parents: [{ isPrimary: true, parent: { phone: '+998901234567' } }],
+      },
+    ] as unknown as Student[]);
+
+    await expect(service.sendClassSms(classId, {})).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects an SMS when no recipient has a phone number', async () => {
+    classes.findOne.mockResolvedValue(schoolClass);
+    students.find.mockResolvedValue([
+      { id: 'student-1', parents: [] },
+    ] as unknown as Student[]);
+
+    await expect(service.sendClassSms(classId, { body: 'Salom' })).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 });
