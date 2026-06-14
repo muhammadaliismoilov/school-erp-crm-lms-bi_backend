@@ -214,3 +214,69 @@ describe('AcademicService courses CRUD', () => {
     expect(result.stats.studentCount).toBe(1);
   });
 });
+
+describe('AcademicService courses hardening', () => {
+  const courseId = '6c617a45-57a4-4864-89c8-96e299173908';
+
+  let courses: jest.Mocked<Pick<Repository<Course>, 'findAndCount' | 'find' | 'findOne' | 'softDelete'>>;
+  let audit: { log: jest.Mock };
+  let service: AcademicService;
+
+  beforeEach(() => {
+    courses = { findAndCount: jest.fn(), find: jest.fn(), findOne: jest.fn(), softDelete: jest.fn() };
+    audit = { log: jest.fn() };
+
+    service = new AcademicService(
+      emptyRepository<AcademicYear>(),
+      emptyRepository<Quarter>(),
+      emptyRepository<LessonPeriod>(),
+      emptyRepository<Subject>(),
+      emptyRepository<SchoolClass>(),
+      undefined, // rooms
+      undefined, // users
+      undefined, // students
+      courses as unknown as Repository<Course>,
+      undefined, // attendance
+      undefined, // journal
+      undefined, // communication
+      audit as unknown as never,
+    );
+  });
+
+  it('aggregates list stats over the filtered courses', async () => {
+    courses.findAndCount.mockResolvedValue([[], 0]);
+    courses.find.mockResolvedValue([
+      { teacherId: 't1', plannedLessonCount: 10, completedLessonCount: 3, students: [{ id: 's1' }, { id: 's2' }] },
+      { teacherId: 't1', plannedLessonCount: 5, completedLessonCount: 1, students: [{ id: 's2' }] },
+    ] as unknown as Course[]);
+
+    const result = await service.findCourses({});
+
+    expect(result.stats).toEqual({
+      totalCourses: 2,
+      totalStudents: 2,
+      totalTeachers: 1,
+      plannedLessons: 15,
+      completedLessons: 4,
+    });
+  });
+
+  it('refuses to delete a course that still has students', async () => {
+    courses.findOne.mockResolvedValue({ id: courseId, name: 'IT', students: [{ id: 's1' }] } as unknown as Course);
+
+    await expect(service.deleteCourse(courseId)).rejects.toBeInstanceOf(ConflictException);
+    expect(courses.softDelete).not.toHaveBeenCalled();
+  });
+
+  it('soft-deletes an empty course and writes an audit log', async () => {
+    courses.findOne.mockResolvedValue({ id: courseId, name: 'IT', students: [] } as unknown as Course);
+    courses.softDelete.mockResolvedValue({ affected: 1, raw: {}, generatedMaps: [] });
+
+    await service.deleteCourse(courseId);
+
+    expect(courses.softDelete).toHaveBeenCalledWith(courseId);
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'course.deleted', entity: 'course' }),
+    );
+  });
+});
