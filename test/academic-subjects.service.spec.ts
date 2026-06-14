@@ -75,6 +75,24 @@ describe('AcademicService subjects CRUD', () => {
     });
   });
 
+  it('creates an inactive subject when the active toggle is off', async () => {
+    subjects.findOne.mockResolvedValue(null);
+    subjects.create.mockImplementation((value) => value as Subject);
+    subjects.save.mockImplementation(async (value) => ({ id: subjectId, ...value }) as Subject);
+
+    const result = await service.createSubject({
+      name: 'Matematika',
+      russianName: 'Matem',
+      color: '#2563EB',
+      isActive: false,
+    });
+
+    expect(subjects.create).toHaveBeenCalledWith(
+      expect.objectContaining({ status: CommonStatus.INACTIVE }),
+    );
+    expect(result).toMatchObject({ status: CommonStatus.INACTIVE, isActive: false });
+  });
+
   it('rejects duplicate subject names or codes', async () => {
     subjects.findOne.mockResolvedValue({ id: subjectId } as Subject);
 

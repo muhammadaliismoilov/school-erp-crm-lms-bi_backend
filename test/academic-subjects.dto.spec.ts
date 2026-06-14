@@ -16,6 +16,20 @@ describe('CreateSubjectDto', () => {
     expect(errors).toHaveLength(0);
   });
 
+  it('accepts the active toggle (status / isActive) on create', async () => {
+    const errors = await validateDto(CreateSubjectDto, {
+      name: 'Matematika',
+      russianName: 'Matem',
+      englishName: 'Math',
+      color: '#2563EB',
+      description: 'VXCXC',
+      status: CommonStatus.ACTIVE,
+      isActive: true,
+    });
+
+    expect(errors).toHaveLength(0);
+  });
+
   it('rejects invalid subject fields and unknown properties', async () => {
     const errors = await validateDto(CreateSubjectDto, {
       name: '',

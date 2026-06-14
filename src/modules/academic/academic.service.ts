@@ -531,7 +531,8 @@ export class AcademicService {
   }
 
   async createSubject(dto: CreateSubjectDto, actor?: AcademicActor): Promise<SubjectResponseDto> {
-    const input = this.buildSubjectInput(dto);
+    const status = this.resolveSubjectStatus(dto, CommonStatus.ACTIVE);
+    const input = this.buildSubjectInput(dto, status);
     await this.ensureSubjectCanBeSaved(input);
 
     const subject = await this.subjects.save(this.subjects.create(input));
@@ -1231,7 +1232,10 @@ export class AcademicService {
     return subject;
   }
 
-  private resolveSubjectStatus(dto: UpdateSubjectDto, fallback: CommonStatus): CommonStatus {
+  private resolveSubjectStatus(
+    dto: { isActive?: boolean; status?: CommonStatus },
+    fallback: CommonStatus,
+  ): CommonStatus {
     const toggleStatus = dto.isActive === undefined ? undefined : dto.isActive ? CommonStatus.ACTIVE : CommonStatus.INACTIVE;
 
     if (dto.status && toggleStatus && dto.status !== toggleStatus) {

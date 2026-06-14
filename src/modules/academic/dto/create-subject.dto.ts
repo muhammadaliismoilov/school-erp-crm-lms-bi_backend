@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsOptional, IsString, Length, Matches } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional, IsString, Length, Matches } from 'class-validator';
+import { CommonStatus } from '../../../common/enums/common-status.enum';
 
 const trimText = (value: unknown): unknown =>
   typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : value;
@@ -81,4 +82,26 @@ export class CreateSubjectDto {
   @IsString()
   @Length(1, 500)
   description?: string;
+
+  @ApiPropertyOptional({
+    description: 'Fan holati. Berilmasa fan faol (active) sifatida yaratiladi.',
+    enum: CommonStatus,
+    example: CommonStatus.ACTIVE,
+  })
+  @IsOptional()
+  @IsEnum(CommonStatus)
+  status?: CommonStatus;
+
+  @ApiPropertyOptional({
+    description: 'UI dagi “Faol” toggle qiymati. false bo‘lsa status inactive qilinadi.',
+    example: true,
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
+  @IsBoolean()
+  isActive?: boolean;
 }
