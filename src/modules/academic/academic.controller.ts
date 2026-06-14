@@ -61,9 +61,12 @@ import { CreateLessonPeriodDto } from "./dto/create-lesson-period.dto";
 import { CreateQuarterDto } from "./dto/create-quarter.dto";
 import { CreateSubjectDto } from "./dto/create-subject.dto";
 import { SubjectQueryDto } from "./dto/subject-query.dto";
+import { SubjectScheduleQueryDto } from "./dto/subject-schedule.dto";
 import {
   SubjectListResponseEnvelopeDto,
+  SubjectOverviewResponseEnvelopeDto,
   SubjectResponseEnvelopeDto,
+  SubjectScheduleResponseEnvelopeDto,
 } from "./dto/subject-response.dto";
 import {
   LessonPeriodListResponseEnvelopeDto,
@@ -339,8 +342,12 @@ export class AcademicController {
     description: "Fan envelope ichida yaratildi.",
     type: SubjectResponseEnvelopeDto,
   })
-  createSubject(@Body() dto: CreateSubjectDto) {
-    return this.academicService.createSubject(dto);
+  createSubject(
+    @Body() dto: CreateSubjectDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.academicService.createSubject(dto, this.buildActor(user, request));
   }
 
   @Get("subjects/:id")
@@ -353,6 +360,38 @@ export class AcademicController {
   })
   findSubject(@Param() params: UuidParamDto) {
     return this.academicService.findSubject(params.id);
+  }
+
+  @Get("subjects/:id/overview")
+  @Permissions([AppPermission.ACADEMIC_READ])
+  @ApiOperation({
+    summary: "Fan detali (statistika, sinflar, o‘qituvchilar)",
+    description:
+      "lesson_schedule va journal asosida fanga tegishli sinflar, o‘qituvchilar, darslar soni va o‘rtacha o‘zlashtirishni qaytaradi.",
+  })
+  @ApiParam(uuidParamDocs)
+  @ApiOkResponse({
+    description: "Fan detali envelope ichida qaytarildi.",
+    type: SubjectOverviewResponseEnvelopeDto,
+  })
+  findSubjectOverview(@Param() params: UuidParamDto) {
+    return this.academicService.findSubjectOverview(params.id);
+  }
+
+  @Get("subjects/:id/schedule")
+  @Permissions([AppPermission.ACADEMIC_READ])
+  @ApiOperation({
+    summary: "Fan bo‘yicha dars jadvali",
+    description:
+      "Fanning darslari (ixtiyoriy teacherId filtri bilan). Har bir dars hafta kuni va dars vaqti bilan qaytadi — UI haftalik jadvalga joylaydi.",
+  })
+  @ApiParam(uuidParamDocs)
+  @ApiOkResponse({
+    description: "Dars jadvali envelope ichida qaytarildi.",
+    type: SubjectScheduleResponseEnvelopeDto,
+  })
+  findSubjectSchedule(@Param() params: UuidParamDto, @Query() query: SubjectScheduleQueryDto) {
+    return this.academicService.findSubjectSchedule(params.id, query);
   }
 
   @Patch("subjects/:id")
@@ -381,8 +420,13 @@ export class AcademicController {
     description: "Fan tahrirlandi.",
     type: SubjectResponseEnvelopeDto,
   })
-  updateSubject(@Param() params: UuidParamDto, @Body() dto: UpdateSubjectDto) {
-    return this.academicService.updateSubject(params.id, dto);
+  updateSubject(
+    @Param() params: UuidParamDto,
+    @Body() dto: UpdateSubjectDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.academicService.updateSubject(params.id, dto, this.buildActor(user, request));
   }
 
   @Delete("subjects/:id")
@@ -391,8 +435,12 @@ export class AcademicController {
   @ApiOperation({ summary: "Fanni arxivlash" })
   @ApiParam(uuidParamDocs)
   @ApiNoContentResponse({ description: "Fan arxivlandi. Body qaytmaydi." })
-  deleteSubject(@Param() params: UuidParamDto) {
-    return this.academicService.deleteSubject(params.id);
+  deleteSubject(
+    @Param() params: UuidParamDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.academicService.deleteSubject(params.id, this.buildActor(user, request));
   }
 
   @Get("courses")
