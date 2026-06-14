@@ -37,6 +37,7 @@ import {
   ClassDetailResponseEnvelopeDto,
   ClassListResponseEnvelopeDto,
   ClassResponseEnvelopeDto,
+  SendClassSmsResponseEnvelopeDto,
   TransferClassStudentsResponseEnvelopeDto,
 } from "./dto/class-response.dto";
 import {
@@ -69,6 +70,7 @@ import {
   LessonPeriodResponseEnvelopeDto,
 } from "./dto/lesson-period-response.dto";
 import { QuarterQueryDto } from "./dto/quarter-query.dto";
+import { SendClassSmsDto } from "./dto/send-class-sms.dto";
 import { TransferClassStudentsDto } from "./dto/transfer-class-students.dto";
 import { UpdateAcademicYearDto } from "./dto/update-academic-year.dto";
 import { UpdateClassDto } from "./dto/update-class.dto";
@@ -587,8 +589,12 @@ export class AcademicController {
     description: "Sinf envelope ichida yaratildi.",
     type: ClassResponseEnvelopeDto,
   })
-  createClass(@Body() dto: CreateClassDto) {
-    return this.academicService.createClass(dto);
+  createClass(
+    @Body() dto: CreateClassDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.academicService.createClass(dto, this.buildActor(user, request));
   }
 
   @Get("classes/:id")
@@ -616,8 +622,13 @@ export class AcademicController {
     description: "Sinf tahrirlandi.",
     type: ClassResponseEnvelopeDto,
   })
-  updateClass(@Param() params: UuidParamDto, @Body() dto: UpdateClassDto) {
-    return this.academicService.updateClass(params.id, dto);
+  updateClass(
+    @Param() params: UuidParamDto,
+    @Body() dto: UpdateClassDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.academicService.updateClass(params.id, dto, this.buildActor(user, request));
   }
 
   @Delete("classes/:id")
@@ -626,8 +637,12 @@ export class AcademicController {
   @ApiOperation({ summary: "Sinfni arxivlash" })
   @ApiParam(uuidParamDocs)
   @ApiNoContentResponse({ description: "Sinf arxivlandi. Body qaytmaydi." })
-  deleteClass(@Param() params: UuidParamDto) {
-    return this.academicService.deleteClass(params.id);
+  deleteClass(
+    @Param() params: UuidParamDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.academicService.deleteClass(params.id, this.buildActor(user, request));
   }
 
   @Post("classes/:id/transfer-students")
@@ -665,7 +680,47 @@ export class AcademicController {
   transferClassStudents(
     @Param() params: UuidParamDto,
     @Body() dto: TransferClassStudentsDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
   ) {
-    return this.academicService.transferClassStudents(params.id, dto);
+    return this.academicService.transferClassStudents(params.id, dto, this.buildActor(user, request));
+  }
+
+  @Post("classes/:id/send-sms")
+  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @ApiOperation({
+    summary: "Sinf o‘quvchilariga SMS yuborish",
+    description:
+      "Shablon yoki to‘g‘ridan-to‘g‘ri matn bilan SMS yuboriladi. studentIds berilmasa barcha o‘quvchilarga, " +
+      "scheduledAt berilsa rejalashtiriladi, aks holda darhol yuboriladi. Qabul qiluvchi — o‘quvchining asosiy ota-onasi telefoni.",
+  })
+  @ApiParam(uuidParamDocs)
+  @ApiBody({
+    type: SendClassSmsDto,
+    examples: {
+      immediate: {
+        summary: "Darhol yuborish (matn bilan)",
+        value: { body: "Hurmatli ota-onalar, ertaga yig‘ilish bo‘ladi." },
+      },
+      scheduledTemplate: {
+        summary: "Shablon bilan rejalashtirish",
+        value: {
+          templateId: "5c617a45-57a4-4864-89c8-96e299173908",
+          scheduledAt: "2026-06-20T09:00:00.000Z",
+        },
+      },
+    },
+  })
+  @ApiOkResponse({
+    description: "SMS kampaniyasi yaratildi.",
+    type: SendClassSmsResponseEnvelopeDto,
+  })
+  sendClassSms(
+    @Param() params: UuidParamDto,
+    @Body() dto: SendClassSmsDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.academicService.sendClassSms(params.id, dto, this.buildActor(user, request));
   }
 }

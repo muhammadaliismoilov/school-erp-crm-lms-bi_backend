@@ -128,6 +128,56 @@ export class TransferClassStudentsResponseDto {
   movedStudentCount: number;
 }
 
+export class ClassLanguageCountsDto {
+  @ApiProperty({ example: 8 })
+  uz: number;
+
+  @ApiProperty({ example: 1 })
+  ru: number;
+
+  @ApiProperty({ example: 1 })
+  en: number;
+}
+
+export class ClassListStatsDto {
+  @ApiProperty({ example: 10 })
+  totalClasses: number;
+
+  @ApiProperty({ example: 250 })
+  totalStudents: number;
+
+  @ApiProperty({ type: ClassLanguageCountsDto })
+  languages: ClassLanguageCountsDto;
+}
+
+export class ClassListResultDto {
+  @ApiProperty({ type: [ClassResponseDto] })
+  items: ClassResponseDto[];
+
+  @ApiProperty({ type: ClassListStatsDto })
+  stats: ClassListStatsDto;
+}
+
+export class SendClassSmsResponseDto {
+  @ApiProperty({ example: 'f0ff63e5-9fc8-4a9a-83de-9453d328d0d7', format: 'uuid' })
+  campaignId: string;
+
+  @ApiProperty({ example: 'sms' })
+  channel: string;
+
+  @ApiProperty({ example: 10, description: 'SMS yuboriladigan qabul qiluvchilar soni.' })
+  totalRecipients: number;
+
+  @ApiProperty({ example: 0, description: "Telefon raqami topilmagani uchun o'tkazib yuborilganlar soni." })
+  skippedCount: number;
+
+  @ApiProperty({ example: 'running', enum: ['running', 'scheduled'] })
+  status: string;
+
+  @ApiPropertyOptional({ example: '2026-06-20T09:00:00.000Z', format: 'date-time', nullable: true })
+  scheduledAt?: string | null;
+}
+
 export class ClassResponseEnvelopeDto {
   @ApiProperty({ example: true })
   success: true;
@@ -154,8 +204,8 @@ export class ClassListResponseEnvelopeDto {
   @ApiProperty({ example: true })
   success: true;
 
-  @ApiProperty({ type: [ClassResponseDto] })
-  data: ClassResponseDto[];
+  @ApiProperty({ type: ClassListResultDto })
+  data: ClassListResultDto;
 
   @ApiProperty({ example: '2026-06-07T12:00:00.000Z', format: 'date-time' })
   timestamp: string;
@@ -167,6 +217,17 @@ export class TransferClassStudentsResponseEnvelopeDto {
 
   @ApiProperty({ type: TransferClassStudentsResponseDto })
   data: TransferClassStudentsResponseDto;
+
+  @ApiProperty({ example: '2026-06-07T12:00:00.000Z', format: 'date-time' })
+  timestamp: string;
+}
+
+export class SendClassSmsResponseEnvelopeDto {
+  @ApiProperty({ example: true })
+  success: true;
+
+  @ApiProperty({ type: SendClassSmsResponseDto })
+  data: SendClassSmsResponseDto;
 
   @ApiProperty({ example: '2026-06-07T12:00:00.000Z', format: 'date-time' })
   timestamp: string;

@@ -3,15 +3,31 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { AuditService } from "../audit/audit.service";
 import { ILike, In, LessThan, LessThanOrEqual, MoreThan, MoreThanOrEqual, Not, Repository } from "typeorm";
 import type { FindOptionsWhere } from "typeorm";
+import { AttendanceStatus } from "../../common/enums/attendance-status.enum";
 import { CommonStatus } from "../../common/enums/common-status.enum";
 import type { LocalizedText } from "../../common/i18n/locale";
+import { AttendanceRecord } from "../attendance/entities/attendance-record.entity";
+import { CommunicationService } from "../communication/communication.service";
+import type { ClassCampaignRecipient } from "../communication/communication.service";
+import { CampaignStatus } from "../communication/enums/communication.enums";
 import { User } from "../identity/entities/user.entity";
+import { JournalEntry } from "../lms/entities/journal-entry.entity";
 import { Room } from "../settings/entities/room.entity";
 import { Student } from "../students/entities/student.entity";
 import { Gender } from "../students/enums/student-status.enum";
 import { CreateAcademicYearDto } from "./dto/create-academic-year.dto";
 import { ClassQueryDto } from "./dto/class-query.dto";
-import { ClassDetailResponseDto, ClassResponseDto, ClassStudentRowDto, TransferClassStudentsResponseDto } from "./dto/class-response.dto";
+import {
+  ClassDetailResponseDto,
+  ClassListResultDto,
+  ClassListStatsDto,
+  ClassResponseDto,
+  ClassStudentRowDto,
+  SendClassSmsResponseDto,
+  TransferClassStudentsResponseDto,
+} from "./dto/class-response.dto";
+import { ClassLanguage } from "./dto/create-class.dto";
+import { SendClassSmsDto } from "./dto/send-class-sms.dto";
 import { AddCourseStudentsDto } from "./dto/add-course-students.dto";
 import { AvailableCourseStudentsQueryDto, CourseQueryDto } from "./dto/course-query.dto";
 import {
@@ -112,6 +128,12 @@ interface ClassSaveInput {
   curator: User;
 }
 
+/** Per-student computed metrics — attendance percentage and average mastery. */
+interface ClassMetric {
+  attendance: number;
+  mastery: number;
+}
+
 /** Who performed the action — used for the academic-year audit trail. */
 export interface AcademicActor {
   userId?: string;
@@ -152,6 +174,14 @@ export class AcademicService {
     private readonly students?: Repository<Student>,
     @InjectRepository(Course)
     private readonly courses?: Repository<Course>,
+    @Optional()
+    @InjectRepository(AttendanceRecord)
+    private readonly attendanceRecords?: Repository<AttendanceRecord>,
+    @Optional()
+    @InjectRepository(JournalEntry)
+    private readonly journalEntries?: Repository<JournalEntry>,
+    @Optional()
+    private readonly communicationService?: CommunicationService,
     @Optional()
     private readonly auditService?: AuditService,
   ) {}
@@ -646,7 +676,7 @@ export class AcademicService {
     return students.filter((student) => !selectedIds.has(student.id)).map((student) => this.toCourseStudentRow(student));
   }
 
-  async createClass(dto: CreateClassDto): Promise<ClassResponseDto> {
+  async createClass(dto: CreateClassDto, actor?: AcademicActor): Promise<ClassResponseDto> {
     const input = await this.buildClassInput(dto);
     await this.ensureClassCanBeSaved(input);
 
@@ -668,34 +698,41 @@ export class AcademicService {
       }),
     );
 
-    return this.toClassResponse(schoolClass, []);
+    await this.audit(actor, "class.created", schoolClass.id, { name: schoolClass.name }, "class");
+
+    return this.toClassResponse(schoolClass, [], new Map());
   }
 
-  async findClasses(query: ClassQueryDto = {}): Promise<ClassResponseDto[]> {
+  async findClasses(query: ClassQueryDto = {}): Promise<ClassListResultDto> {
     const schoolClasses = await this.classes.find({
       where: this.buildClassWhere(query),
       relations: { academicYear: true, room: true, curator: true },
       order: { gradeLevel: "ASC", section: "ASC" },
     });
 
-    return Promise.all(
-      schoolClasses.map(async (schoolClass) =>
-        this.toClassResponse(schoolClass, await this.findStudentsByClassId(schoolClass.id)),
-      ),
+    const studentsByClass = await this.findStudentsForClasses(schoolClasses.map((schoolClass) => schoolClass.id));
+    const allStudents = Array.from(studentsByClass.values()).flat();
+    const metrics = await this.computeClassMetrics(allStudents.map((student) => student.id));
+
+    const items = schoolClasses.map((schoolClass) =>
+      this.toClassResponse(schoolClass, studentsByClass.get(schoolClass.id) ?? [], metrics),
     );
+
+    return { items, stats: this.buildClassListStats(items) };
   }
 
   async findClass(id: string): Promise<ClassDetailResponseDto> {
     const schoolClass = await this.findClassEntity(id);
     const students = await this.findStudentsByClassId(id);
+    const metrics = await this.computeClassMetrics(students.map((student) => student.id));
 
     return {
-      ...this.toClassResponse(schoolClass, students),
-      students: students.map((student) => this.toClassStudentRow(student)),
+      ...this.toClassResponse(schoolClass, students, metrics),
+      students: students.map((student) => this.toClassStudentRow(student, metrics)),
     };
   }
 
-  async updateClass(id: string, dto: UpdateClassDto): Promise<ClassResponseDto> {
+  async updateClass(id: string, dto: UpdateClassDto, actor?: AcademicActor): Promise<ClassResponseDto> {
     if (Object.keys(dto).length === 0) {
       throw new BadRequestException("At least one class field must be provided");
     }
@@ -716,17 +753,29 @@ export class AcademicService {
     await this.ensureClassCanBeSaved(input, id);
     Object.assign(schoolClass, input);
 
-    return this.toClassResponse(await this.classes.save(schoolClass), await this.findStudentsByClassId(id));
+    const saved = await this.classes.save(schoolClass);
+    await this.audit(actor, "class.updated", id, { changed: Object.keys(dto) }, "class");
+
+    const students = await this.findStudentsByClassId(id);
+    return this.toClassResponse(saved, students, await this.computeClassMetrics(students.map((s) => s.id)));
   }
 
-  async deleteClass(id: string): Promise<void> {
-    await this.findClassEntity(id);
+  async deleteClass(id: string, actor?: AcademicActor): Promise<void> {
+    const schoolClass = await this.findClassEntity(id);
+
+    const students = await this.findStudentsByClassId(id);
+    if (students.length > 0) {
+      throw new ConflictException("Class has students and cannot be deleted");
+    }
+
     await this.classes.softDelete(id);
+    await this.audit(actor, "class.deleted", id, { name: schoolClass.name }, "class");
   }
 
   async transferClassStudents(
     sourceClassId: string,
     dto: TransferClassStudentsDto,
+    actor?: AcademicActor,
   ): Promise<TransferClassStudentsResponseDto> {
     if (sourceClassId === dto.targetClassId) {
       throw new BadRequestException("Target class must be different from source class");
@@ -738,13 +787,92 @@ export class AcademicService {
     const studentIds = students.map((student) => student.id);
 
     if (studentIds.length > 0) {
+      const targetStudentCount = (await this.findStudentsByClassId(targetClass.id)).length;
+      if (targetClass.capacity && targetStudentCount + studentIds.length > targetClass.capacity) {
+        throw new ConflictException("Target class capacity is exceeded by the transfer");
+      }
+
+      // A single bulk UPDATE is atomic at the database level, so no explicit
+      // transaction wrapper is needed here.
       await this.getStudentsRepository().update(studentIds, { currentClassId: targetClass.id });
     }
+
+    await this.audit(actor, "class.students_transferred", sourceClass.id, {
+      targetClassId: targetClass.id,
+      movedStudentCount: studentIds.length,
+    }, "class");
 
     return {
       sourceClassId: sourceClass.id,
       targetClassId: targetClass.id,
       movedStudentCount: studentIds.length,
+    };
+  }
+
+  async sendClassSms(
+    classId: string,
+    dto: SendClassSmsDto,
+    actor?: AcademicActor,
+  ): Promise<SendClassSmsResponseDto> {
+    if (!this.communicationService) {
+      throw new Error("Communication service is not configured");
+    }
+
+    const schoolClass = await this.findClassEntity(classId);
+    const body = await this.resolveSmsBody(dto);
+
+    const students = await this.getStudentsRepository().find({
+      where: {
+        currentClassId: classId,
+        ...(dto.studentIds ? { id: In(dto.studentIds) } : {}),
+      },
+      relations: { parents: { parent: true } },
+      order: { lastName: "ASC", firstName: "ASC" },
+    });
+
+    if (students.length === 0) {
+      throw new BadRequestException("Class has no students to message");
+    }
+
+    const recipients: ClassCampaignRecipient[] = [];
+    let skippedCount = 0;
+    for (const student of students) {
+      const phone = this.resolveStudentPhone(student);
+      if (phone) {
+        recipients.push({ studentId: student.id, phone });
+      } else {
+        skippedCount += 1;
+      }
+    }
+
+    if (recipients.length === 0) {
+      throw new BadRequestException("No recipients with a phone number were found");
+    }
+
+    const scheduledAt = this.resolveScheduledAt(dto.scheduledAt);
+    const result = await this.communicationService.createClassCampaign({
+      name: `SMS: ${schoolClass.name}`,
+      body,
+      templateId: dto.templateId ?? null,
+      scheduledAt,
+      targetFilter: { classId },
+      recipients,
+    });
+
+    await this.audit(actor, "class.sms_sent", classId, {
+      campaignId: result.campaignId,
+      totalRecipients: result.totalRecipients,
+      skippedCount,
+      scheduled: result.status === CampaignStatus.SCHEDULED,
+    }, "class");
+
+    return {
+      campaignId: result.campaignId,
+      channel: "sms",
+      totalRecipients: result.totalRecipients,
+      skippedCount,
+      status: result.status,
+      scheduledAt: result.scheduledAt ? result.scheduledAt.toISOString() : null,
     };
   }
 
@@ -1387,8 +1515,12 @@ export class AcademicService {
     });
   }
 
-  private toClassResponse(schoolClass: SchoolClass, students: Student[]): ClassResponseDto {
-    const stats = this.buildClassStats(students);
+  private toClassResponse(
+    schoolClass: SchoolClass,
+    students: Student[],
+    metrics: Map<string, ClassMetric>,
+  ): ClassResponseDto {
+    const stats = this.buildClassStats(students, metrics);
 
     return {
       id: schoolClass.id,
@@ -1432,25 +1564,183 @@ export class AcademicService {
     };
   }
 
-  private buildClassStats(students: Student[]): ClassResponseDto["stats"] {
+  private buildClassStats(students: Student[], metrics: Map<string, ClassMetric>): ClassResponseDto["stats"] {
+    const studentMetrics = students.map((student) => metrics.get(student.id));
+    const masteryValues = studentMetrics.map((metric) => metric?.mastery ?? 0);
+    const attendanceValues = studentMetrics.map((metric) => metric?.attendance ?? 0);
+
     return {
       studentCount: students.length,
       maleCount: students.filter((student) => student.gender === Gender.MALE).length,
       femaleCount: students.filter((student) => student.gender === Gender.FEMALE).length,
-      averageMastery: 0,
-      averageAttendance: 0,
+      averageMastery: this.average(masteryValues),
+      averageAttendance: this.average(attendanceValues),
     };
   }
 
-  private toClassStudentRow(student: Student): ClassStudentRowDto {
+  private toClassStudentRow(student: Student, metrics: Map<string, ClassMetric>): ClassStudentRowDto {
+    const metric = metrics.get(student.id);
+
     return {
       id: student.id,
       fullName: this.buildStudentFullName(student),
       gender: student.gender,
       studentCode: student.studentCode,
-      mastery: 0,
-      attendance: 0,
+      mastery: metric?.mastery ?? 0,
+      attendance: metric?.attendance ?? 0,
     };
+  }
+
+  /**
+   * Compute per-student attendance percentage and average mastery in two
+   * aggregate queries (no N+1). Attendance counts present/late/excused as
+   * "in attendance"; mastery is the average of journal grades (0–5 scale).
+   */
+  private async computeClassMetrics(studentIds: string[]): Promise<Map<string, ClassMetric>> {
+    const metrics = new Map<string, ClassMetric>();
+    if (studentIds.length === 0) {
+      return metrics;
+    }
+
+    const uniqueIds = Array.from(new Set(studentIds));
+    for (const id of uniqueIds) {
+      metrics.set(id, { attendance: 0, mastery: 0 });
+    }
+
+    const attendanceRepo = this.attendanceRecords;
+    if (attendanceRepo) {
+      const rows = await attendanceRepo
+        .createQueryBuilder("a")
+        .select("a.student_id", "studentId")
+        .addSelect("COUNT(*)", "total")
+        .addSelect(
+          "COUNT(*) FILTER (WHERE a.status IN (:...present))",
+          "present",
+        )
+        .where("a.student_id IN (:...ids)", { ids: uniqueIds })
+        .setParameter("present", [
+          AttendanceStatus.PRESENT,
+          AttendanceStatus.LATE,
+          AttendanceStatus.EXCUSED,
+        ])
+        .groupBy("a.student_id")
+        .getRawMany<{ studentId: string; total: string; present: string }>();
+
+      for (const row of rows) {
+        const total = Number(row.total);
+        const present = Number(row.present);
+        const metric = metrics.get(row.studentId);
+        if (metric && total > 0) {
+          metric.attendance = this.round1((present / total) * 100);
+        }
+      }
+    }
+
+    const journalRepo = this.journalEntries;
+    if (journalRepo) {
+      const rows = await journalRepo
+        .createQueryBuilder("j")
+        .select("j.student_id", "studentId")
+        .addSelect("AVG(j.grade)", "avgGrade")
+        .where("j.student_id IN (:...ids)", { ids: uniqueIds })
+        .andWhere("j.grade IS NOT NULL")
+        .groupBy("j.student_id")
+        .getRawMany<{ studentId: string; avgGrade: string | null }>();
+
+      for (const row of rows) {
+        const metric = metrics.get(row.studentId);
+        if (metric && row.avgGrade !== null) {
+          metric.mastery = this.round1(Number(row.avgGrade));
+        }
+      }
+    }
+
+    return metrics;
+  }
+
+  private async findStudentsForClasses(classIds: string[]): Promise<Map<string, Student[]>> {
+    const grouped = new Map<string, Student[]>();
+    if (classIds.length === 0) {
+      return grouped;
+    }
+
+    const students = await this.getStudentsRepository().find({
+      where: { currentClassId: In(classIds) },
+      order: { lastName: "ASC", firstName: "ASC" },
+    });
+
+    for (const student of students) {
+      const classId = student.currentClassId;
+      if (!classId) {
+        continue;
+      }
+      const bucket = grouped.get(classId) ?? [];
+      bucket.push(student);
+      grouped.set(classId, bucket);
+    }
+
+    return grouped;
+  }
+
+  private buildClassListStats(items: ClassResponseDto[]): ClassListStatsDto {
+    return {
+      totalClasses: items.length,
+      totalStudents: items.reduce((sum, item) => sum + item.stats.studentCount, 0),
+      languages: {
+        uz: items.filter((item) => item.language === ClassLanguage.UZ).length,
+        ru: items.filter((item) => item.language === ClassLanguage.RU).length,
+        en: items.filter((item) => item.language === ClassLanguage.EN).length,
+      },
+    };
+  }
+
+  private async resolveSmsBody(dto: SendClassSmsDto): Promise<string> {
+    if (dto.body && dto.body.trim().length > 0) {
+      return dto.body.trim();
+    }
+
+    if (dto.templateId && this.communicationService) {
+      const template = await this.communicationService.findTemplateById(dto.templateId);
+      return template.body;
+    }
+
+    throw new BadRequestException("Either a template or a message body is required");
+  }
+
+  private resolveStudentPhone(student: Student): string | null {
+    const parents = student.parents ?? [];
+    if (parents.length === 0) {
+      return null;
+    }
+
+    const primary = parents.find((link) => link.isPrimary) ?? parents[0];
+    const phone = primary?.parent?.phone?.trim();
+    return phone && phone.length > 0 ? phone : null;
+  }
+
+  private resolveScheduledAt(value?: string): Date | null {
+    if (!value) {
+      return null;
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime()) || date.getTime() <= Date.now()) {
+      return null;
+    }
+
+    return date;
+  }
+
+  private average(values: number[]): number {
+    if (values.length === 0) {
+      return 0;
+    }
+
+    return this.round1(values.reduce((sum, value) => sum + value, 0) / values.length);
+  }
+
+  private round1(value: number): number {
+    return Math.round(value * 10) / 10;
   }
 
   private buildClassName(gradeLevel: number, section: string): string {

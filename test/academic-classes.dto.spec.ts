@@ -1,5 +1,6 @@
 import { validateDto } from '../src/common/validation/validate-dto';
 import { CreateClassDto } from '../src/modules/academic/dto/create-class.dto';
+import { SendClassSmsDto } from '../src/modules/academic/dto/send-class-sms.dto';
 import { TransferClassStudentsDto } from '../src/modules/academic/dto/transfer-class-students.dto';
 
 describe('CreateClassDto', () => {
@@ -48,5 +49,40 @@ describe('TransferClassStudentsDto', () => {
     });
 
     expect(errors).toHaveLength(0);
+  });
+});
+
+describe('SendClassSmsDto', () => {
+  it('accepts an immediate message with a plain body', async () => {
+    const errors = await validateDto(SendClassSmsDto, { body: 'Salom, ota-onalar!' });
+    expect(errors).toHaveLength(0);
+  });
+
+  it('accepts a scheduled message that references a template', async () => {
+    const errors = await validateDto(SendClassSmsDto, {
+      templateId: '5c617a45-57a4-4864-89c8-96e299173908',
+      scheduledAt: '2026-06-20T09:00:00.000Z',
+      studentIds: ['8cf35a94-92b4-4f1a-8a7a-90a78003892d'],
+    });
+    expect(errors).toHaveLength(0);
+  });
+
+  it('rejects a message that has neither a template nor a body', async () => {
+    const errors = await validateDto(SendClassSmsDto, {});
+    expect(JSON.stringify(errors)).toContain('body');
+  });
+
+  it('rejects invalid student ids, scheduledAt and unknown properties', async () => {
+    const errors = await validateDto(SendClassSmsDto, {
+      body: 'Salom',
+      studentIds: ['not-uuid'],
+      scheduledAt: 'not-a-date',
+      extra: 'forbidden',
+    });
+
+    const serialized = JSON.stringify(errors);
+    expect(serialized).toContain('studentIds');
+    expect(serialized).toContain('scheduledAt');
+    expect(serialized).toContain('extra');
   });
 });
