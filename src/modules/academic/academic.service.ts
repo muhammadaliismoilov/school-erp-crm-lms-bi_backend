@@ -34,6 +34,7 @@ import { AvailableCourseStudentsQueryDto, CourseQueryDto } from "./dto/course-qu
 import {
   CourseDetailResponseDto,
   CourseListResponseDto,
+  CourseListStatsDto,
   CourseResponseDto,
   CourseStudentRowDto,
 } from "./dto/course-response.dto";
@@ -657,11 +658,12 @@ export class AcademicService {
     await this.audit(actor, "subject.deleted", id, { code: subject.code }, "subject");
   }
 
-  async createCourse(dto: CreateCourseDto): Promise<CourseResponseDto> {
+  async createCourse(dto: CreateCourseDto, actor?: AcademicActor): Promise<CourseResponseDto> {
     const input = await this.buildCourseInput(dto);
     await this.ensureCourseCanBeSaved(input);
 
     const course = await this.getCoursesRepository().save(this.getCoursesRepository().create(input));
+    await this.audit(actor, "course.created", course.id, { name: course.name }, "course");
 
     return this.toCourseResponse(course);
   }
@@ -669,8 +671,9 @@ export class AcademicService {
   async findCourses(query: CourseQueryDto = {}): Promise<CourseListResponseDto> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 12;
+    const where = this.buildCourseWhere(query);
     const [courses, total] = await this.getCoursesRepository().findAndCount({
-      where: this.buildCourseWhere(query),
+      where,
       relations: this.courseRelations(),
       skip: (page - 1) * limit,
       take: limit,
@@ -679,6 +682,7 @@ export class AcademicService {
 
     return {
       items: courses.map((course) => this.toCourseResponse(course)),
+      stats: await this.buildCourseListStats(where),
       total,
       page,
       limit,
@@ -690,7 +694,7 @@ export class AcademicService {
     return this.toCourseDetailResponse(await this.findCourseEntity(id));
   }
 
-  async updateCourse(id: string, dto: UpdateCourseDto): Promise<CourseResponseDto> {
+  async updateCourse(id: string, dto: UpdateCourseDto, actor?: AcademicActor): Promise<CourseResponseDto> {
     if (Object.keys(dto).length === 0) {
       throw new BadRequestException("At least one course field must be provided");
     }
@@ -716,15 +720,28 @@ export class AcademicService {
     await this.ensureCourseCanBeSaved(input, id);
     Object.assign(course, input);
 
-    return this.toCourseResponse(await this.getCoursesRepository().save(course));
+    const saved = await this.getCoursesRepository().save(course);
+    await this.audit(actor, "course.updated", id, { changed: Object.keys(dto) }, "course");
+
+    return this.toCourseResponse(saved);
   }
 
-  async deleteCourse(id: string): Promise<void> {
-    await this.findCourseEntity(id);
+  async deleteCourse(id: string, actor?: AcademicActor): Promise<void> {
+    const course = await this.findCourseEntity(id);
+
+    if ((course.students ?? []).length > 0) {
+      throw new ConflictException("Course has students and cannot be deleted");
+    }
+
     await this.getCoursesRepository().softDelete(id);
+    await this.audit(actor, "course.deleted", id, { name: course.name }, "course");
   }
 
-  async addCourseStudents(id: string, dto: AddCourseStudentsDto): Promise<CourseDetailResponseDto> {
+  async addCourseStudents(
+    id: string,
+    dto: AddCourseStudentsDto,
+    actor?: AcademicActor,
+  ): Promise<CourseDetailResponseDto> {
     const course = await this.findCourseEntity(id);
     const newStudents = await this.findStudentsByIds(dto.studentIds);
     const existingStudents = course.students ?? [];
@@ -736,14 +753,24 @@ export class AcademicService {
 
     course.students = Array.from(byId.values());
 
-    return this.toCourseDetailResponse(await this.getCoursesRepository().save(course));
+    const saved = await this.getCoursesRepository().save(course);
+    await this.audit(actor, "course.students_added", id, { addedCount: newStudents.length }, "course");
+
+    return this.toCourseDetailResponse(saved);
   }
 
-  async removeCourseStudent(id: string, studentId: string): Promise<CourseDetailResponseDto> {
+  async removeCourseStudent(
+    id: string,
+    studentId: string,
+    actor?: AcademicActor,
+  ): Promise<CourseDetailResponseDto> {
     const course = await this.findCourseEntity(id);
     course.students = (course.students ?? []).filter((student) => student.id !== studentId);
 
-    return this.toCourseDetailResponse(await this.getCoursesRepository().save(course));
+    const saved = await this.getCoursesRepository().save(course);
+    await this.audit(actor, "course.student_removed", id, { studentId }, "course");
+
+    return this.toCourseDetailResponse(saved);
   }
 
   async findAvailableCourseStudents(
@@ -1349,6 +1376,37 @@ export class AcademicService {
     }
 
     return input;
+  }
+
+  private async buildCourseListStats(
+    where: FindOptionsWhere<Course> | FindOptionsWhere<Course>[],
+  ): Promise<CourseListStatsDto> {
+    const courses = await this.getCoursesRepository().find({
+      where,
+      relations: { students: true },
+    });
+
+    const teacherIds = new Set<string>();
+    const studentIds = new Set<string>();
+    let plannedLessons = 0;
+    let completedLessons = 0;
+
+    for (const course of courses) {
+      teacherIds.add(course.teacherId);
+      plannedLessons += course.plannedLessonCount ?? 0;
+      completedLessons += course.completedLessonCount ?? 0;
+      for (const student of course.students ?? []) {
+        studentIds.add(student.id);
+      }
+    }
+
+    return {
+      totalCourses: courses.length,
+      totalStudents: studentIds.size,
+      totalTeachers: teacherIds.size,
+      plannedLessons,
+      completedLessons,
+    };
   }
 
   private buildCourseWhere(query: CourseQueryDto): FindOptionsWhere<Course> | FindOptionsWhere<Course>[] {

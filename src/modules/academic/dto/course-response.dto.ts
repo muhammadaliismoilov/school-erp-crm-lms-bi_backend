@@ -134,9 +134,29 @@ export class CourseDetailResponseDto extends CourseResponseDto {
   students: CourseStudentRowDto[];
 }
 
+export class CourseListStatsDto {
+  @ApiProperty({ example: 1 })
+  totalCourses: number;
+
+  @ApiProperty({ example: 0 })
+  totalStudents: number;
+
+  @ApiProperty({ example: 1 })
+  totalTeachers: number;
+
+  @ApiProperty({ example: 0 })
+  plannedLessons: number;
+
+  @ApiProperty({ example: 0 })
+  completedLessons: number;
+}
+
 export class CourseListResponseDto {
   @ApiProperty({ type: [CourseResponseDto] })
   items: CourseResponseDto[];
+
+  @ApiProperty({ type: CourseListStatsDto })
+  stats: CourseListStatsDto;
 
   @ApiProperty({ example: 1 })
   total: number;

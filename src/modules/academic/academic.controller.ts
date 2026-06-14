@@ -488,8 +488,12 @@ export class AcademicController {
     description: "Kurs envelope ichida yaratildi.",
     type: CourseResponseEnvelopeDto,
   })
-  createCourse(@Body() dto: CreateCourseDto) {
-    return this.academicService.createCourse(dto);
+  createCourse(
+    @Body() dto: CreateCourseDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.academicService.createCourse(dto, this.buildActor(user, request));
   }
 
   @Get("courses/:id/available-students")
@@ -531,8 +535,10 @@ export class AcademicController {
   addCourseStudents(
     @Param() params: UuidParamDto,
     @Body() dto: AddCourseStudentsDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
   ) {
-    return this.academicService.addCourseStudents(params.id, dto);
+    return this.academicService.addCourseStudents(params.id, dto, this.buildActor(user, request));
   }
 
   @Delete("courses/:id/students/:studentId")
@@ -548,10 +554,15 @@ export class AcademicController {
     description: "Yangilangan kurs detail envelope ichida qaytarildi.",
     type: CourseDetailResponseEnvelopeDto,
   })
-  removeCourseStudent(@Param() params: CourseStudentParamDto) {
+  removeCourseStudent(
+    @Param() params: CourseStudentParamDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
     return this.academicService.removeCourseStudent(
       params.id,
       params.studentId,
+      this.buildActor(user, request),
     );
   }
 
@@ -580,8 +591,13 @@ export class AcademicController {
     description: "Kurs tahrirlandi.",
     type: CourseResponseEnvelopeDto,
   })
-  updateCourse(@Param() params: UuidParamDto, @Body() dto: UpdateCourseDto) {
-    return this.academicService.updateCourse(params.id, dto);
+  updateCourse(
+    @Param() params: UuidParamDto,
+    @Body() dto: UpdateCourseDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.academicService.updateCourse(params.id, dto, this.buildActor(user, request));
   }
 
   @Delete("courses/:id")
@@ -590,8 +606,12 @@ export class AcademicController {
   @ApiOperation({ summary: "Kursni arxivlash" })
   @ApiParam(uuidParamDocs)
   @ApiNoContentResponse({ description: "Kurs arxivlandi. Body qaytmaydi." })
-  deleteCourse(@Param() params: UuidParamDto) {
-    return this.academicService.deleteCourse(params.id);
+  deleteCourse(
+    @Param() params: UuidParamDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.academicService.deleteCourse(params.id, this.buildActor(user, request));
   }
 
   @Get("classes")
