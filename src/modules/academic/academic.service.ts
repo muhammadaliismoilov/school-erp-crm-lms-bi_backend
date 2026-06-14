@@ -696,7 +696,13 @@ export class AcademicService {
 
   async updateCourse(id: string, dto: UpdateCourseDto, actor?: AcademicActor): Promise<CourseResponseDto> {
     if (Object.keys(dto).length === 0) {
-      throw new BadRequestException("At least one course field must be provided");
+      throw new BadRequestException({
+        message: {
+          uz: "Kamida bitta kurs maydoni berilishi kerak",
+          ru: "Необходимо указать хотя бы одно поле курса",
+          en: "At least one course field must be provided",
+        },
+      });
     }
 
     const course = await this.findCourseEntity(id);
@@ -1461,7 +1467,13 @@ export class AcademicService {
     });
 
     if (duplicateCourse) {
-      throw new ConflictException("Course already exists for this quarter");
+      throw new ConflictException({
+        message: {
+          uz: "Bu chorakda shu nomli kurs allaqachon mavjud",
+          ru: "Курс с таким названием уже существует в этой четверти",
+          en: "A course with this name already exists in this quarter",
+        },
+      });
     }
   }
 
@@ -1472,11 +1484,24 @@ export class AcademicService {
     const quarterEndDate = this.toDate(quarter.endDate);
 
     if (endDate < startDate) {
-      throw new BadRequestException("Course end date must be after or equal to start date");
+      throw new BadRequestException({
+        message: {
+          uz: "Kurs tugash sanasi boshlanish sanasidan keyin yoki unga teng bo'lishi kerak",
+          ru: "Дата окончания курса должна быть не раньше даты начала",
+          en: "Course end date must be after or equal to the start date",
+        },
+      });
     }
 
     if (startDate < quarterStartDate || endDate > quarterEndDate) {
-      throw new BadRequestException("Course dates must be inside the quarter range");
+      const range = `${quarter.startDate} – ${quarter.endDate}`;
+      throw new BadRequestException({
+        message: {
+          uz: `Kurs sanalari tanlangan chorak oralig'ida bo'lishi kerak (${range})`,
+          ru: `Даты курса должны быть в пределах выбранной четверти (${range})`,
+          en: `Course dates must be inside the selected quarter range (${range})`,
+        },
+      });
     }
   }
 

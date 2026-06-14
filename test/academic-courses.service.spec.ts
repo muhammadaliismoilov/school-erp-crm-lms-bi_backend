@@ -168,8 +168,8 @@ describe('AcademicService courses CRUD', () => {
     rooms.findOne.mockResolvedValue(room);
     users.findOne.mockResolvedValue(teacher);
 
-    await expect(
-      service.createCourse({
+    const error = await service
+      .createCourse({
         name: 'IT',
         quarterId,
         startDate: '2026-03-01',
@@ -177,8 +177,14 @@ describe('AcademicService courses CRUD', () => {
         roomId,
         subjectId,
         teacherId,
-      }),
-    ).rejects.toBeInstanceOf(BadRequestException);
+      })
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(BadRequestException);
+    // The reason must be surfaced as a localized message (not the generic one),
+    // so the UI can show exactly what is wrong.
+    const body = (error as BadRequestException).getResponse() as { message: { uz: string } };
+    expect(body.message.uz).toContain("chorak");
   });
 
   it('adds students to an existing course without duplicating selected students', async () => {
