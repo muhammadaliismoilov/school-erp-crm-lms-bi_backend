@@ -12,6 +12,7 @@ import type { ClassCampaignRecipient } from "../communication/communication.serv
 import { CampaignStatus } from "../communication/enums/communication.enums";
 import { User } from "../identity/entities/user.entity";
 import { JournalEntry } from "../lms/entities/journal-entry.entity";
+import { LessonSchedule } from "../lms/entities/lesson-schedule.entity";
 import { Room } from "../settings/entities/room.entity";
 import { Student } from "../students/entities/student.entity";
 import { Gender } from "../students/enums/student-status.enum";
@@ -42,7 +43,13 @@ import { CreateLessonPeriodDto } from "./dto/create-lesson-period.dto";
 import { CreateQuarterDto } from "./dto/create-quarter.dto";
 import { CreateSubjectDto } from "./dto/create-subject.dto";
 import { SubjectQueryDto } from "./dto/subject-query.dto";
-import { SubjectResponseDto } from "./dto/subject-response.dto";
+import {
+  SubjectListResultDto,
+  SubjectOverviewResponseDto,
+  SubjectResponseDto,
+  SubjectScheduleLessonDto,
+} from "./dto/subject-response.dto";
+import { SubjectScheduleQueryDto } from "./dto/subject-schedule.dto";
 import {
   LessonPeriodListResponseDto,
   LessonPeriodResponseDto,
@@ -184,6 +191,9 @@ export class AcademicService {
     private readonly communicationService?: CommunicationService,
     @Optional()
     private readonly auditService?: AuditService,
+    @Optional()
+    @InjectRepository(LessonSchedule)
+    private readonly lessonSchedules?: Repository<LessonSchedule>,
   ) {}
 
   async createAcademicYear(dto: CreateAcademicYearDto, actor?: AcademicActor): Promise<AcademicYear> {
@@ -520,29 +530,94 @@ export class AcademicService {
     await this.audit(actor, "lesson_period.archived", id, { code: lessonPeriod.code }, "lesson_period");
   }
 
-  async createSubject(dto: CreateSubjectDto): Promise<SubjectResponseDto> {
+  async createSubject(dto: CreateSubjectDto, actor?: AcademicActor): Promise<SubjectResponseDto> {
     const input = this.buildSubjectInput(dto);
     await this.ensureSubjectCanBeSaved(input);
 
     const subject = await this.subjects.save(this.subjects.create(input));
+    await this.audit(actor, "subject.created", subject.id, { code: subject.code }, "subject");
 
     return this.toSubjectResponse(subject);
   }
 
-  async findSubjects(query: SubjectQueryDto = {}): Promise<SubjectResponseDto[]> {
+  async findSubjects(query: SubjectQueryDto = {}): Promise<SubjectListResultDto> {
     const subjects = await this.subjects.find({
       where: this.buildSubjectWhere(query),
       order: { normalizedName: "ASC" },
     });
 
-    return subjects.map((subject) => this.toSubjectResponse(subject));
+    const items = subjects.map((subject) => this.toSubjectResponse(subject));
+    return { items, stats: this.buildSubjectListStats(items) };
   }
 
   async findSubject(id: string): Promise<SubjectResponseDto> {
     return this.toSubjectResponse(await this.findSubjectEntity(id));
   }
 
-  async updateSubject(id: string, dto: UpdateSubjectDto): Promise<SubjectResponseDto> {
+  async findSubjectOverview(id: string): Promise<SubjectOverviewResponseDto> {
+    const subject = await this.findSubjectEntity(id);
+    const lessonsRepo = this.lessonSchedules;
+
+    const classes = new Map<string, string>();
+    const teachers = new Map<string, string>();
+    let lessonCount = 0;
+
+    if (lessonsRepo) {
+      const lessons = await lessonsRepo.find({
+        where: { subjectId: id },
+        relations: { class: true, teacher: true },
+      });
+      lessonCount = lessons.length;
+      for (const lesson of lessons) {
+        if (lesson.class) {
+          classes.set(lesson.class.id, lesson.class.name);
+        }
+        if (lesson.teacher) {
+          teachers.set(lesson.teacher.id, this.buildUserFullName(lesson.teacher));
+        }
+      }
+    }
+
+    return {
+      subject: this.toSubjectResponse(subject),
+      stats: {
+        classCount: classes.size,
+        teacherCount: teachers.size,
+        lessonCount,
+        averageMastery: await this.computeSubjectAverageMastery(id),
+      },
+      classes: Array.from(classes, ([classId, name]) => ({ id: classId, name })).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
+      teachers: Array.from(teachers, ([teacherId, fullName]) => ({ id: teacherId, fullName })).sort(
+        (a, b) => a.fullName.localeCompare(b.fullName),
+      ),
+    };
+  }
+
+  async findSubjectSchedule(
+    id: string,
+    query: SubjectScheduleQueryDto = {},
+  ): Promise<SubjectScheduleLessonDto[]> {
+    await this.findSubjectEntity(id);
+    const lessonsRepo = this.lessonSchedules;
+    if (!lessonsRepo) {
+      return [];
+    }
+
+    const lessons = await lessonsRepo.find({
+      where: {
+        subjectId: id,
+        ...(query.teacherId ? { teacherId: query.teacherId } : {}),
+      },
+      relations: { class: true, teacher: true, lessonPeriod: true },
+      order: { lessonDate: "ASC" },
+    });
+
+    return lessons.map((lesson) => this.toSubjectScheduleLesson(lesson));
+  }
+
+  async updateSubject(id: string, dto: UpdateSubjectDto, actor?: AcademicActor): Promise<SubjectResponseDto> {
     if (Object.keys(dto).length === 0) {
       throw new BadRequestException("At least one subject field must be provided");
     }
@@ -564,12 +639,21 @@ export class AcademicService {
     await this.ensureSubjectCanBeSaved(input, id);
     Object.assign(subject, input);
 
-    return this.toSubjectResponse(await this.subjects.save(subject));
+    const saved = await this.subjects.save(subject);
+    await this.audit(actor, "subject.updated", id, { changed: Object.keys(dto) }, "subject");
+
+    return this.toSubjectResponse(saved);
   }
 
-  async deleteSubject(id: string): Promise<void> {
-    await this.findSubjectEntity(id);
+  async deleteSubject(id: string, actor?: AcademicActor): Promise<void> {
+    const subject = await this.findSubjectEntity(id);
+
+    if (await this.isSubjectInUse(id)) {
+      throw new ConflictException("Subject is in use and cannot be deleted");
+    }
+
     await this.subjects.softDelete(id);
+    await this.audit(actor, "subject.deleted", id, { code: subject.code }, "subject");
   }
 
   async createCourse(dto: CreateCourseDto): Promise<CourseResponseDto> {
@@ -1048,6 +1132,62 @@ export class AcademicService {
       status,
       description: this.buildSubjectDescription(dto.description),
     };
+  }
+
+  private buildSubjectListStats(items: SubjectResponseDto[]): SubjectListResultDto["stats"] {
+    const active = items.filter((item) => item.isActive).length;
+    return {
+      total: items.length,
+      active,
+      inactive: items.length - active,
+    };
+  }
+
+  /** A subject is "in use" when any lesson or course references it. */
+  private async isSubjectInUse(subjectId: string): Promise<boolean> {
+    if (this.lessonSchedules && (await this.lessonSchedules.count({ where: { subjectId } })) > 0) {
+      return true;
+    }
+    if (this.courses && (await this.courses.count({ where: { subjectId } })) > 0) {
+      return true;
+    }
+    return false;
+  }
+
+  private async computeSubjectAverageMastery(subjectId: string): Promise<number> {
+    if (!this.journalEntries) {
+      return 0;
+    }
+
+    const row = await this.journalEntries
+      .createQueryBuilder("j")
+      .innerJoin("j.lesson", "l")
+      .select("AVG(j.grade)", "avgGrade")
+      .where("l.subject_id = :subjectId", { subjectId })
+      .andWhere("j.grade IS NOT NULL")
+      .getRawOne<{ avgGrade: string | null }>();
+
+    return row?.avgGrade ? this.round1(Number(row.avgGrade)) : 0;
+  }
+
+  private toSubjectScheduleLesson(lesson: LessonSchedule): SubjectScheduleLessonDto {
+    return {
+      id: lesson.id,
+      lessonDate: lesson.lessonDate,
+      weekday: this.toWeekday(lesson.lessonDate),
+      class: { id: lesson.class?.id ?? lesson.classId, name: lesson.class?.name ?? "" },
+      teacherName: lesson.teacher ? this.buildUserFullName(lesson.teacher) : null,
+      periodLabel: lesson.lessonPeriod?.code ?? null,
+      startTime: lesson.lessonPeriod ? this.formatLessonTime(lesson.lessonPeriod.startTime) : null,
+      endTime: lesson.lessonPeriod ? this.formatLessonTime(lesson.lessonPeriod.endTime) : null,
+      status: lesson.status,
+    };
+  }
+
+  /** ISO date → ISO weekday (1 = Dushanba … 7 = Yakshanba). */
+  private toWeekday(isoDate: string): number {
+    const day = new Date(isoDate + "T00:00:00.000Z").getUTCDay();
+    return ((day + 6) % 7) + 1;
   }
 
   private buildSubjectWhere(query: SubjectQueryDto): FindOptionsWhere<Subject> | FindOptionsWhere<Subject>[] {

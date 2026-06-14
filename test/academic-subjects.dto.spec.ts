@@ -2,6 +2,7 @@ import { validateDto } from '../src/common/validation/validate-dto';
 import { CommonStatus } from '../src/common/enums/common-status.enum';
 import { CreateSubjectDto } from '../src/modules/academic/dto/create-subject.dto';
 import { SubjectQueryDto } from '../src/modules/academic/dto/subject-query.dto';
+import { SubjectScheduleQueryDto } from '../src/modules/academic/dto/subject-schedule.dto';
 import { UpdateSubjectDto } from '../src/modules/academic/dto/update-subject.dto';
 
 describe('CreateSubjectDto', () => {
@@ -54,5 +55,24 @@ describe('SubjectQueryDto', () => {
     });
 
     expect(errors).toHaveLength(0);
+  });
+});
+
+describe('SubjectScheduleQueryDto', () => {
+  it('accepts an optional teacher id', async () => {
+    const errors = await validateDto(SubjectScheduleQueryDto, {
+      teacherId: '8cf35a94-92b4-4f1a-8a7a-90a78003892d',
+    });
+    expect(errors).toHaveLength(0);
+  });
+
+  it('rejects a non-uuid teacher id and unknown properties', async () => {
+    const errors = await validateDto(SubjectScheduleQueryDto, {
+      teacherId: 'not-uuid',
+      extra: 'forbidden',
+    });
+    const serialized = JSON.stringify(errors);
+    expect(serialized).toContain('teacherId');
+    expect(serialized).toContain('extra');
   });
 });

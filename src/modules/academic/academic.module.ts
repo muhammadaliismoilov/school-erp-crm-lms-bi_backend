@@ -5,6 +5,7 @@ import { AuditModule } from "../audit/audit.module";
 import { CommunicationModule } from "../communication/communication.module";
 import { User } from "../identity/entities/user.entity";
 import { JournalEntry } from "../lms/entities/journal-entry.entity";
+import { LessonSchedule } from "../lms/entities/lesson-schedule.entity";
 import { Room } from "../settings/entities/room.entity";
 import { Student } from "../students/entities/student.entity";
 import { AcademicController } from "./academic.controller";
@@ -30,6 +31,7 @@ import { Subject } from "./entities/subject.entity";
       Student,
       AttendanceRecord,
       JournalEntry,
+      LessonSchedule,
     ]),
     AuditModule,
     CommunicationModule,
