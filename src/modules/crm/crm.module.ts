@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditModule } from '../audit/audit.module';
 import { LeadApplication } from './entities/lead-application.entity';
 import { LeadSource } from './entities/lead-source.entity';
 import { LeadTask } from './entities/lead-task.entity';
@@ -17,6 +18,7 @@ import { CrmService } from './crm.service';
       PipelineStage,
       LeadApplication,
     ]),
+    AuditModule,
   ],
   controllers: [CrmController],
   providers: [CrmService],
