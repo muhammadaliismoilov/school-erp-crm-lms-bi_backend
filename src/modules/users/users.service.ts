@@ -31,7 +31,7 @@ export class UsersService {
     private readonly passwords: PasswordService,
   ) {}
 
-  async create(dto: CreateUserDto): Promise<UserResponseSchema> {
+  async create(dto: CreateUserDto): Promise<UserResponseSchema & { generatedPassword: string }> {
     const username = dto.username
       ? this.normalizeUsername(dto.username)
       : await this.generateUniqueUsername(dto.role);
@@ -67,7 +67,10 @@ export class UsersService {
       roles,
     });
 
-    return this.toUserResponse(await this.users.save(user));
+    const saved = await this.users.save(user);
+    // The plaintext password exists only here (DB stores the argon2 hash), so it
+    // is returned once for the "credentials created" dialog and never again.
+    return { ...this.toUserResponse(saved), generatedPassword: password };
   }
 
   async findAll(query: Partial<UserQueryDto> = {}): Promise<UserListResponseSchema> {
@@ -321,6 +324,8 @@ export class UsersService {
       [UserManagementRole.TEACHER]: 'T',
       [UserManagementRole.TUTOR]: 'TU',
       [UserManagementRole.SUPERMANAGER]: 'SU',
+      [UserManagementRole.OPERATOR]: 'OP',
+      [UserManagementRole.ACCOUNTANT]: 'AC',
     };
     const roleKey = String(role ?? UserManagementRole.STUDENT).toUpperCase() as UserManagementRole;
     const prefix = prefixByRole[roleKey] ?? 'U';

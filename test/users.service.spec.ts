@@ -115,6 +115,33 @@ describe('UsersService', () => {
     expect(JSON.stringify(result)).not.toContain('passwordHash');
   });
 
+  it('auto-generates a unique login and password and returns them once', async () => {
+    users.findOne.mockResolvedValue(null);
+    roles.find.mockResolvedValue([teacherRole]);
+    passwords.hash.mockResolvedValue('hashed-password');
+    users.create.mockImplementation((value) => value as User);
+    users.save.mockImplementation(async (value) => ({ ...savedUser, ...value }) as User);
+
+    const result = await service.create({
+      firstName: 'Javohir',
+      firstNameCyrillic: 'Жавоҳир',
+      lastName: 'Aliyev',
+      lastNameCyrillic: 'Алиев',
+      gender: 'male',
+      role: 'TEACHER',
+    });
+
+    // Password is hashed before persisting...
+    expect(passwords.hash).toHaveBeenCalledTimes(1);
+    const [plaintext] = passwords.hash.mock.calls[0];
+    expect(typeof plaintext).toBe('string');
+    expect((plaintext as string).length).toBeGreaterThan(8);
+    // ...and the same plaintext is returned once for the credentials dialog.
+    expect(result.generatedPassword).toBe(plaintext);
+    expect(result.login).toBeTruthy();
+    expect(JSON.stringify(result)).not.toContain('passwordHash');
+  });
+
   it('rejects duplicate username, email, phone, document number, or PINFL', async () => {
     users.findOne.mockResolvedValue(savedUser);
 
