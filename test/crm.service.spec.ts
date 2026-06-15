@@ -58,25 +58,23 @@ describe('CrmService', () => {
   });
 
   it('returns leads with kanban stats grouped by status', async () => {
-    const statsQb = {
+    const qb = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
       addSelect: jest.fn().mockReturnThis(),
       groupBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
       getRawMany: jest.fn().mockResolvedValue([
         { status: LeadStatus.NEW, count: '2' },
         { status: LeadStatus.CONTRACT, count: '1' },
       ]),
-    };
-    const mainQb = {
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      clone: jest.fn().mockReturnValue(statsQb),
-      skip: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
       getManyAndCount: jest.fn().mockResolvedValue([[leadEntity()], 3]),
     };
-    leads.createQueryBuilder.mockReturnValue(mainQb as never);
+    // Stats query and list query each call createQueryBuilder once.
+    leads.createQueryBuilder.mockReturnValue(qb as never);
 
     const result = await service.findLeads({ page: 1, limit: 20 });
 

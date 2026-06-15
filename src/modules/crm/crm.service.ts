@@ -51,28 +51,22 @@ export class CrmService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
-    const qb = this.leads
-      .createQueryBuilder("lead")
-      .leftJoinAndSelect("lead.source", "source")
-      .leftJoinAndSelect("lead.assignedTo", "assignedTo")
-      .orderBy("lead.createdAt", "DESC");
-
     // Search / source / assignee narrow both the list and the kanban stats;
     // status only narrows the list (so every kanban column count stays visible).
-    if (query.search) {
-      qb.andWhere(
-        "(lead.firstName ILIKE :search OR lead.lastName ILIKE :search OR lead.phone ILIKE :search)",
-        { search: `%${query.search}%` },
-      );
-    }
-    if (query.sourceId) {
-      qb.andWhere("lead.source_id = :sourceId", { sourceId: query.sourceId });
-    }
-    if (query.assignedToId) {
-      qb.andWhere("lead.assigned_to_id = :assignedToId", { assignedToId: query.assignedToId });
-    }
+    // Stats run on a dedicated builder (no joins / no ORDER BY) so the GROUP BY
+    // aggregate is valid in Postgres.
+    const stats = await this.buildLeadStats(
+      this.applyLeadFilters(this.leads.createQueryBuilder("lead"), query),
+    );
 
-    const stats = await this.buildLeadStats(qb.clone());
+    const qb = this.applyLeadFilters(
+      this.leads
+        .createQueryBuilder("lead")
+        .leftJoinAndSelect("lead.source", "source")
+        .leftJoinAndSelect("lead.assignedTo", "assignedTo")
+        .orderBy("lead.createdAt", "DESC"),
+      query,
+    );
 
     if (query.status) {
       qb.andWhere("lead.status = :status", { status: query.status });
@@ -88,6 +82,24 @@ export class CrmService {
       meta: { page, limit, total, pageCount: Math.ceil(total / limit) || 1 },
       stats,
     };
+  }
+
+  /** Apply the shared lead filters (search/source/assignee) to a query builder. */
+  private applyLeadFilters(qb: SelectQueryBuilder<Lead>, query: LeadQueryDto): SelectQueryBuilder<Lead> {
+    if (query.search) {
+      qb.andWhere(
+        "(lead.firstName ILIKE :search OR lead.lastName ILIKE :search OR lead.phone ILIKE :search)",
+        { search: `%${query.search}%` },
+      );
+    }
+    if (query.sourceId) {
+      qb.andWhere("lead.source_id = :sourceId", { sourceId: query.sourceId });
+    }
+    if (query.assignedToId) {
+      qb.andWhere("lead.assigned_to_id = :assignedToId", { assignedToId: query.assignedToId });
+    }
+
+    return qb;
   }
 
   async findLead(id: string): Promise<LeadResponseDto> {
