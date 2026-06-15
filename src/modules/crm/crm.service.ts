@@ -13,6 +13,7 @@ import {
   SourceResponseDto,
 } from "./dto/lead-response.dto";
 import { CreateSourceDto } from "./dto/create-source.dto";
+import { LeadHistoryEntryDto } from "./dto/lead-history.dto";
 import { UpdateSourceDto } from "./dto/update-source.dto";
 import { UpdateLeadDto } from "./dto/update-lead.dto";
 import { Lead } from "./entities/lead.entity";
@@ -104,6 +105,25 @@ export class CrmService {
 
   async findLead(id: string): Promise<LeadResponseDto> {
     return this.toLeadResponse(await this.findLeadEntity(id));
+  }
+
+  /** Lead activity timeline (newest first) built from the audit trail. */
+  async findLeadHistory(id: string): Promise<LeadHistoryEntryDto[]> {
+    await this.findLeadEntity(id);
+    if (!this.auditService) {
+      return [];
+    }
+
+    const logs = await this.auditService.findForEntity("lead", id);
+    return logs
+      .map((log) => ({
+        id: log.id,
+        action: log.action,
+        actorName: log.user ? this.buildUserFullName(log.user) : null,
+        timestamp: log.createdAt?.toISOString() ?? new Date().toISOString(),
+        details: log.details ?? null,
+      }))
+      .reverse();
   }
 
   async updateLead(id: string, dto: UpdateLeadDto, actor?: CrmActor): Promise<LeadResponseDto> {

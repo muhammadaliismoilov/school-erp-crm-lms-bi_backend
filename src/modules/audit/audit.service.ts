@@ -22,4 +22,13 @@ export class AuditService {
   log(input: AuditInput): Promise<AuditLog> {
     return this.auditLogs.save(this.auditLogs.create(input));
   }
+
+  /** Full audit trail for one entity record (oldest first), with the actor loaded. */
+  findForEntity(entity: string, entityId: string): Promise<AuditLog[]> {
+    return this.auditLogs.find({
+      where: { entity, entityId },
+      relations: { user: true },
+      order: { createdAt: "ASC" },
+    });
+  }
 }

@@ -79,6 +79,14 @@ export class CrmController {
     return this.crmService.findLead(params.id);
   }
 
+  @Get("leads/:id/history")
+  @Permissions([AppPermission.CRM_READ])
+  @ApiOperation({ summary: "Lid tarixi (kim/qachon yaratgan/o‘zgartirgan)" })
+  @ApiOkResponse({ description: "Lid audit timeline'i qaytarildi." })
+  findLeadHistory(@Param() params: UuidParamDto) {
+    return this.crmService.findLeadHistory(params.id);
+  }
+
   @Patch("leads/:id")
   @Permissions([AppPermission.CRM_MANAGE])
   @ApiOperation({ summary: "CRM lidni tahrirlash" })

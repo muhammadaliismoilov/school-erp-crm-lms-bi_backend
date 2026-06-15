@@ -19,7 +19,7 @@ const leadEntity = (over: Partial<Lead> = {}): Lead =>
 describe('CrmService', () => {
   let leads: Record<string, jest.Mock>;
   let sources: Record<string, jest.Mock>;
-  let audit: { log: jest.Mock };
+  let audit: { log: jest.Mock; findForEntity: jest.Mock };
   let service: CrmService;
 
   beforeEach(() => {
@@ -38,7 +38,7 @@ describe('CrmService', () => {
       delete: jest.fn(),
       find: jest.fn(),
     };
-    audit = { log: jest.fn() };
+    audit = { log: jest.fn(), findForEntity: jest.fn() };
 
     service = new CrmService(
       leads as unknown as Repository<Lead>,
@@ -105,6 +105,35 @@ describe('CrmService', () => {
   it('throws NotFoundException for a missing lead', async () => {
     leads.findOne.mockResolvedValue(null);
     await expect(service.findLead('nope')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('builds the lead history timeline from the audit trail (newest first)', async () => {
+    leads.findOne.mockResolvedValue(leadEntity());
+    audit.findForEntity.mockResolvedValue([
+      {
+        id: 'a1',
+        action: 'lead.created',
+        createdAt: new Date('2026-06-15T09:00:00.000Z'),
+        user: null,
+        details: null,
+      },
+      {
+        id: 'a2',
+        action: 'lead.status_changed',
+        createdAt: new Date('2026-06-15T10:00:00.000Z'),
+        user: { firstName: 'Jamshid', lastName: 'Toshpulatov', username: 'jamshid' },
+        details: { status: 'contacted' },
+      },
+    ]);
+
+    const history = await service.findLeadHistory('lead-1');
+
+    expect(audit.findForEntity).toHaveBeenCalledWith('lead', 'lead-1');
+    expect(history).toHaveLength(2);
+    // Newest first.
+    expect(history[0]).toMatchObject({ action: 'lead.status_changed', actorName: 'Jamshid Toshpulatov' });
+    // System entry has no actor.
+    expect(history[1]).toMatchObject({ action: 'lead.created', actorName: null });
   });
 
   it('creates a source with a derived code', async () => {
