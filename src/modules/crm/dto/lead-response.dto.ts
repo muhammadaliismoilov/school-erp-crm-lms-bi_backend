@@ -17,6 +17,17 @@ export class LeadAssigneeBriefDto {
   fullName: string;
 }
 
+export class LeadTagBriefDto {
+  @ApiProperty({ example: "5c617a45-57a4-4864-89c8-96e299173908", format: "uuid" })
+  id: string;
+
+  @ApiProperty({ example: "Issiq" })
+  name: string;
+
+  @ApiPropertyOptional({ example: "#22c55e", nullable: true })
+  color?: string | null;
+}
+
 export class LeadResponseDto {
   @ApiProperty({ example: "f0ff63e5-9fc8-4a9a-83de-9453d328d0d7", format: "uuid" })
   id: string;
@@ -50,6 +61,28 @@ export class LeadResponseDto {
 
   @ApiPropertyOptional({ example: "REF-2026", nullable: true })
   referralCode?: string | null;
+
+  @ApiPropertyOptional({
+    example: "f0ff63e5-9fc8-4a9a-83de-9453d328d0d7",
+    format: "uuid",
+    nullable: true,
+    description: "Lid o'quvchiga aylantirilgan bo'lsa — student IDsi.",
+  })
+  enrolledStudentId?: string | null;
+
+  @ApiProperty({ type: [LeadTagBriefDto], description: "Lidga biriktirilgan teglar." })
+  tags: LeadTagBriefDto[];
+
+  @ApiPropertyOptional({ example: 3, description: "Lidga yozilgan izohlar soni (faqat detalda)." })
+  commentsCount?: number;
+
+  @ApiPropertyOptional({
+    example: "2026-06-16T03:00:00.000Z",
+    format: "date-time",
+    nullable: true,
+    description: "Eng yaqin bajarilmagan follow-up eslatma vaqti (faqat detalda).",
+  })
+  nextReminderAt?: string | null;
 
   @ApiPropertyOptional({ example: "2026-06-14T12:00:00.000Z", format: "date-time" })
   createdAt?: string;

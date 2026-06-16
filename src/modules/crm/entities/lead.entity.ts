@@ -1,9 +1,20 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  JoinTable,
+  ManyToMany,
+  ManyToOne,
+  OneToMany,
+} from 'typeorm';
 import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 import { User } from '../../identity/entities/user.entity';
 import { LeadStatus } from '../enums/lead-status.enum';
 import { LeadApplication } from './lead-application.entity';
+import { LeadComment } from './lead-comment.entity';
 import { LeadSource } from './lead-source.entity';
+import { LeadTag } from './lead-tag.entity';
 import { LeadTask } from './lead-task.entity';
 import { PipelineStage } from './pipeline-stage.entity';
 
@@ -53,8 +64,23 @@ export class Lead extends UuidAuditEntity {
   @Column({ name: 'referral_code', type: 'varchar', length: 80, nullable: true })
   referralCode?: string | null;
 
+  /** Set once the lead is enrolled as a student (contract → student). */
+  @Column({ name: 'enrolled_student_id', type: 'uuid', nullable: true })
+  enrolledStudentId?: string | null;
+
+  @ManyToMany(() => LeadTag, (tag) => tag.leads)
+  @JoinTable({
+    name: 'lead_tag_links',
+    joinColumn: { name: 'lead_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'tag_id', referencedColumnName: 'id' },
+  })
+  tags: LeadTag[];
+
   @OneToMany(() => LeadTask, (task) => task.lead)
   tasks: LeadTask[];
+
+  @OneToMany(() => LeadComment, (comment) => comment.lead)
+  comments: LeadComment[];
 
   @OneToMany(() => LeadApplication, (application) => application.lead)
   applications: LeadApplication[];

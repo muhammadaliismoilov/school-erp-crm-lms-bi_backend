@@ -6,8 +6,10 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -30,7 +32,10 @@ import { PermissionsGuard } from "../../common/guards/permissions.guard";
 import { ApiLocalizedErrorResponses } from "../../common/swagger/api-localized-error-responses.decorator";
 import type { AuthenticatedUser } from "../../common/security/authenticated-user.interface";
 import { CrmActor, CrmService } from "./crm.service";
+import { EnrollStudentDto } from "../students/dto/enroll-student.dto";
 import { CreateLeadDto } from "./dto/create-lead.dto";
+import { CreateLeadCommentDto, UpdateLeadCommentDto } from "./dto/lead-comment.dto";
+import { CreateLeadTagDto, SetLeadTagsDto, UpdateLeadTagDto } from "./dto/lead-tag.dto";
 import { CreateSourceDto } from "./dto/create-source.dto";
 import { LeadQueryDto } from "./dto/lead-query.dto";
 import { MoveLeadDto } from "./dto/move-lead.dto";
@@ -110,7 +115,7 @@ export class CrmController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: Request,
   ) {
-    return this.crmService.moveLead(params.id, dto.status, this.buildActor(user, request));
+    return this.crmService.moveLead(params.id, dto, this.buildActor(user, request));
   }
 
   @Delete("leads/:id")
@@ -124,6 +129,131 @@ export class CrmController {
     @Req() request: Request,
   ) {
     return this.crmService.deleteLead(params.id, this.buildActor(user, request));
+  }
+
+  @Put("leads/:id/tags")
+  @Permissions([AppPermission.CRM_MANAGE])
+  @ApiOperation({ summary: "Lid teglarini to‘liq almashtirish" })
+  @ApiOkResponse({ description: "Lid teglari yangilandi." })
+  setLeadTags(
+    @Param() params: UuidParamDto,
+    @Body() dto: SetLeadTagsDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.crmService.setLeadTags(params.id, dto.tagIds, this.buildActor(user, request));
+  }
+
+  @Post("leads/:id/enroll")
+  @Permissions([AppPermission.CRM_MANAGE])
+  @ApiOperation({ summary: "Muvaffaqiyatli (shartnoma) lidni o‘quvchiga aylantirish" })
+  @ApiCreatedResponse({ description: "O‘quvchi yaratildi va lidga bog‘landi." })
+  enrollLead(
+    @Param() params: UuidParamDto,
+    @Body() dto: EnrollStudentDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.crmService.enrollLead(params.id, dto, this.buildActor(user, request));
+  }
+
+  // --------------------------------------------------------- Lead comments
+
+  @Get("leads/:id/comments")
+  @Permissions([AppPermission.CRM_READ])
+  @ApiOperation({ summary: "Lid izohlari (qadalganlar tepada, keyin eng yangisi)" })
+  @ApiOkResponse({ description: "Lid izohlari ro‘yxati qaytarildi." })
+  findLeadComments(@Param() params: UuidParamDto) {
+    return this.crmService.findComments(params.id);
+  }
+
+  @Post("leads/:id/comments")
+  @Permissions([AppPermission.CRM_MANAGE])
+  @ApiOperation({ summary: "Lidga izoh (va ixtiyoriy eslatma) qo‘shish" })
+  @ApiCreatedResponse({ description: "Izoh qo‘shildi." })
+  addLeadComment(
+    @Param() params: UuidParamDto,
+    @Body() dto: CreateLeadCommentDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.crmService.addComment(params.id, dto, this.buildActor(user, request));
+  }
+
+  @Patch("leads/:id/comments/:commentId")
+  @Permissions([AppPermission.CRM_MANAGE])
+  @ApiOperation({ summary: "Izohni tahrirlash yoki eslatmani bajarildi deb belgilash" })
+  @ApiOkResponse({ description: "Izoh tahrirlandi." })
+  updateLeadComment(
+    @Param("id", ParseUUIDPipe) leadId: string,
+    @Param("commentId", ParseUUIDPipe) commentId: string,
+    @Body() dto: UpdateLeadCommentDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.crmService.updateComment(leadId, commentId, dto, this.buildActor(user, request));
+  }
+
+  @Delete("leads/:id/comments/:commentId")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Permissions([AppPermission.CRM_MANAGE])
+  @ApiOperation({ summary: "Izohni o‘chirish (faqat muallifi)" })
+  @ApiNoContentResponse({ description: "Izoh o‘chirildi. Body qaytmaydi." })
+  deleteLeadComment(
+    @Param("id", ParseUUIDPipe) leadId: string,
+    @Param("commentId", ParseUUIDPipe) commentId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.crmService.deleteComment(leadId, commentId, this.buildActor(user, request));
+  }
+
+  // ------------------------------------------------------------------- Tags
+
+  @Get("tags")
+  @Permissions([AppPermission.CRM_READ])
+  @ApiOperation({ summary: "Lid teglarini olish (lidlar soni bilan)" })
+  @ApiOkResponse({ description: "Teglar ro‘yxati qaytarildi." })
+  findTags() {
+    return this.crmService.findTags();
+  }
+
+  @Post("tags")
+  @Permissions([AppPermission.CRM_MANAGE])
+  @ApiOperation({ summary: "Lid tegi yaratish" })
+  @ApiCreatedResponse({ description: "Teg yaratildi." })
+  createTag(
+    @Body() dto: CreateLeadTagDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.crmService.createTag(dto, this.buildActor(user, request));
+  }
+
+  @Patch("tags/:id")
+  @Permissions([AppPermission.CRM_MANAGE])
+  @ApiOperation({ summary: "Lid tegini tahrirlash" })
+  @ApiOkResponse({ description: "Teg tahrirlandi." })
+  updateTag(
+    @Param() params: UuidParamDto,
+    @Body() dto: UpdateLeadTagDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.crmService.updateTag(params.id, dto, this.buildActor(user, request));
+  }
+
+  @Delete("tags/:id")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Permissions([AppPermission.CRM_MANAGE])
+  @ApiOperation({ summary: "Lid tegini o‘chirish" })
+  @ApiNoContentResponse({ description: "Teg o‘chirildi. Body qaytmaydi." })
+  deleteTag(
+    @Param() params: UuidParamDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    return this.crmService.deleteTag(params.id, this.buildActor(user, request));
   }
 
   // ---------------------------------------------------------------- Sources
