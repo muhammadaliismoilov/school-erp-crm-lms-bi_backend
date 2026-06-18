@@ -5,7 +5,7 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { UuidParamDto } from '../../common/dto/uuid-param.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
-import { CreateExamDto, CreateExamResultDto, CreateJournalEntryDto, CreateLessonScheduleDto, UpdateExamDto, UpdateExamResultDto, UpdateJournalEntryDto, UpdateLessonScheduleDto } from './dto/lms.dto';
+import { CreateExamDto, CreateExamResultDto, CreateJournalEntryDto, UpdateExamDto, UpdateExamResultDto, UpdateJournalEntryDto } from './dto/lms.dto';
 import { GradebookQueryDto, GradebookResponseDto, UpsertGradeDto } from './dto/gradebook.dto';
 import { LmsService } from './lms.service';
 
@@ -24,9 +24,7 @@ export class LmsController {
   @ApiOperation({ summary: 'Jurnal katagini saqlash (o‘quvchi × dars uchun baho/uy vazifasi/izoh)' })
   upsertGrade(@Body() dto: UpsertGradeDto) { return this.service.upsertGrade(dto); }
 
-  @Get('lessons') @Permissions([AppPermission.LMS_READ]) findLessons() { return this.service.findLessons(); }
-  @Post('lessons') @Permissions([AppPermission.LMS_MANAGE]) createLesson(@Body() dto: CreateLessonScheduleDto) { return this.service.createLesson(dto); }
-  @Patch('lessons/:id') @Permissions([AppPermission.LMS_MANAGE]) updateLesson(@Param() p: UuidParamDto, @Body() dto: UpdateLessonScheduleDto) { return this.service.updateLesson(p.id, dto); }
+  // Dars jadvali (lessons) endpointlari ScheduleController (schedule.controller.ts) ga ko'chirildi.
   @Get('journal') @Permissions([AppPermission.LMS_READ]) findJournalEntries() { return this.service.findJournalEntries(); }
   @Post('journal') @Permissions([AppPermission.LMS_MANAGE]) createJournalEntry(@Body() dto: CreateJournalEntryDto) { return this.service.createJournalEntry(dto); }
   @Patch('journal/:id') @Permissions([AppPermission.LMS_MANAGE]) updateJournalEntry(@Param() p: UuidParamDto, @Body() dto: UpdateJournalEntryDto) { return this.service.updateJournalEntry(p.id, dto); }
