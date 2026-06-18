@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AuditModule } from '../audit/audit.module';
 import { StudentsModule } from '../students/students.module';
 import { LeadApplication } from './entities/lead-application.entity';
@@ -27,6 +28,7 @@ import { ReferralsService } from './referrals.service';
       PipelineStage,
       LeadApplication,
       Referral,
+      AuditLog,
     ]),
     AuditModule,
     StudentsModule,

@@ -8,7 +8,18 @@ import {
   Optional,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { ILike, In, IsNull, MoreThanOrEqual, Repository, SelectQueryBuilder } from "typeorm";
+import {
+  Between,
+  ILike,
+  In,
+  IsNull,
+  LessThanOrEqual,
+  MoreThanOrEqual,
+  Not,
+  Repository,
+  SelectQueryBuilder,
+} from "typeorm";
+import { AuditLog } from "../audit/entities/audit-log.entity";
 import type { LocalizedText } from "../../common/i18n/locale";
 import { AuditService } from "../audit/audit.service";
 import { User } from "../identity/entities/user.entity";
@@ -28,6 +39,15 @@ import {
 } from "./dto/lead-response.dto";
 import { CreateSourceDto } from "./dto/create-source.dto";
 import { LeadHistoryEntryDto } from "./dto/lead-history.dto";
+import { StatsQueryDto } from "./dto/stats-query.dto";
+import {
+  CohortPointDto,
+  FunnelStageDto,
+  LeadStatisticsDto,
+  ManagerStatDto,
+  SourceStatDto,
+  TagSegmentDto,
+} from "./dto/lead-stats.dto";
 import { UpdateSourceDto } from "./dto/update-source.dto";
 import { UpdateLeadDto } from "./dto/update-lead.dto";
 import { Lead } from "./entities/lead.entity";
@@ -59,6 +79,9 @@ export class CrmService {
     private readonly studentsService: StudentsService,
     @Optional()
     private readonly auditService?: AuditService,
+    @Optional()
+    @InjectRepository(AuditLog)
+    private readonly auditLogs?: Repository<AuditLog>,
   ) {}
 
   // ---------------------------------------------------------------- Leads
@@ -612,6 +635,424 @@ export class CrmService {
 
     await this.sources.delete(id);
     await this.audit(actor, "lead_source.deleted", id, { code: source.code }, "lead_source");
+  }
+
+  // ------------------------------------------------------------ Statistics
+
+  /** Pipeline order used to build the cumulative funnel (rejected sits outside). */
+  private static readonly FUNNEL_ORDER: LeadStatus[] = [
+    LeadStatus.NEW,
+    LeadStatus.CONTACTED,
+    LeadStatus.INTERESTED,
+    LeadStatus.TRIAL_LESSON,
+    LeadStatus.CONTRACT,
+  ];
+
+  private static readonly STUCK_THRESHOLD_DAYS = 7;
+
+  /**
+   * Aggregate CRM statistics for the dashboard. Every section works on the
+   * cohort of leads created within [from, to] (createdAt). Cycle and response
+   * times come from the audit trail; deltas compare to the previous equal-length
+   * period.
+   */
+  async getStatistics(query: StatsQueryDto): Promise<LeadStatisticsDto> {
+    const from = query.from ? new Date(query.from) : null;
+    const to = query.to ? new Date(query.to) : null;
+
+    const cohort = await this.leads.find({
+      where: this.rangeWhere(from, to),
+      select: {
+        id: true,
+        status: true,
+        sourceId: true,
+        assignedToId: true,
+        createdAt: true,
+        updatedAt: true,
+        enrolledStudentId: true,
+      },
+    });
+
+    const ids = cohort.map((l) => l.id);
+    const total = cohort.length;
+    const converted = cohort.filter((l) => l.enrolledStudentId).length;
+    const conversionRate = this.pct(converted, total);
+
+    const enrolledAt = await this.auditTimestamps("lead.enrolled", ids);
+    const firstContacted = await this.auditTimestamps("lead.status_changed", ids, LeadStatus.CONTACTED);
+
+    const avgCycleDays = this.averageDuration(cohort, enrolledAt, 86_400_000);
+
+    // ---- Overview ----
+    const [totalLeads, prev] = await Promise.all([this.leads.count(), this.previousPeriod(from, to)]);
+
+    const overview = {
+      totalLeads,
+      newLeads: total,
+      newLeadsDelta: this.delta(total, prev?.total),
+      conversionRate,
+      conversionRateDelta: this.delta(conversionRate, prev ? this.pct(prev.converted, prev.total) : undefined),
+      avgCycleDays,
+      trend: this.dailyTrend(cohort),
+      statusDistribution: this.statusDistribution(cohort),
+    };
+
+    // ---- Funnel ----
+    const funnelStages = this.buildFunnel(cohort, total, converted);
+
+    // ---- Quality ----
+    const rejectedCount = cohort.filter((l) => l.status === LeadStatus.REJECTED).length;
+    const now = Date.now();
+    const stuckLeads = cohort.filter(
+      (l) =>
+        !l.enrolledStudentId &&
+        l.status !== LeadStatus.CONTRACT &&
+        l.status !== LeadStatus.REJECTED &&
+        now - new Date(l.updatedAt).getTime() > CrmService.STUCK_THRESHOLD_DAYS * 86_400_000,
+    ).length;
+
+    const quality = {
+      rejectionRate: this.pct(rejectedCount, total),
+      rejectedCount,
+      avgCycleDays,
+      stuckLeads,
+      stuckThresholdDays: CrmService.STUCK_THRESHOLD_DAYS,
+    };
+
+    // ---- Sources / Managers / Segments ----
+    const [sourceMap, managerMap, tags] = await Promise.all([
+      this.sourceNameMap(),
+      this.managerNameMap(),
+      this.tagSegments(from, to),
+    ]);
+
+    const sources = this.buildSources(cohort, sourceMap);
+    const managers = this.buildManagers(cohort, managerMap, firstContacted);
+    const segments = {
+      tags,
+      cohort: this.weeklyCohort(cohort),
+      sourceStageHeatmap: this.sourceStageHeatmap(cohort, sourceMap),
+    };
+
+    return {
+      range: { from: from?.toISOString() ?? null, to: to?.toISOString() ?? null },
+      overview,
+      funnel: { stages: funnelStages, overallConversion: conversionRate },
+      quality,
+      sources,
+      managers,
+      segments,
+    };
+  }
+
+  private rangeWhere(from: Date | null, to: Date | null) {
+    if (from && to) return { createdAt: Between(from, to) };
+    if (from) return { createdAt: MoreThanOrEqual(from) };
+    if (to) return { createdAt: LessThanOrEqual(to) };
+    return {};
+  }
+
+  /** Map of leadId → earliest timestamp for an audit action (optionally a status). */
+  private async auditTimestamps(
+    action: string,
+    ids: string[],
+    status?: LeadStatus,
+  ): Promise<Map<string, Date>> {
+    const map = new Map<string, Date>();
+    if (!this.auditLogs || ids.length === 0) return map;
+
+    const qb = this.auditLogs
+      .createQueryBuilder("a")
+      .select("a.entity_id", "leadId")
+      .addSelect("MIN(a.created_at)", "ts")
+      .where("a.entity = :entity", { entity: "lead" })
+      .andWhere("a.action = :action", { action })
+      .andWhere("a.entity_id IN (:...ids)", { ids })
+      .groupBy("a.entity_id");
+
+    if (status) {
+      qb.andWhere("a.details_json ->> 'status' = :status", { status });
+    }
+
+    const rows = await qb.getRawMany<{ leadId: string; ts: string }>();
+    for (const row of rows) {
+      map.set(row.leadId, new Date(row.ts));
+    }
+
+    return map;
+  }
+
+  /** Average duration (in `unitMs` units) from lead creation to the mapped event. */
+  private averageDuration(
+    cohort: Lead[],
+    endAt: Map<string, Date>,
+    unitMs: number,
+  ): number | null {
+    const durations: number[] = [];
+    for (const lead of cohort) {
+      const end = endAt.get(lead.id);
+      if (end) {
+        durations.push((end.getTime() - new Date(lead.createdAt).getTime()) / unitMs);
+      }
+    }
+    if (durations.length === 0) return null;
+
+    return this.round(durations.reduce((a, b) => a + b, 0) / durations.length);
+  }
+
+  private dailyTrend(cohort: Lead[]) {
+    const counts = new Map<string, number>();
+    for (const lead of cohort) {
+      const date = new Date(lead.createdAt).toISOString().slice(0, 10);
+      counts.set(date, (counts.get(date) ?? 0) + 1);
+    }
+
+    return [...counts.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, count]) => ({ date, count }));
+  }
+
+  private statusDistribution(cohort: Lead[]) {
+    const counts = new Map<LeadStatus, number>();
+    for (const lead of cohort) {
+      counts.set(lead.status, (counts.get(lead.status) ?? 0) + 1);
+    }
+
+    return [...counts.entries()].map(([status, count]) => ({ status, count }));
+  }
+
+  private buildFunnel(cohort: Lead[], total: number, converted: number): FunnelStageDto[] {
+    const ranked = cohort.filter((l) => l.status !== LeadStatus.REJECTED);
+    const stages: FunnelStageDto[] = [];
+    let prevCount: number | null = null;
+
+    CrmService.FUNNEL_ORDER.forEach((status, index) => {
+      const count = ranked.filter((l) => CrmService.FUNNEL_ORDER.indexOf(l.status) >= index).length;
+      stages.push({
+        stage: status,
+        count,
+        reachedPct: this.pct(count, total),
+        stepConversion: prevCount === null ? null : this.pct(count, prevCount),
+      });
+      prevCount = count;
+    });
+
+    stages.push({
+      stage: "enrolled",
+      count: converted,
+      reachedPct: this.pct(converted, total),
+      stepConversion: prevCount === null ? null : this.pct(converted, prevCount),
+    });
+
+    return stages;
+  }
+
+  private async previousPeriod(
+    from: Date | null,
+    to: Date | null,
+  ): Promise<{ total: number; converted: number } | null> {
+    if (!from || !to) return null;
+
+    const length = to.getTime() - from.getTime();
+    if (length <= 0) return null;
+
+    const prevFrom = new Date(from.getTime() - length);
+    const where = { createdAt: Between(prevFrom, from) };
+    const [total, converted] = await Promise.all([
+      this.leads.count({ where }),
+      this.leads.count({ where: { ...where, enrolledStudentId: Not(IsNull()) } }),
+    ]);
+
+    return { total, converted };
+  }
+
+  private async sourceNameMap(): Promise<Map<string, string>> {
+    const all = await this.sources.find();
+    return new Map(all.map((s) => [s.id, this.localizedName(s.name, s.code)]));
+  }
+
+  private async managerNameMap(): Promise<Map<string, string>> {
+    const rows = await this.leads
+      .createQueryBuilder("lead")
+      .leftJoin("lead.assignedTo", "u")
+      .select("u.id", "id")
+      .addSelect("u.first_name", "firstName")
+      .addSelect("u.last_name", "lastName")
+      .addSelect("u.username", "username")
+      .where("lead.assigned_to_id IS NOT NULL")
+      .groupBy("u.id")
+      .addGroupBy("u.first_name")
+      .addGroupBy("u.last_name")
+      .addGroupBy("u.username")
+      .getRawMany<{ id: string; firstName: string; lastName: string; username: string }>();
+
+    return new Map(
+      rows.map((r) => [r.id, [r.firstName, r.lastName].filter(Boolean).join(" ").trim() || r.username]),
+    );
+  }
+
+  private buildSources(cohort: Lead[], names: Map<string, string>): SourceStatDto[] {
+    const groups = new Map<string, { count: number; converted: number }>();
+    for (const lead of cohort) {
+      const key = lead.sourceId ?? "";
+      const g = groups.get(key) ?? { count: 0, converted: 0 };
+      g.count += 1;
+      if (lead.enrolledStudentId) g.converted += 1;
+      groups.set(key, g);
+    }
+
+    return [...groups.entries()]
+      .map(([key, g]) => ({
+        sourceId: key || null,
+        name: key ? names.get(key) ?? "—" : "Manbasiz",
+        count: g.count,
+        converted: g.converted,
+        conversion: this.pct(g.converted, g.count),
+      }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  private buildManagers(
+    cohort: Lead[],
+    names: Map<string, string>,
+    firstContacted: Map<string, Date>,
+  ): ManagerStatDto[] {
+    const groups = new Map<
+      string,
+      { count: number; converted: number; open: number; closed: number; responseHours: number[] }
+    >();
+
+    for (const lead of cohort) {
+      const key = lead.assignedToId ?? "";
+      const g = groups.get(key) ?? { count: 0, converted: 0, open: 0, closed: 0, responseHours: [] };
+      g.count += 1;
+      if (lead.enrolledStudentId) g.converted += 1;
+      if (lead.status === LeadStatus.CONTRACT || lead.status === LeadStatus.REJECTED) g.closed += 1;
+      else g.open += 1;
+
+      const contacted = firstContacted.get(lead.id);
+      if (contacted) {
+        g.responseHours.push((contacted.getTime() - new Date(lead.createdAt).getTime()) / 3_600_000);
+      }
+      groups.set(key, g);
+    }
+
+    return [...groups.entries()]
+      .map(([key, g]) => ({
+        userId: key || null,
+        name: key ? names.get(key) ?? "—" : "Biriktirilmagan",
+        count: g.count,
+        converted: g.converted,
+        conversion: this.pct(g.converted, g.count),
+        open: g.open,
+        closed: g.closed,
+        avgResponseHours:
+          g.responseHours.length === 0
+            ? null
+            : this.round(g.responseHours.reduce((a, b) => a + b, 0) / g.responseHours.length),
+      }))
+      .sort((a, b) => b.conversion - a.conversion || b.count - a.count);
+  }
+
+  private async tagSegments(from: Date | null, to: Date | null): Promise<TagSegmentDto[]> {
+    const qb = this.leads
+      .createQueryBuilder("lead")
+      .innerJoin("lead.tags", "tag")
+      .select("tag.id", "tagId")
+      .addSelect("tag.name", "name")
+      .addSelect("tag.color", "color")
+      .addSelect("COUNT(DISTINCT lead.id)", "count")
+      .addSelect(
+        "COUNT(DISTINCT CASE WHEN lead.enrolled_student_id IS NOT NULL THEN lead.id END)",
+        "converted",
+      )
+      .groupBy("tag.id")
+      .addGroupBy("tag.name")
+      .addGroupBy("tag.color");
+
+    this.applyRange(qb, from, to);
+
+    const rows = await qb.getRawMany<{
+      tagId: string;
+      name: string;
+      color: string | null;
+      count: string;
+      converted: string;
+    }>();
+
+    return rows
+      .map((r) => {
+        const count = Number(r.count);
+        const converted = Number(r.converted);
+        return {
+          tagId: r.tagId,
+          name: r.name,
+          color: r.color ?? null,
+          count,
+          converted,
+          conversion: this.pct(converted, count),
+        };
+      })
+      .sort((a, b) => b.count - a.count);
+  }
+
+  private weeklyCohort(cohort: Lead[]): CohortPointDto[] {
+    const buckets = new Map<string, { newLeads: number; converted: number }>();
+    for (const lead of cohort) {
+      const period = this.isoWeek(new Date(lead.createdAt));
+      const b = buckets.get(period) ?? { newLeads: 0, converted: 0 };
+      b.newLeads += 1;
+      if (lead.enrolledStudentId) b.converted += 1;
+      buckets.set(period, b);
+    }
+
+    return [...buckets.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([period, b]) => ({ period, newLeads: b.newLeads, converted: b.converted }));
+  }
+
+  private sourceStageHeatmap(cohort: Lead[], names: Map<string, string>) {
+    const cells = new Map<string, { sourceId: string | null; status: LeadStatus; count: number }>();
+    for (const lead of cohort) {
+      const key = `${lead.sourceId ?? ""}|${lead.status}`;
+      const cell = cells.get(key) ?? { sourceId: lead.sourceId ?? null, status: lead.status, count: 0 };
+      cell.count += 1;
+      cells.set(key, cell);
+    }
+
+    return [...cells.values()].map((c) => ({
+      sourceId: c.sourceId,
+      sourceName: c.sourceId ? names.get(c.sourceId) ?? "—" : "Manbasiz",
+      status: c.status,
+      count: c.count,
+    }));
+  }
+
+  private applyRange(qb: SelectQueryBuilder<Lead>, from: Date | null, to: Date | null): void {
+    if (from) qb.andWhere("lead.created_at >= :from", { from });
+    if (to) qb.andWhere("lead.created_at <= :to", { to });
+  }
+
+  /** ISO-8601 week label, e.g. "2026-W24". */
+  private isoWeek(date: Date): string {
+    const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+    const day = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - day);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7);
+    return `${d.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+  }
+
+  private pct(part: number, whole: number): number {
+    return whole > 0 ? this.round((part / whole) * 100) : 0;
+  }
+
+  /** Relative change (%) of `current` vs `previous`; null when there is no baseline. */
+  private delta(current: number, previous: number | undefined): number | null {
+    if (previous === undefined || previous === 0) return null;
+    return this.round(((current - previous) / previous) * 100);
+  }
+
+  private round(value: number): number {
+    return Math.round(value * 10) / 10;
   }
 
   // --------------------------------------------------------------- Helpers

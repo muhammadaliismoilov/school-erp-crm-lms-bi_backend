@@ -38,6 +38,8 @@ import { CreateLeadCommentDto, UpdateLeadCommentDto } from "./dto/lead-comment.d
 import { CreateLeadTagDto, SetLeadTagsDto, UpdateLeadTagDto } from "./dto/lead-tag.dto";
 import { CreateSourceDto } from "./dto/create-source.dto";
 import { LeadQueryDto } from "./dto/lead-query.dto";
+import { LeadStatisticsDto } from "./dto/lead-stats.dto";
+import { StatsQueryDto } from "./dto/stats-query.dto";
 import { MoveLeadDto } from "./dto/move-lead.dto";
 import { UpdateLeadDto } from "./dto/update-lead.dto";
 import { UpdateSourceDto } from "./dto/update-source.dto";
@@ -52,6 +54,16 @@ export class CrmController {
 
   private buildActor(user: AuthenticatedUser, request: Request): CrmActor {
     return { userId: user?.id, ipAddress: request?.ip };
+  }
+
+  // ------------------------------------------------------------ Statistics
+
+  @Get("stats")
+  @Permissions([AppPermission.CRM_READ])
+  @ApiOperation({ summary: "CRM lid statistikasi (umumiy, voronka, manba, menejer, segment)" })
+  @ApiOkResponse({ type: LeadStatisticsDto, description: "Statistika seksiyalari qaytarildi." })
+  getStats(@Query() query: StatsQueryDto): Promise<LeadStatisticsDto> {
+    return this.crmService.getStatistics(query);
   }
 
   // ------------------------------------------------------------------ Leads
