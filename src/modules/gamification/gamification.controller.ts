@@ -1,11 +1,11 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AppPermission } from '../../common/constants/permissions';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { UuidParamDto } from '../../common/dto/uuid-param.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
-import { AddCoinTransactionDto, AwardBadgeDto, CreateBadgeDto, UpdateBadgeDto } from './dto/gamification.dto';
+import { AddCoinTransactionDto, AwardBadgeDto, CreateBadgeDto, CreateCoinPresetDto, UpdateBadgeDto, UpdateCoinPresetDto } from './dto/gamification.dto';
 import { GamificationService } from './gamification.service';
 @ApiTags('Gamification') @ApiBearerAuth() @UseGuards(JwtAuthGuard, PermissionsGuard) @Controller({ path: 'gamification', version: '1' })
 export class GamificationController { constructor(private readonly service: GamificationService) {}
@@ -16,4 +16,8 @@ export class GamificationController { constructor(private readonly service: Gami
   @Get('wallets/:id') @Permissions([AppPermission.GAMIFICATION_READ]) getWallet(@Param('id') studentId: string) { return this.service.getWallet(studentId); }
   @Post('coins') @Permissions([AppPermission.GAMIFICATION_MANAGE]) addTransaction(@Body() dto: AddCoinTransactionDto) { return this.service.addTransaction(dto); }
   @Get('coins') @Permissions([AppPermission.GAMIFICATION_READ]) findTransactions(@Query('studentId') studentId?: string) { return this.service.findTransactions(studentId); }
+  @Get('coin-presets') @Permissions([AppPermission.GAMIFICATION_READ]) findCoinPresets() { return this.service.findCoinPresets(); }
+  @Post('coin-presets') @Permissions([AppPermission.GAMIFICATION_MANAGE]) createCoinPreset(@Body() dto: CreateCoinPresetDto) { return this.service.createCoinPreset(dto); }
+  @Patch('coin-presets/:id') @Permissions([AppPermission.GAMIFICATION_MANAGE]) updateCoinPreset(@Param() p: UuidParamDto, @Body() dto: UpdateCoinPresetDto) { return this.service.updateCoinPreset(p.id, dto); }
+  @Delete('coin-presets/:id') @Permissions([AppPermission.GAMIFICATION_MANAGE]) deleteCoinPreset(@Param() p: UuidParamDto) { return this.service.deleteCoinPreset(p.id); }
 }

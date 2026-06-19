@@ -1,15 +1,20 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AddCoinTransactionDto, AwardBadgeDto, CreateBadgeDto, UpdateBadgeDto } from './dto/gamification.dto';
+import { AddCoinTransactionDto, AwardBadgeDto, CreateBadgeDto, CreateCoinPresetDto, UpdateBadgeDto, UpdateCoinPresetDto } from './dto/gamification.dto';
 import { Badge } from './entities/badge.entity';
+import { CoinPreset } from './entities/coin-preset.entity';
 import { CoinTransaction } from './entities/coin-transaction.entity';
 import { StudentBadge } from './entities/student-badge.entity';
 import { StudentCoinWallet } from './entities/student-wallet.entity';
 import { WalletTransactionType } from './enums/gamification.enums';
 @Injectable()
 export class GamificationService {
-  constructor(@InjectRepository(Badge) private badges: Repository<Badge>, @InjectRepository(StudentBadge) private studentBadges: Repository<StudentBadge>, @InjectRepository(StudentCoinWallet) private wallets: Repository<StudentCoinWallet>, @InjectRepository(CoinTransaction) private transactions: Repository<CoinTransaction>) {}
+  constructor(@InjectRepository(Badge) private badges: Repository<Badge>, @InjectRepository(StudentBadge) private studentBadges: Repository<StudentBadge>, @InjectRepository(StudentCoinWallet) private wallets: Repository<StudentCoinWallet>, @InjectRepository(CoinTransaction) private transactions: Repository<CoinTransaction>, @InjectRepository(CoinPreset) private coinPresets: Repository<CoinPreset>) {}
+  findCoinPresets(onlyActive = false) { return this.coinPresets.find({ where: onlyActive ? { isActive: true } : {}, order: { sortOrder: 'ASC', createdAt: 'ASC' } }); }
+  createCoinPreset(dto: CreateCoinPresetDto) { return this.coinPresets.save(this.coinPresets.create(dto)); }
+  async updateCoinPreset(id: string, dto: UpdateCoinPresetDto) { const e = await this.coinPresets.preload({ id, ...dto }); if (!e) throw new NotFoundException('Coin preset not found'); return this.coinPresets.save(e); }
+  async deleteCoinPreset(id: string) { const e = await this.coinPresets.findOne({ where: { id } }); if (!e) throw new NotFoundException('Coin preset not found'); await this.coinPresets.softRemove(e); }
   findBadges() { return this.badges.find({ order: { createdAt: 'DESC' } }); }
   createBadge(dto: CreateBadgeDto) { return this.badges.save(this.badges.create(dto)); }
   async updateBadge(id: string, dto: UpdateBadgeDto) { const e = await this.badges.preload({ id, ...dto }); if (!e) throw new NotFoundException('Badge not found'); return this.badges.save(e); }
