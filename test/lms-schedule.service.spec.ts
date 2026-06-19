@@ -58,6 +58,22 @@ const makeRepos = (over: { lessons?: Partial<AnyRepo> } = {}) => {
   return { service, lessons, classes, quarters, periods, courses, subjects, users, saved };
 };
 
+describe('ScheduleService.getTeachers', () => {
+  it('foydalanuvchilarni {id, fullName} ko‘rinishida qaytaradi (users modulisiz)', async () => {
+    const users = [
+      { id: 'u1', firstName: 'Aziz', lastName: 'Toshmatov', username: 'aziz' },
+      { id: 'u2', firstName: '', lastName: '', username: 'noname' },
+    ];
+    const { service } = makeRepos();
+    (service as unknown as { users: AnyRepo }).users.find = jest.fn().mockResolvedValue(users);
+    const res = await service.getTeachers();
+    expect(res.items).toEqual([
+      { id: 'u1', fullName: 'Aziz Toshmatov' },
+      { id: 'u2', fullName: 'noname' },
+    ]);
+  });
+});
+
 describe('ScheduleService.createCell', () => {
   it('chorak boshidan barcha mos hafta kunlariga dars yaratadi', async () => {
     const { service, saved } = makeRepos();

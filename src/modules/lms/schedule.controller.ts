@@ -50,6 +50,13 @@ export class ScheduleController {
     return this.service.getClasses(query.quarterId);
   }
 
+  @Get('lessons/teachers')
+  @Permissions([AppPermission.LMS_READ])
+  @ApiOperation({ summary: 'Jadval selektorlari uchun o‘qituvchilar ro‘yxati' })
+  getTeachers() {
+    return this.service.getTeachers();
+  }
+
   @Get('lessons/grid')
   @Permissions([AppPermission.LMS_READ])
   @ApiOperation({ summary: 'Sinf bo‘yicha haftalik dars jadvali gridi' })

@@ -73,6 +73,17 @@ export class ScheduleService {
     };
   }
 
+  /**
+   * Jadval selektorlari uchun o'qituvchilar (foydalanuvchilar) ro'yxati.
+   * Users modulidan (USERS_READ) ajratilgan — LMS ruxsati bilan ham ishlaydi.
+   */
+  async getTeachers() {
+    const users = await this.users.find({
+      order: { firstName: 'ASC', lastName: 'ASC' },
+    });
+    return { items: users.map((u) => ({ id: u.id, fullName: this.fullName(u) })) };
+  }
+
   // ============================================================ Read: grid
 
   async getGrid(quarterId: string, classId: string) {
