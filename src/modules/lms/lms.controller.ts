@@ -8,7 +8,7 @@ import { UuidParamDto } from '../../common/dto/uuid-param.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import type { AuthenticatedUser } from '../../common/security/authenticated-user.interface';
-import { CreateExamDto, CreateExamResultDto, CreateJournalEntryDto, UpdateExamDto, UpdateExamResultDto, UpdateJournalEntryDto } from './dto/lms.dto';
+import { CreateExamResultDto, CreateJournalEntryDto, UpdateExamResultDto, UpdateJournalEntryDto } from './dto/lms.dto';
 import { AwardJournalCoinDto, GenerateJournalLessonsDto, GradebookQueryDto, GradebookResponseDto, QuarterGradeDto, StudentProgressQueryDto, UpsertGradeDto } from './dto/gradebook.dto';
 import { GradebookService } from './gradebook.service';
 import { LmsService } from './lms.service';
@@ -61,9 +61,7 @@ export class LmsController {
   @Get('journal') @Permissions([AppPermission.LMS_READ]) findJournalEntries() { return this.service.findJournalEntries(); }
   @Post('journal') @Permissions([AppPermission.LMS_MANAGE]) createJournalEntry(@Body() dto: CreateJournalEntryDto) { return this.service.createJournalEntry(dto); }
   @Patch('journal/:id') @Permissions([AppPermission.LMS_MANAGE]) updateJournalEntry(@Param() p: UuidParamDto, @Body() dto: UpdateJournalEntryDto) { return this.service.updateJournalEntry(p.id, dto); }
-  @Get('exams') @Permissions([AppPermission.LMS_READ]) findExams() { return this.service.findExams(); }
-  @Post('exams') @Permissions([AppPermission.LMS_MANAGE]) createExam(@Body() dto: CreateExamDto) { return this.service.createExam(dto); }
-  @Patch('exams/:id') @Permissions([AppPermission.LMS_MANAGE]) updateExam(@Param() p: UuidParamDto, @Body() dto: UpdateExamDto) { return this.service.updateExam(p.id, dto); }
+  // Exam (Progress imtihonlar) endpointlari ExamController (exam.controller.ts) ga ko'chirildi.
   @Get('exam-results') @Permissions([AppPermission.LMS_READ]) findExamResults() { return this.service.findExamResults(); }
   @Post('exam-results') @Permissions([AppPermission.LMS_MANAGE]) createExamResult(@Body() dto: CreateExamResultDto) { return this.service.createExamResult(dto); }
   @Patch('exam-results/:id') @Permissions([AppPermission.LMS_MANAGE]) updateExamResult(@Param() p: UuidParamDto, @Body() dto: UpdateExamResultDto) { return this.service.updateExamResult(p.id, dto); }

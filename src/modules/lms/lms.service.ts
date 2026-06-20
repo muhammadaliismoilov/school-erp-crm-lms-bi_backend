@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Repository } from 'typeorm';
-import { CreateExamDto, CreateExamResultDto, CreateJournalEntryDto, CreateLessonScheduleDto, UpdateExamDto, UpdateExamResultDto, UpdateJournalEntryDto, UpdateLessonScheduleDto } from './dto/lms.dto';
+import { CreateExamResultDto, CreateJournalEntryDto, CreateLessonScheduleDto, UpdateExamResultDto, UpdateJournalEntryDto, UpdateLessonScheduleDto } from './dto/lms.dto';
 import { ExamResult } from './entities/exam-result.entity';
 import { Exam } from './entities/exam.entity';
 import { JournalEntry } from './entities/journal-entry.entity';
@@ -16,9 +16,6 @@ export class LmsService {
   createJournalEntry(dto: CreateJournalEntryDto) { return this.journal.save(this.journal.create({ ...dto, homeworkDone: dto.homeworkDone ?? false })); }
   findJournalEntries() { return this.journal.find({ relations: { lesson: true, student: true }, order: { createdAt: 'DESC' } }); }
   updateJournalEntry(id: string, dto: UpdateJournalEntryDto) { return this.update(this.journal, id, dto); }
-  createExam(dto: CreateExamDto) { return this.exams.save(this.exams.create(dto)); }
-  findExams() { return this.exams.find({ relations: { class: true, subject: true, results: true }, order: { examDate: 'DESC' } }); }
-  updateExam(id: string, dto: UpdateExamDto) { return this.update(this.exams, id, dto); }
   createExamResult(dto: CreateExamResultDto) { return this.results.save(this.results.create(dto)); }
   findExamResults() { return this.results.find({ relations: { exam: true, student: true }, order: { createdAt: 'DESC' } }); }
   updateExamResult(id: string, dto: UpdateExamResultDto) { return this.update(this.results, id, dto); }

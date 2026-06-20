@@ -15,6 +15,8 @@ import { Exam } from './entities/exam.entity';
 import { JournalEntry } from './entities/journal-entry.entity';
 import { LessonSchedule } from './entities/lesson-schedule.entity';
 import { QuarterSubjectGrade } from './entities/quarter-subject-grade.entity';
+import { ExamController } from './exam.controller';
+import { ExamService } from './exam.service';
 import { GradebookService } from './gradebook.service';
 import { LmsController } from './lms.controller';
 import { LmsService } from './lms.service';
@@ -41,8 +43,8 @@ import { ScheduleService } from './schedule.service';
     AuditModule,
     GamificationModule,
   ],
-  controllers: [LmsController, ScheduleController],
-  providers: [LmsService, ScheduleService, GradebookService],
-  exports: [LmsService, ScheduleService, GradebookService],
+  controllers: [LmsController, ScheduleController, ExamController],
+  providers: [LmsService, ScheduleService, GradebookService, ExamService],
+  exports: [LmsService, ScheduleService, GradebookService, ExamService],
 })
 export class LmsModule {}
