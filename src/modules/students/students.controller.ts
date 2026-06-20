@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -17,14 +18,15 @@ import {
 } from "@nestjs/swagger";
 import { AppPermission } from "../../common/constants/permissions";
 import { Permissions } from "../../common/decorators/permissions.decorator";
-import { PaginationQueryDto } from "../../common/dto/pagination-query.dto";
 import { UuidParamDto } from "../../common/dto/uuid-param.dto";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../../common/guards/permissions.guard";
 import { ApiLocalizedErrorResponses } from "../../common/swagger/api-localized-error-responses.decorator";
+import { CreateDocumentDto } from "./dto/create-document.dto";
 import { CreateParentDto } from "./dto/create-parent.dto";
 import { CreateStudentDto } from "./dto/create-student.dto";
 import { LinkParentDto } from "./dto/link-parent.dto";
+import { QueryStudentsDto } from "./dto/query-students.dto";
 import { UpdateStudentDto } from "./dto/update-student.dto";
 import { StudentsService } from "./students.service";
 
@@ -40,8 +42,16 @@ export class StudentsController {
   @Permissions([AppPermission.STUDENTS_READ])
   @ApiOperation({ summary: "O‘quvchilar ro‘yxatini sahifalab olish" })
   @ApiOkResponse({ description: "O‘quvchilar ro‘yxati sahifalab qaytarildi." })
-  findAll(@Query() query: PaginationQueryDto) {
+  findAll(@Query() query: QueryStudentsDto) {
     return this.studentsService.findStudents(query);
+  }
+
+  @Get("stats")
+  @Permissions([AppPermission.STUDENTS_READ])
+  @ApiOperation({ summary: "O‘quvchilar statistikasi (jami / erkak / ayol / shu oyda)" })
+  @ApiOkResponse({ description: "Statistika qaytarildi." })
+  stats() {
+    return this.studentsService.getStats();
   }
 
   @Post()
@@ -68,6 +78,14 @@ export class StudentsController {
     return this.studentsService.updateStudent(params.id, dto);
   }
 
+  @Delete(":id")
+  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @ApiOperation({ summary: "O‘quvchini o‘chirish (soft-delete)" })
+  @ApiOkResponse({ description: "O‘quvchi o‘chirildi." })
+  remove(@Param() params: UuidParamDto) {
+    return this.studentsService.removeStudent(params.id);
+  }
+
   @Post("parents")
   @Permissions([AppPermission.STUDENTS_MANAGE])
   @ApiOperation({ summary: "Ota-ona yoki vasiy yozuvini yaratish" })
@@ -82,5 +100,32 @@ export class StudentsController {
   @ApiCreatedResponse({ description: "Ota-ona o‘quvchiga bog‘landi." })
   linkParent(@Param() params: UuidParamDto, @Body() dto: LinkParentDto) {
     return this.studentsService.linkParent(params.id, dto);
+  }
+
+  @Get(":id/documents")
+  @Permissions([AppPermission.STUDENTS_READ])
+  @ApiOperation({ summary: "O‘quvchi hujjatlari ro‘yxati" })
+  @ApiOkResponse({ description: "Hujjatlar qaytarildi." })
+  listDocuments(@Param() params: UuidParamDto) {
+    return this.studentsService.listDocuments(params.id);
+  }
+
+  @Post(":id/documents")
+  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @ApiOperation({ summary: "O‘quvchiga hujjat qo‘shish" })
+  @ApiCreatedResponse({ description: "Hujjat qo‘shildi." })
+  addDocument(@Param() params: UuidParamDto, @Body() dto: CreateDocumentDto) {
+    return this.studentsService.addDocument(params.id, dto);
+  }
+
+  @Delete(":id/documents/:documentId")
+  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @ApiOperation({ summary: "O‘quvchi hujjatini o‘chirish" })
+  @ApiOkResponse({ description: "Hujjat o‘chirildi." })
+  removeDocument(
+    @Param("id") id: string,
+    @Param("documentId") documentId: string,
+  ) {
+    return this.studentsService.removeDocument(id, documentId);
   }
 }
