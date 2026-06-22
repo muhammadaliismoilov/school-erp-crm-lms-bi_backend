@@ -6,14 +6,12 @@ import { Contract } from '../finance/entities/contract.entity';
 import { Payment } from '../finance/entities/payment.entity';
 import { ExamResult } from '../lms/entities/exam-result.entity';
 import { JournalEntry } from '../lms/entities/journal-entry.entity';
-import { Parent } from '../students/entities/parent.entity';
 import { StudentParent } from '../students/entities/student-parent.entity';
 import { MealMenu } from '../youth-services/entities/meal-menu.entity';
 import { ChildPortalQueryDto } from './dto/mobile-portal.dto';
 @Injectable()
 export class MobilePortalService {
   constructor(
-    @InjectRepository(Parent) private parents: Repository<Parent>,
     @InjectRepository(StudentParent) private studentParents: Repository<StudentParent>,
     @InjectRepository(AttendanceRecord) private attendance: Repository<AttendanceRecord>,
     @InjectRepository(JournalEntry) private journal: Repository<JournalEntry>,

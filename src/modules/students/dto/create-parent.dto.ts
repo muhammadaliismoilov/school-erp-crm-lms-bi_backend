@@ -1,5 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsOptional, IsPhoneNumber, IsString, Length } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsPhoneNumber,
+  IsString,
+  Length,
+} from 'class-validator';
+import { UserGender } from '../../users/enums/user.enums';
 
 export class CreateParentDto {
   @ApiProperty({ example: 'Dilshod', minLength: 1, maxLength: 80 })
@@ -21,4 +29,9 @@ export class CreateParentDto {
   @IsOptional()
   @IsEmail()
   email?: string;
+
+  @ApiPropertyOptional({ enum: UserGender, example: UserGender.MALE })
+  @IsOptional()
+  @IsEnum(UserGender)
+  gender?: UserGender;
 }

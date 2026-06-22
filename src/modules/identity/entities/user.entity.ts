@@ -30,14 +30,14 @@ export class User extends UuidAuditEntity {
   @Column({ name: 'first_name', type: 'varchar', length: 80 })
   firstName: string;
 
-  @Column({ name: 'first_name_cyrillic', type: 'varchar', length: 80 })
-  firstNameCyrillic: string;
+  @Column({ name: 'first_name_cyrillic', type: 'varchar', length: 80, nullable: true })
+  firstNameCyrillic?: string | null;
 
   @Column({ name: 'last_name', type: 'varchar', length: 80 })
   lastName: string;
 
-  @Column({ name: 'last_name_cyrillic', type: 'varchar', length: 80 })
-  lastNameCyrillic: string;
+  @Column({ name: 'last_name_cyrillic', type: 'varchar', length: 80, nullable: true })
+  lastNameCyrillic?: string | null;
 
   @Column({ name: 'middle_name', type: 'varchar', length: 80, nullable: true })
   middleName?: string | null;
@@ -51,8 +51,8 @@ export class User extends UuidAuditEntity {
   @Column({ name: 'document_number', type: 'varchar', length: 32, nullable: true })
   documentNumber?: string | null;
 
-  @Column({ type: 'enum', enum: UserGender })
-  gender: UserGender;
+  @Column({ type: 'enum', enum: UserGender, nullable: true })
+  gender?: UserGender | null;
 
   @Column({ type: 'varchar', length: 14, nullable: true })
   pinfl?: string | null;

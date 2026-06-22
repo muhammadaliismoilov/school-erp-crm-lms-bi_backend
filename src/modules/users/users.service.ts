@@ -73,6 +73,68 @@ export class UsersService {
     return { ...this.toUserResponse(saved), generatedPassword: password };
   }
 
+  /**
+   * Lightweight PARENT account creation. Guardians are contacts first, login
+   * users second, so the Cyrillic name and gender are optional (the columns are
+   * nullable for this role). Login + password are always auto-generated.
+   */
+  async createParent(input: {
+    firstName: string;
+    lastName?: string | null;
+    middleName?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    gender?: UserGender | null;
+    birthDate?: string | null;
+    pinfl?: string | null;
+  }): Promise<UserResponseSchema & { generatedPassword: string }> {
+    const username = await this.generateUniqueUsername(UserManagementRole.PARENT);
+    const identifiers: IdentifierInput = {
+      username,
+      email: this.nullableText(input.email),
+      phone: this.normalizePhone(input.phone),
+      pinfl: this.nullableText(input.pinfl),
+    };
+    await this.ensureUniqueIdentifiers(identifiers);
+    const roles = await this.resolveRoles(undefined, UserManagementRole.PARENT);
+    const password = randomBytes(18).toString('base64url');
+    const user = this.users.create({
+      username,
+      email: identifiers.email,
+      phone: identifiers.phone,
+      passwordHash: await this.passwords.hash(password),
+      firstName: this.normalizeText(input.firstName),
+      firstNameCyrillic: null,
+      lastName: input.lastName ? this.normalizeText(input.lastName) : '',
+      lastNameCyrillic: null,
+      middleName: this.nullableText(input.middleName),
+      birthDate: this.nullableText(input.birthDate),
+      gender: input.gender ?? null,
+      pinfl: identifiers.pinfl,
+      status: CommonStatus.ACTIVE,
+      roles,
+    });
+    const saved = await this.users.save(user);
+    return { ...this.toUserResponse(saved), generatedPassword: password };
+  }
+
+  /** Resolves a user that must carry the PARENT role; throws otherwise. */
+  async findParentUser(id: string): Promise<User> {
+    const user = await this.users.findOne({
+      where: { id },
+      relations: { roles: true },
+    });
+    if (!user) {
+      throw new NotFoundException('Parent user not found');
+    }
+    const parentRoles = this.getRoleCandidates(UserManagementRole.PARENT);
+    const isParent = (user.roles ?? []).some((role) => parentRoles.includes(role.name));
+    if (!isParent) {
+      throw new BadRequestException('User does not have the PARENT role');
+    }
+    return user;
+  }
+
   async findAll(query: Partial<UserQueryDto> = {}): Promise<UserListResponseSchema> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
@@ -109,6 +171,19 @@ export class UsersService {
 
     if (query.status) {
       qb.andWhere('user.status = :status', { status: query.status });
+    }
+
+    if (query.childClassId) {
+      // Keeps only parents who have at least one linked student in the given
+      // class — used by the parents list "Sinf" filter.
+      qb.andWhere(
+        `EXISTS (
+          SELECT 1 FROM student_parents sp
+          JOIN students s ON s.id = sp.student_id
+          WHERE sp.parent_id = user.id AND s.current_class_id = :childClassId
+        )`,
+        { childClassId: query.childClassId },
+      );
     }
 
     const [items, total] = await qb

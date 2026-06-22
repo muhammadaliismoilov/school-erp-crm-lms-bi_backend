@@ -1,16 +1,18 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, DataSource, EntityManager, Repository } from 'typeorm';
+import { Brackets, DataSource, EntityManager, In, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { createPage, PageDto } from '../../common/dto/page.dto';
+import { UsersService } from '../users/users.service';
+import { UserGender } from '../users/enums/user.enums';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { CreateParentDto } from './dto/create-parent.dto';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { EnrollStudentDto } from './dto/enroll-student.dto';
 import { LinkParentDto } from './dto/link-parent.dto';
+import { QueryDepartedDto } from './dto/query-departed.dto';
 import { QueryStudentsDto } from './dto/query-students.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
-import { Parent } from './entities/parent.entity';
 import { StudentAdmission } from './entities/student-admission.entity';
 import { StudentDocument } from './entities/student-document.entity';
 import { StudentParent } from './entities/student-parent.entity';
@@ -24,6 +26,12 @@ export interface StudentStats {
   newThisMonth: number;
 }
 
+export interface DepartedStats {
+  total: number;
+  male: number;
+  female: number;
+}
+
 @Injectable()
 export class StudentsService {
   private readonly logger = new Logger(StudentsService.name);
@@ -31,13 +39,12 @@ export class StudentsService {
   constructor(
     @InjectRepository(Student)
     private readonly students: Repository<Student>,
-    @InjectRepository(Parent)
-    private readonly parents: Repository<Parent>,
     @InjectRepository(StudentParent)
     private readonly studentParents: Repository<StudentParent>,
     @InjectRepository(StudentDocument)
     private readonly documents: Repository<StudentDocument>,
     private readonly dataSource: DataSource,
+    private readonly usersService: UsersService,
     private readonly auditService?: AuditService,
   ) {}
 
@@ -98,7 +105,11 @@ export class StudentsService {
     });
   }
 
-  /** Creates a guardian Parent + primary StudentParent link from a full name + phone. */
+  /**
+   * Creates a guardian PARENT user + primary StudentParent link from a full name
+   * and phone. The user is provisioned via UsersService (auto login/password);
+   * Cyrillic name and gender stay null until the parent profile is completed.
+   */
   private async attachGuardian(
     manager: EntityManager,
     studentId: string,
@@ -107,13 +118,11 @@ export class StudentsService {
     relation?: string | null,
   ): Promise<void> {
     const [guardianFirst, ...guardianRest] = fullName.trim().split(/\s+/);
-    const parent = await manager.getRepository(Parent).save(
-      manager.getRepository(Parent).create({
-        firstName: guardianFirst,
-        lastName: guardianRest.join(' ') || null,
-        phone,
-      }),
-    );
+    const parent = await this.usersService.createParent({
+      firstName: guardianFirst,
+      lastName: guardianRest.join(' ') || null,
+      phone,
+    });
 
     await manager.getRepository(StudentParent).save(
       manager.getRepository(StudentParent).create({
@@ -210,7 +219,7 @@ export class StudentsService {
             .orWhere(
               `EXISTS (
                 SELECT 1 FROM student_parents esp
-                JOIN parents ep ON ep.id = esp.parent_id
+                JOIN users ep ON ep.id = esp.parent_id
                 WHERE esp.student_id = student.id AND ep.phone LIKE :q
               )`,
               { q },
@@ -266,25 +275,129 @@ export class StudentsService {
     return saved;
   }
 
-  async removeStudent(id: string): Promise<{ id: string }> {
+  async removeStudent(id: string, reason?: string): Promise<{ id: string }> {
     const student = await this.findStudent(id);
+    const trimmed = reason?.trim();
+    if (trimmed) {
+      student.withdrawalReason = trimmed;
+      await this.students.save(student);
+    }
     await this.students.softRemove(student);
-    await this.audit('student.delete', id);
+    await this.audit('student.delete', id, trimmed ? { reason: trimmed } : undefined);
+    return { id };
+  }
+
+  // ----------------------------------------------------------------- Ketgan o‘quvchilar
+
+  /**
+   * Soft-delete qilingan (ketgan) o‘quvchilar ro‘yxati — `deleted_at IS NOT NULL`.
+   * Jins / sinf / qidiruv bo‘yicha filtr, eng yangi ketganlar yuqorida.
+   */
+  async findDeparted(query: QueryDepartedDto): Promise<PageDto<Student>> {
+    const qb = this.students
+      .createQueryBuilder('student')
+      .withDeleted()
+      .leftJoinAndSelect('student.currentClass', 'currentClass')
+      .where('student.deleted_at IS NOT NULL')
+      .orderBy('student.deletedAt', 'DESC')
+      .skip((query.page - 1) * query.limit)
+      .take(query.limit);
+
+    if (query.gender) qb.andWhere('student.gender = :gender', { gender: query.gender });
+    if (query.classId) qb.andWhere('student.current_class_id = :classId', { classId: query.classId });
+
+    if (query.search) {
+      const q = `%${query.search.toLowerCase()}%`;
+      qb.andWhere(
+        new Brackets((w) => {
+          w.where('LOWER(student.first_name) LIKE :q', { q })
+            .orWhere('LOWER(student.last_name) LIKE :q', { q })
+            .orWhere('LOWER(student.middle_name) LIKE :q', { q })
+            .orWhere('LOWER(student.student_code) LIKE :q', { q })
+            .orWhere('student.personal_phone LIKE :q', { q });
+        }),
+      );
+    }
+
+    const [items, total] = await qb.getManyAndCount();
+    return createPage(items, total, query.page, query.limit);
+  }
+
+  /** Ketgan o‘quvchilar statistikasi (jami / erkak / ayol). */
+  async getDepartedStats(): Promise<DepartedStats> {
+    const base = () =>
+      this.students
+        .createQueryBuilder('student')
+        .withDeleted()
+        .where('student.deleted_at IS NOT NULL');
+
+    const [total, male, female] = await Promise.all([
+      base().getCount(),
+      base().andWhere('student.gender = :gender', { gender: Gender.MALE }).getCount(),
+      base().andWhere('student.gender = :gender', { gender: Gender.FEMALE }).getCount(),
+    ]);
+
+    return { total, male, female };
+  }
+
+  /** Ketgan o‘quvchini tiklaydi (soft-delete bekor qilinadi). */
+  async restoreStudent(id: string): Promise<{ id: string }> {
+    const student = await this.students.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+    if (!student.deletedAt) {
+      throw new BadRequestException('Student is not departed');
+    }
+    student.withdrawalReason = null;
+    await this.students.save(student);
+    await this.students.recover(student);
+    await this.audit('student.restore', id);
+    return { id };
+  }
+
+  /** Ketgan o‘quvchini butunlay (qaytarib bo‘lmaydigan) o‘chiradi. */
+  async permanentlyRemoveStudent(id: string): Promise<{ id: string }> {
+    const student = await this.students.findOne({
+      where: { id },
+      withDeleted: true,
+    });
+    if (!student) {
+      throw new NotFoundException('Student not found');
+    }
+    if (!student.deletedAt) {
+      throw new BadRequestException('Only departed students can be permanently deleted');
+    }
+    await this.students.remove(student);
+    await this.audit('student.delete.permanent', id);
     return { id };
   }
 
   // ----------------------------------------------------------------- Parents
 
-  async createParent(dto: CreateParentDto): Promise<Parent> {
-    return this.parents.save(this.parents.create(dto));
+  /**
+   * Creates a standalone PARENT user account. Returns the user together with the
+   * one-time generated password for the "credentials created" dialog.
+   */
+  async createParent(dto: CreateParentDto) {
+    const parent = await this.usersService.createParent({
+      firstName: dto.firstName,
+      lastName: dto.lastName ?? null,
+      phone: dto.phone ?? null,
+      email: dto.email ?? null,
+      gender: dto.gender as UserGender | undefined,
+    });
+    await this.audit('parent.create', parent.id, { phone: dto.phone });
+    return parent;
   }
 
   async linkParent(studentId: string, dto: LinkParentDto): Promise<StudentParent> {
     await this.findStudent(studentId);
-    const parent = await this.parents.findOne({ where: { id: dto.parentId } });
-    if (!parent) {
-      throw new NotFoundException('Parent not found');
-    }
+    // Validates the target is a real PARENT user (throws 404/400 otherwise).
+    await this.usersService.findParentUser(dto.parentId);
 
     const existing = await this.studentParents.findOne({
       where: { studentId, parentId: dto.parentId },
@@ -294,7 +407,49 @@ export class StudentsService {
     relation.relation = dto.relation;
     relation.isPrimary = dto.isPrimary ?? false;
 
-    return this.studentParents.save(relation);
+    const saved = await this.studentParents.save(relation);
+    await this.audit('student.parent.link', studentId, { parentId: dto.parentId });
+    return saved;
+  }
+
+  /** Removes a parent ↔ student link (the parent user account is kept). */
+  async unlinkParent(studentId: string, parentId: string): Promise<{ id: string }> {
+    const link = await this.studentParents.findOne({ where: { studentId, parentId } });
+    if (!link) {
+      throw new NotFoundException('Student-parent link not found');
+    }
+    await this.studentParents.remove(link);
+    await this.audit('student.parent.unlink', studentId, { parentId });
+    return { id: parentId };
+  }
+
+  /** Students linked to a given parent user (for the parent's "children" tab). */
+  async findChildren(parentId: string): Promise<Student[]> {
+    const links = await this.studentParents.find({
+      where: { parentId },
+      relations: { student: { currentClass: true } },
+    });
+    return links.map((link) => link.student).filter(Boolean);
+  }
+
+  /**
+   * Batched children lookup for the parents list "Farzandlar" column — one query
+   * for the whole page instead of N requests.
+   */
+  async childrenByParents(parentIds: string[]): Promise<Record<string, Student[]>> {
+    if (parentIds.length === 0) {
+      return {};
+    }
+    const links = await this.studentParents.find({
+      where: { parentId: In(parentIds) },
+      relations: { student: { currentClass: true } },
+    });
+    const map: Record<string, Student[]> = {};
+    for (const link of links) {
+      if (!link.student) continue;
+      (map[link.parentId] ??= []).push(link.student);
+    }
+    return map;
   }
 
   // ----------------------------------------------------------------- Hujjatlar

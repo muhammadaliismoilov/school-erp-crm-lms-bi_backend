@@ -98,6 +98,10 @@ export class Student extends UuidAuditEntity {
   @Column({ name: "medical_notes", type: "text", nullable: true, select: false })
   medicalNotes?: string | null;
 
+  /** Ketish/o‘chirish sababi — soft-delete paytida saqlanadi (Ketgan o‘quvchilar). */
+  @Column({ name: "withdrawal_reason", type: "text", nullable: true })
+  withdrawalReason?: string | null;
+
   @OneToMany(() => StudentParent, (studentParent) => studentParent.student)
   parents: StudentParent[];
 

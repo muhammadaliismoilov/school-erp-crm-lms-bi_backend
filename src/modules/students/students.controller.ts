@@ -26,8 +26,10 @@ import { CreateDocumentDto } from "./dto/create-document.dto";
 import { CreateParentDto } from "./dto/create-parent.dto";
 import { CreateStudentDto } from "./dto/create-student.dto";
 import { LinkParentDto } from "./dto/link-parent.dto";
+import { QueryDepartedDto } from "./dto/query-departed.dto";
 import { QueryStudentsDto } from "./dto/query-students.dto";
 import { UpdateStudentDto } from "./dto/update-student.dto";
+import { WithdrawStudentDto } from "./dto/withdraw-student.dto";
 import { StudentsService } from "./students.service";
 
 @ApiTags("O‘quvchilar")
@@ -52,6 +54,22 @@ export class StudentsController {
   @ApiOkResponse({ description: "Statistika qaytarildi." })
   stats() {
     return this.studentsService.getStats();
+  }
+
+  @Get("departed")
+  @Permissions([AppPermission.STUDENTS_READ])
+  @ApiOperation({ summary: "Ketgan o‘quvchilar ro‘yxati (soft-delete qilingan)" })
+  @ApiOkResponse({ description: "Ketgan o‘quvchilar ro‘yxati qaytarildi." })
+  findDeparted(@Query() query: QueryDepartedDto) {
+    return this.studentsService.findDeparted(query);
+  }
+
+  @Get("departed/stats")
+  @Permissions([AppPermission.STUDENTS_READ])
+  @ApiOperation({ summary: "Ketgan o‘quvchilar statistikasi (jami / erkak / ayol)" })
+  @ApiOkResponse({ description: "Statistika qaytarildi." })
+  departedStats() {
+    return this.studentsService.getDepartedStats();
   }
 
   @Post()
@@ -80,10 +98,26 @@ export class StudentsController {
 
   @Delete(":id")
   @Permissions([AppPermission.STUDENTS_MANAGE])
-  @ApiOperation({ summary: "O‘quvchini o‘chirish (soft-delete)" })
+  @ApiOperation({ summary: "O‘quvchini o‘chirish (soft-delete, ketish sababi bilan)" })
   @ApiOkResponse({ description: "O‘quvchi o‘chirildi." })
-  remove(@Param() params: UuidParamDto) {
-    return this.studentsService.removeStudent(params.id);
+  remove(@Param() params: UuidParamDto, @Body() dto: WithdrawStudentDto) {
+    return this.studentsService.removeStudent(params.id, dto?.reason);
+  }
+
+  @Post(":id/restore")
+  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @ApiOperation({ summary: "Ketgan o‘quvchini tiklash" })
+  @ApiOkResponse({ description: "O‘quvchi tiklandi." })
+  restore(@Param() params: UuidParamDto) {
+    return this.studentsService.restoreStudent(params.id);
+  }
+
+  @Delete(":id/permanent")
+  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @ApiOperation({ summary: "Ketgan o‘quvchini butunlay o‘chirish" })
+  @ApiOkResponse({ description: "O‘quvchi butunlay o‘chirildi." })
+  removePermanent(@Param() params: UuidParamDto) {
+    return this.studentsService.permanentlyRemoveStudent(params.id);
   }
 
   @Post("parents")
@@ -94,12 +128,40 @@ export class StudentsController {
     return this.studentsService.createParent(dto);
   }
 
+  @Get("parents/children-map")
+  @Permissions([AppPermission.STUDENTS_READ])
+  @ApiOperation({ summary: "Bir nechta ota-ona uchun farzandlar (ids=a,b,c)" })
+  @ApiOkResponse({ description: "Ota-ona → farzandlar xaritasi qaytarildi." })
+  findChildrenMap(@Query("ids") ids?: string) {
+    const list = (ids ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    return this.studentsService.childrenByParents(list);
+  }
+
+  @Get("parents/:parentId/children")
+  @Permissions([AppPermission.STUDENTS_READ])
+  @ApiOperation({ summary: "Ota-onaga biriktirilgan o‘quvchilar (farzandlar)" })
+  @ApiOkResponse({ description: "Farzandlar ro‘yxati qaytarildi." })
+  findChildren(@Param("parentId") parentId: string) {
+    return this.studentsService.findChildren(parentId);
+  }
+
   @Post(":id/parents")
   @Permissions([AppPermission.STUDENTS_MANAGE])
   @ApiOperation({ summary: "Ota-ona yoki vasiyni o‘quvchiga bog‘lash" })
   @ApiCreatedResponse({ description: "Ota-ona o‘quvchiga bog‘landi." })
   linkParent(@Param() params: UuidParamDto, @Body() dto: LinkParentDto) {
     return this.studentsService.linkParent(params.id, dto);
+  }
+
+  @Delete(":id/parents/:parentId")
+  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @ApiOperation({ summary: "O‘quvchini ota-onadan ajratish (bog‘lanishni uzish)" })
+  @ApiOkResponse({ description: "Bog‘lanish uzildi." })
+  unlinkParent(@Param("id") id: string, @Param("parentId") parentId: string) {
+    return this.studentsService.unlinkParent(id, parentId);
   }
 
   @Get(":id/documents")

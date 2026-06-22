@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, IsUUID, Length, Max, Min } from 'class-validator';
 import { CommonStatus } from '../../../common/enums/common-status.enum';
 import { UserGender, UserManagementRole } from '../enums/user.enums';
 
@@ -66,4 +66,13 @@ export class UserQueryDto {
   @IsOptional()
   @IsEnum(CommonStatus, { message: 'Status ruxsat etilgan qiymatlardan biri bo‘lishi kerak' })
   status?: CommonStatus;
+
+  @ApiPropertyOptional({
+    description:
+      'Farzandi shu sinfda o‘qiydigan ota-onalarni filterlash (PARENT ro‘yxati uchun).',
+    format: 'uuid',
+  })
+  @IsOptional()
+  @IsUUID('4', { message: 'Sinf IDsi to‘g‘ri UUID bo‘lishi kerak' })
+  childClassId?: string;
 }

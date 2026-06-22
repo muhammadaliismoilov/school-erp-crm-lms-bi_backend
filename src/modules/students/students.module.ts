@@ -12,7 +12,7 @@ import { LessonSchedule } from '../lms/entities/lesson-schedule.entity';
 import { QuarterSubjectGrade } from '../lms/entities/quarter-subject-grade.entity';
 import { Payment } from '../finance/entities/payment.entity';
 import { User } from '../identity/entities/user.entity';
-import { Parent } from './entities/parent.entity';
+import { UsersModule } from '../users/users.module';
 import { StudentAchievement } from './entities/student-achievement.entity';
 import { StudentAdmission } from './entities/student-admission.entity';
 import { StudentConclusion } from './entities/student-conclusion.entity';
@@ -34,9 +34,9 @@ import { StudentsService } from './students.service';
     AuditModule,
     LmsModule,
     GamificationModule,
+    UsersModule,
     TypeOrmModule.forFeature([
       Student,
-      Parent,
       StudentParent,
       StudentDocument,
       StudentAdmission,
