@@ -34,6 +34,7 @@ describe('UsersService', () => {
     documentNumber: 'AB1234567',
     gender: 'male',
     pinfl: '12345678901234',
+    workplace: 'Yuton maktabi',
     profileImageUrl: 'https://cdn.example.uz/users/javohir.png',
     passwordHash: 'hashed-password',
     status: CommonStatus.ACTIVE,
@@ -113,6 +114,43 @@ describe('UsersService', () => {
       documentNumber: 'AB1234567',
     });
     expect(JSON.stringify(result)).not.toContain('passwordHash');
+  });
+
+  it('persists workplace (ish joyi) on create and exposes it in the response', async () => {
+    users.findOne.mockResolvedValue(null);
+    roles.find.mockResolvedValue([teacherRole]);
+    passwords.hash.mockResolvedValue('hashed-password');
+    users.create.mockImplementation((value) => value as User);
+    users.save.mockImplementation(async (value) => ({ ...savedUser, ...value }) as User);
+
+    const result = await service.create({
+      firstName: 'Aziza',
+      firstNameCyrillic: 'Азиза',
+      lastName: 'Karimova',
+      lastNameCyrillic: 'Каримова',
+      gender: 'female',
+      role: 'TEACHER',
+      workplace: '  Yuton maktabi  ',
+    });
+
+    // Stored trimmed on the entity...
+    expect(users.create).toHaveBeenCalledWith(
+      expect.objectContaining({ workplace: 'Yuton maktabi' }),
+    );
+    // ...and surfaced back to the client.
+    expect(result.workplace).toBe('Yuton maktabi');
+  });
+
+  it('clears workplace when an empty string is provided on update', async () => {
+    users.findOne.mockResolvedValueOnce(savedUser).mockResolvedValueOnce(null);
+    users.save.mockImplementation(async (value) => value as User);
+
+    const result = await service.update(userId, { workplace: '   ' });
+
+    expect(users.save).toHaveBeenCalledWith(
+      expect.objectContaining({ workplace: null }),
+    );
+    expect(result.workplace).toBeNull();
   });
 
   it('auto-generates a unique login and password and returns them once', async () => {
