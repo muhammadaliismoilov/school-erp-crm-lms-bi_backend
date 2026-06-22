@@ -57,6 +57,9 @@ export class User extends UuidAuditEntity {
   @Column({ type: 'varchar', length: 14, nullable: true })
   pinfl?: string | null;
 
+  @Column({ type: 'varchar', length: 160, nullable: true })
+  workplace?: string | null;
+
   @Column({ name: 'profile_image_url', type: 'varchar', length: 500, nullable: true })
   profileImageUrl?: string | null;
 

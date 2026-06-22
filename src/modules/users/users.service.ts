@@ -61,6 +61,7 @@ export class UsersService {
       documentNumber: identifiers.documentNumber,
       gender: dto.gender as UserGender,
       pinfl: identifiers.pinfl,
+      workplace: this.nullableText(dto.workplace),
       profileImageUrl: this.nullableText(dto.profileImageUrl),
       profileImageFileId: this.nullableText(dto.profileImageFileId),
       status: CommonStatus.ACTIVE,
@@ -272,6 +273,9 @@ export class UsersService {
     if (dto.pinfl !== undefined) {
       user.pinfl = identifiers.pinfl ?? null;
     }
+    if (dto.workplace !== undefined) {
+      user.workplace = this.nullableText(dto.workplace);
+    }
     if (dto.profileImageUrl !== undefined) {
       user.profileImageUrl = this.nullableText(dto.profileImageUrl);
     }
@@ -439,6 +443,7 @@ export class UsersService {
       phone: user.phone ?? null,
       email: user.email ?? null,
       pinfl: user.pinfl ?? null,
+      workplace: user.workplace ?? null,
       profileImageUrl: user.profileImageUrl ?? null,
       profileImageFileId: user.profileImageFileId ?? null,
       role: roles[0]?.name ?? null,

@@ -17,6 +17,7 @@ export class UpdateProfileDto extends PartialType(
     'birthDate',
     'documentNumber',
     'gender',
+    'workplace',
     'phone',
     'email',
     'profileImageUrl',

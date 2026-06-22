@@ -150,6 +150,13 @@ export class CreateUserDto {
   @IsEnum(UserGender, { message: 'Jins faqat erkak yoki ayol bo‘lishi kerak' })
   gender: UserGender | string;
 
+  @ApiPropertyOptional({ description: 'Ish joyi (asosan ota-onalar uchun).', example: 'Yuton maktabi', maxLength: 160 })
+  @IsOptional()
+  @Transform(trim)
+  @IsString({ message: 'Ish joyi matn bo‘lishi kerak' })
+  @Length(2, 160, { message: 'Ish joyi 2 dan 160 belgigacha bo‘lishi kerak' })
+  workplace?: string;
+
   @ApiPropertyOptional({ description: 'O‘zbekiston telefon raqami.', example: '+998901234567' })
   @IsOptional()
   @Transform(normalizePhone)

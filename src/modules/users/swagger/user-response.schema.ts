@@ -56,6 +56,9 @@ export class UserResponseSchema {
   @ApiPropertyOptional({ example: '12345678901234', nullable: true })
   pinfl?: string | null;
 
+  @ApiPropertyOptional({ example: 'Yuton maktabi', nullable: true })
+  workplace?: string | null;
+
   @ApiPropertyOptional({ example: 'https://cdn.example.uz/users/javohir.png', nullable: true })
   profileImageUrl?: string | null;
 
