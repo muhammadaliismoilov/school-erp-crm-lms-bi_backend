@@ -55,6 +55,7 @@ function makeQb() {
   }
   qb.getManyAndCount = jest.fn();
   qb.getMany = jest.fn();
+  qb.getCount = jest.fn();
   qb.getRawOne = jest.fn();
   qb.getRawMany = jest.fn();
   return qb;
@@ -66,15 +67,20 @@ describe('TransactionsService', () => {
   let transactions: jest.Mocked<
     Pick<Repository<FinanceTransaction>, 'create' | 'save' | 'findOne' | 'softDelete' | 'createQueryBuilder'>
   >;
-  let paymentTypes: { find: jest.Mock; findOne: jest.Mock; create: jest.Mock; save: jest.Mock; softDelete: jest.Mock };
+  let paymentTypes: {
+    find: jest.Mock; findOne: jest.Mock; create: jest.Mock; save: jest.Mock;
+    softDelete: jest.Mock; count: jest.Mock; createQueryBuilder: jest.Mock;
+  };
   let categories: { find: jest.Mock; findOne: jest.Mock; create: jest.Mock; save: jest.Mock; softDelete: jest.Mock };
   let users: { findOne: jest.Mock };
   let audit: { log: jest.Mock };
   let qb: ReturnType<typeof makeQb>;
+  let ptQb: ReturnType<typeof makeQb>;
   let service: TransactionsService;
 
   beforeEach(() => {
     qb = makeQb();
+    ptQb = makeQb();
     transactions = {
       create: jest.fn((x) => x as FinanceTransaction),
       save: jest.fn(async (x) => ({ id: txId, ...x }) as FinanceTransaction),
@@ -88,6 +94,8 @@ describe('TransactionsService', () => {
       create: jest.fn((x) => x),
       save: jest.fn(async (x) => ({ id: ptId, ...x })),
       softDelete: jest.fn(async () => ({ affected: 1 })),
+      count: jest.fn().mockResolvedValue(0),
+      createQueryBuilder: jest.fn(() => ptQb),
     };
     categories = {
       find: jest.fn().mockResolvedValue([]),
@@ -227,6 +235,37 @@ describe('TransactionsService', () => {
     it('rejects a category that is its own parent', async () => {
       categories.findOne.mockResolvedValue({ id: catId, name: 'X' });
       await expect(service.updateCategory(catId, { parentId: catId })).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('findPaymentTypes', () => {
+    it('returns paginated rows, meta and stats', async () => {
+      ptQb.getManyAndCount.mockResolvedValue([
+        [{ id: ptId, name: 'Naqd', code: 'cash', isActive: true, isSystem: true, sortOrder: 1, createdAt: new Date(), updatedAt: new Date() }],
+        2,
+      ]);
+      ptQb.getCount.mockResolvedValue(2);
+      paymentTypes.count.mockResolvedValue(2);
+      paymentTypes.findOne.mockResolvedValue({ id: ptId, name: 'Naqd', createdAt: new Date('2026-06-09') });
+
+      const result = await service.findPaymentTypes({ page: 1, limit: 10 });
+
+      expect(ptQb.take).toHaveBeenCalledWith(10);
+      expect(result.meta).toEqual({ page: 1, limit: 10, total: 2, pageCount: 1 });
+      expect(result.stats.total).toBe(2);
+      expect(result.stats.addedThisMonth).toBe(2);
+      expect(result.stats.latestName).toBe('Naqd');
+      expect(result.items[0].name).toBe('Naqd');
+    });
+
+    it('applies the name search filter', async () => {
+      ptQb.getManyAndCount.mockResolvedValue([[], 0]);
+      ptQb.getCount.mockResolvedValue(0);
+      paymentTypes.count.mockResolvedValue(0);
+      paymentTypes.findOne.mockResolvedValue(null);
+
+      await service.findPaymentTypes({ search: 'naq' });
+      expect(ptQb.where).toHaveBeenCalledWith('pt.name ILIKE :s', { s: '%naq%' });
     });
   });
 

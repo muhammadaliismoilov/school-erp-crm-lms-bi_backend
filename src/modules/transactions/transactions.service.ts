@@ -5,6 +5,7 @@ import { AuditService } from '../audit/audit.service';
 import { FinanceTransaction } from '../finance/entities/transaction.entity';
 import { User } from '../identity/entities/user.entity';
 import { CreateTransactionDto, TransactionType } from './dto/create-transaction.dto';
+import { PaymentTypeQueryDto } from './dto/payment-type-query.dto';
 import { TransactionQueryDto } from './dto/transaction-query.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { CreatePaymentTypeDto, UpdatePaymentTypeDto } from './dto/upsert-payment-type.dto';
@@ -21,6 +22,11 @@ import {
   TransactionStatisticsSchema,
   TransactionStatsSchema,
 } from './swagger/transaction-response.schema';
+import {
+  PaymentTypeListResponseSchema,
+  PaymentTypeResponseSchema,
+  PaymentTypeStatsSchema,
+} from './swagger/payment-type-response.schema';
 
 /** Amalni bajargan aktor — audit izi uchun. */
 export interface TransactionActor {
@@ -312,6 +318,57 @@ export class TransactionsService {
 
   // ─── To'lov turlari (boshqaruv) ─────────────────────────────────────────
 
+  /** To'lov turlari ro'yxati — qidiruv + pagination + stat kartalar. */
+  async findPaymentTypes(
+    query: Partial<PaymentTypeQueryDto> = {},
+  ): Promise<PaymentTypeListResponseSchema> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const search = this.nullableText(query.search);
+
+    const qb = this.paymentTypes.createQueryBuilder('pt');
+    if (search) {
+      qb.where('pt.name ILIKE :s', { s: `%${search}%` });
+    }
+
+    const [items, total] = await qb
+      .orderBy('pt.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    const pageCount = Math.ceil(total / limit) || 1;
+    const stats = await this.paymentTypeStats();
+
+    return {
+      items: items.map((p) => this.toPaymentTypeRow(p)),
+      meta: { page, limit, total, pageCount },
+      stats,
+    };
+  }
+
+  private async paymentTypeStats(): Promise<PaymentTypeStatsSchema> {
+    const monthStart = new Date();
+    monthStart.setUTCDate(1);
+    monthStart.setUTCHours(0, 0, 0, 0);
+
+    const [total, addedThisMonth, latest] = await Promise.all([
+      this.paymentTypes.count(),
+      this.paymentTypes
+        .createQueryBuilder('pt')
+        .where('pt.createdAt >= :monthStart', { monthStart })
+        .getCount(),
+      this.paymentTypes.findOne({ where: {}, order: { createdAt: 'DESC' } }),
+    ]);
+
+    return {
+      total,
+      addedThisMonth,
+      latestName: latest?.name ?? null,
+      latestCreatedAt: latest?.createdAt ?? null,
+    };
+  }
+
   async listPaymentTypes(): Promise<PaymentType[]> {
     return this.paymentTypes.find({ order: { sortOrder: 'ASC', name: 'ASC' } });
   }
@@ -491,6 +548,19 @@ export class TransactionsService {
       isActive: p.isActive,
       isSystem: p.isSystem,
       sortOrder: p.sortOrder,
+    };
+  }
+
+  private toPaymentTypeRow(p: PaymentType): PaymentTypeResponseSchema {
+    return {
+      id: p.id,
+      name: p.name,
+      code: p.code,
+      isActive: p.isActive,
+      isSystem: p.isSystem,
+      sortOrder: p.sortOrder,
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt,
     };
   }
 

@@ -1,6 +1,7 @@
 import { validateDto } from '../src/common/validation/validate-dto';
 import { CreateTransactionDto, TransactionType } from '../src/modules/transactions/dto/create-transaction.dto';
 import { TransactionQueryDto } from '../src/modules/transactions/dto/transaction-query.dto';
+import { PaymentTypeQueryDto } from '../src/modules/transactions/dto/payment-type-query.dto';
 
 const catId = '11111111-1111-4111-8111-111111111111';
 const personId = '22222222-2222-4222-8222-222222222222';
@@ -38,6 +39,24 @@ describe('TransactionQueryDto', () => {
       limit: 50,
     });
     expect(ok).toHaveLength(0);
+  });
+});
+
+describe('PaymentTypeQueryDto', () => {
+  it('bo‘sh so‘rovni qabul qiladi', async () => {
+    expect(await validateDto(PaymentTypeQueryDto, {})).toHaveLength(0);
+  });
+
+  it.each([10, 20, 50, 100])('limit %i ni qabul qiladi', async (limit) => {
+    expect(await validateDto(PaymentTypeQueryDto, { limit })).toHaveLength(0);
+  });
+
+  it('limit 100 dan oshsa rad etadi', async () => {
+    expect((await validateDto(PaymentTypeQueryDto, { limit: 101 })).length).toBeGreaterThan(0);
+  });
+
+  it('qidiruv matni juda qisqa bo‘lsa rad etadi', async () => {
+    expect((await validateDto(PaymentTypeQueryDto, { search: 'a' })).length).toBeGreaterThan(0);
   });
 });
 

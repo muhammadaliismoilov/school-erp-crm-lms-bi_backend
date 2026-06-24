@@ -27,7 +27,9 @@ import { ApiLocalizedErrorResponses } from '../../common/swagger/api-localized-e
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { TransactionQueryDto } from './dto/transaction-query.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
+import { PaymentTypeQueryDto } from './dto/payment-type-query.dto';
 import { CreatePaymentTypeDto, UpdatePaymentTypeDto } from './dto/upsert-payment-type.dto';
+import { PaymentTypeListResponseSchema } from './swagger/payment-type-response.schema';
 import {
   CreateTransactionCategoryDto,
   UpdateTransactionCategoryDto,
@@ -110,10 +112,14 @@ export class TransactionsController {
 
   @Get('payment-types')
   @Permissions([AppPermission.FINANCE_READ])
-  @ApiOperation({ summary: 'To‘lov turlari ro‘yxati' })
-  async listPaymentTypes() {
+  @ApiOperation({
+    summary: 'To‘lov turlari ro‘yxati',
+    description: 'Qidiruv va sahifalash (10/20/50/100) bilan, stat kartalar uchun statistika qaytaradi.',
+  })
+  @ApiResponse({ status: HttpStatus.OK, type: PaymentTypeListResponseSchema })
+  async listPaymentTypes(@Query() query: PaymentTypeQueryDto) {
     try {
-      return await this.service.listPaymentTypes();
+      return await this.service.findPaymentTypes(query);
     } catch (error) {
       this.handleError(error, 'To‘lov turlarini olishda server xatosi yuz berdi');
     }
