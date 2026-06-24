@@ -59,6 +59,7 @@ import { AdvancedFinanceModule } from "./modules/advanced-finance/advanced-finan
 import { CounselingModule } from "./modules/counseling/counseling.module";
 import { GradeRequestsModule } from "./modules/grade-requests/grade-requests.module";
 import { ParentCommsModule } from "./modules/parent-comms/parent-comms.module";
+import { StudentsRatingModule } from "./modules/students-rating/students-rating.module";
 import { EncryptionModule } from "./common/security/encryption.module";
 
 const buildTypeOrmOptions = (
@@ -205,6 +206,7 @@ const buildTypeOrmOptions = (
     CounselingModule,
     GradeRequestsModule,
     ParentCommsModule,
+    StudentsRatingModule,
   ],
   providers: [
     {
