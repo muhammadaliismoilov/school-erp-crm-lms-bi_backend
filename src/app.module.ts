@@ -61,6 +61,7 @@ import { GradeRequestsModule } from "./modules/grade-requests/grade-requests.mod
 import { ParentCommsModule } from "./modules/parent-comms/parent-comms.module";
 import { StudentsRatingModule } from "./modules/students-rating/students-rating.module";
 import { ProgressReportsModule } from "./modules/progress-reports/progress-reports.module";
+import { TransactionsModule } from "./modules/transactions/transactions.module";
 import { EncryptionModule } from "./common/security/encryption.module";
 
 const buildTypeOrmOptions = (
@@ -209,6 +210,7 @@ const buildTypeOrmOptions = (
     ParentCommsModule,
     StudentsRatingModule,
     ProgressReportsModule,
+    TransactionsModule,
   ],
   providers: [
     {
