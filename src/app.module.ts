@@ -60,6 +60,7 @@ import { CounselingModule } from "./modules/counseling/counseling.module";
 import { GradeRequestsModule } from "./modules/grade-requests/grade-requests.module";
 import { ParentCommsModule } from "./modules/parent-comms/parent-comms.module";
 import { StudentsRatingModule } from "./modules/students-rating/students-rating.module";
+import { ProgressReportsModule } from "./modules/progress-reports/progress-reports.module";
 import { EncryptionModule } from "./common/security/encryption.module";
 
 const buildTypeOrmOptions = (
@@ -207,6 +208,7 @@ const buildTypeOrmOptions = (
     GradeRequestsModule,
     ParentCommsModule,
     StudentsRatingModule,
+    ProgressReportsModule,
   ],
   providers: [
     {
