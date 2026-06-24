@@ -57,6 +57,7 @@ import { ProcurementModule } from "./modules/procurement/procurement.module";
 import { AssetsModule } from "./modules/assets/assets.module";
 import { AdvancedFinanceModule } from "./modules/advanced-finance/advanced-finance.module";
 import { CounselingModule } from "./modules/counseling/counseling.module";
+import { GradeRequestsModule } from "./modules/grade-requests/grade-requests.module";
 import { EncryptionModule } from "./common/security/encryption.module";
 
 const buildTypeOrmOptions = (
@@ -201,6 +202,7 @@ const buildTypeOrmOptions = (
     AdvancedFinanceModule,
     EncryptionModule,
     CounselingModule,
+    GradeRequestsModule,
   ],
   providers: [
     {
