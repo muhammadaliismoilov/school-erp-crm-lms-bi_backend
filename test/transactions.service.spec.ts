@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import type { AuditService } from '../src/modules/audit/audit.service';
 import type { FinanceTransaction } from '../src/modules/finance/entities/transaction.entity';
@@ -62,7 +62,13 @@ function makeQb() {
 }
 
 describe('TransactionsService', () => {
-  const actor = { userId: 'admin-1', ipAddress: '127.0.0.1' };
+  const actor = {
+    userId: 'admin-1',
+    username: 'Asad Admin',
+    role: 'admin',
+    permissions: [] as string[],
+    ipAddress: '127.0.0.1',
+  };
 
   let transactions: jest.Mocked<
     Pick<Repository<FinanceTransaction>, 'create' | 'save' | 'findOne' | 'softDelete' | 'createQueryBuilder'>
@@ -218,6 +224,42 @@ describe('TransactionsService', () => {
       await service.remove(txId, actor);
       expect(transactions.softDelete).toHaveBeenCalledWith(txId);
       expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'transaction.deleted' }));
+    });
+  });
+
+  describe('egalik (ownership) nazorati', () => {
+    it('create yaratuvchi audit maydonlarini yozadi', async () => {
+      categories.findOne.mockResolvedValue({ id: catId, name: 'Maosh', kind: TransactionCategoryKind.BOTH });
+      await service.create({ type: 'income' as TransactionType, amount: 100 }, actor);
+      const saved = transactions.save.mock.calls[0][0] as FinanceTransaction;
+      expect(saved.createdBy).toBe('admin-1');
+      expect(saved.createdByName).toBe('Asad Admin');
+      expect(saved.updatedBy).toBe('admin-1');
+    });
+
+    it('boshqa xodimning yozuvini tahrirlashga ruxsat bermaydi (403)', async () => {
+      transactions.findOne.mockResolvedValue(baseTx({ createdBy: 'other-user' }));
+      await expect(service.update(txId, { amount: 100 }, actor)).rejects.toBeInstanceOf(ForbiddenException);
+      expect(transactions.save).not.toHaveBeenCalled();
+    });
+
+    it('egasi o‘z yozuvini tahrirlay oladi', async () => {
+      transactions.findOne.mockResolvedValue(baseTx({ createdBy: 'admin-1' }));
+      await expect(service.update(txId, { amount: 100 }, actor)).resolves.toBeDefined();
+      expect(transactions.save).toHaveBeenCalled();
+    });
+
+    it('super-admin istalgan yozuvni o‘chira oladi', async () => {
+      transactions.findOne.mockResolvedValue(baseTx({ createdBy: 'other-user' }));
+      const superAdmin = { ...actor, userId: 'root', permissions: ['*.*'] };
+      await expect(service.remove(txId, superAdmin)).resolves.toBeUndefined();
+      expect(transactions.softDelete).toHaveBeenCalledWith(txId);
+    });
+
+    it('egasi noma‘lum eski yozuvga ruxsat beradi (back-compat)', async () => {
+      transactions.findOne.mockResolvedValue(baseTx({ createdBy: null }));
+      await expect(service.update(txId, { amount: 100 }, actor)).resolves.toBeDefined();
+      expect(transactions.save).toHaveBeenCalled();
     });
   });
 

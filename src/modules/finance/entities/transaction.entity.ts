@@ -97,4 +97,24 @@ export class FinanceTransaction extends UuidAuditEntity {
 
   @Column({ name: 'student_id', type: 'uuid', nullable: true })
   studentId?: string | null;
+
+  // ─── Egalik auditi: kim yaratdi / kim oxirgi o'zgartirdi (snapshot) ──────────
+
+  @Column({ name: 'created_by', type: 'uuid', nullable: true })
+  createdBy?: string | null;
+
+  @Column({ name: 'created_by_name', type: 'varchar', length: 160, nullable: true })
+  createdByName?: string | null;
+
+  @Column({ name: 'created_by_role', type: 'varchar', length: 60, nullable: true })
+  createdByRole?: string | null;
+
+  @Column({ name: 'updated_by', type: 'uuid', nullable: true })
+  updatedBy?: string | null;
+
+  @Column({ name: 'updated_by_name', type: 'varchar', length: 160, nullable: true })
+  updatedByName?: string | null;
+
+  @Column({ name: 'updated_by_role', type: 'varchar', length: 60, nullable: true })
+  updatedByRole?: string | null;
 }

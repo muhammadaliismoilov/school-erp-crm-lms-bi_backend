@@ -4,6 +4,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsISO8601,
   IsNumber,
   IsOptional,
@@ -112,6 +113,31 @@ export class CreateStudentDto {
   @Min(0)
   @Max(100)
   discountPercent?: number;
+
+  // --- Billing (oylik tarif + chegirma) ---
+  @ApiPropertyOptional({ example: 2050000, minimum: 0, description: "Oylik to'lov tarifi." })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  monthlyFee?: number;
+
+  @ApiPropertyOptional({ enum: ["percent", "amount"], example: "percent" })
+  @IsOptional()
+  @IsIn(["percent", "amount"])
+  discountType?: "percent" | "amount";
+
+  @ApiPropertyOptional({ example: 10, minimum: 0, description: "Chegirma qiymati (foiz yoki so'm)." })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  discountValue?: number;
+
+  @ApiPropertyOptional({ example: "2026-09-01", description: "To'lov hisobi boshlanish sanasi." })
+  @IsOptional()
+  @IsISO8601()
+  billingStartDate?: string;
 
   // --- Manzil ---
   @ApiPropertyOptional({ example: "Toshkent", maxLength: 80 })

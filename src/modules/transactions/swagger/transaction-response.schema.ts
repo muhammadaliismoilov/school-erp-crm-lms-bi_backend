@@ -58,6 +58,24 @@ export class TransactionResponseSchema {
   @ApiPropertyOptional({ format: 'uuid', nullable: true })
   studentId?: string | null;
 
+  @ApiPropertyOptional({ nullable: true, description: 'Yozuvni kiritgan foydalanuvchi IDsi.' })
+  createdBy?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, description: 'Yozuvni kiritgan foydalanuvchi ismi (snapshot).' })
+  createdByName?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, description: 'Yozuvni kiritgan foydalanuvchi roli (snapshot).' })
+  createdByRole?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, description: 'Oxirgi o‘zgartirgan foydalanuvchi IDsi.' })
+  updatedBy?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, description: 'Oxirgi o‘zgartirgan foydalanuvchi ismi (snapshot).' })
+  updatedByName?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, description: 'Oxirgi o‘zgartirgan foydalanuvchi roli (snapshot).' })
+  updatedByRole?: string | null;
+
   @ApiProperty({ format: 'date-time' })
   createdAt: Date;
 

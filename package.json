@@ -19,7 +19,8 @@
     "migration:generate": "typeorm-ts-node-commonjs -d src/database/data-source.ts migration:generate src/database/migrations/AutoMigration",
     "migration:run": "typeorm-ts-node-commonjs -d src/database/data-source.ts migration:run",
     "migration:revert": "typeorm-ts-node-commonjs -d src/database/data-source.ts migration:revert",
-    "seed": "ts-node --transpile-only -r tsconfig-paths/register src/database/seed.ts"
+    "seed": "ts-node --transpile-only -r tsconfig-paths/register src/database/seed.ts",
+    "backfill:student-payments": "ts-node --transpile-only -r tsconfig-paths/register src/database/backfill-student-payment-transactions.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1063.0",

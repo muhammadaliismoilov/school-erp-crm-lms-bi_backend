@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
@@ -31,6 +37,9 @@ import {
 /** Amalni bajargan aktor — audit izi uchun. */
 export interface TransactionActor {
   userId?: string;
+  username?: string;
+  role?: string;
+  permissions?: string[];
   ipAddress?: string;
 }
 
@@ -43,6 +52,9 @@ interface RawAggRow {
 @Injectable()
 export class TransactionsService {
   private readonly logger = new Logger(TransactionsService.name);
+
+  /** Super-admin wildcard ruxsati — egalik cheklovini chetlab o'tadi. */
+  private static readonly SUPER_ADMIN = '*.*';
 
   constructor(
     @InjectRepository(FinanceTransaction)
@@ -226,6 +238,12 @@ export class TransactionsService {
         price: dto.price ?? null,
         classId: dto.classId ?? null,
         studentId: dto.studentId ?? null,
+        createdBy: actor?.userId ?? null,
+        createdByName: actor?.username ?? null,
+        createdByRole: actor?.role ?? null,
+        updatedBy: actor?.userId ?? null,
+        updatedByName: actor?.username ?? null,
+        updatedByRole: actor?.role ?? null,
       }),
     );
 
@@ -246,6 +264,7 @@ export class TransactionsService {
       throw new BadRequestException('Kamida bitta maydon yuborilishi kerak');
     }
     const entity = await this.findEntity(id);
+    this.assertCanModify(entity, actor, 'transaction.update.forbidden');
 
     if (dto.type !== undefined) entity.type = dto.type;
     if (dto.amount !== undefined) entity.amount = dto.amount;
@@ -278,6 +297,11 @@ export class TransactionsService {
     if (dto.classId !== undefined) entity.classId = dto.classId ?? null;
     if (dto.studentId !== undefined) entity.studentId = dto.studentId ?? null;
 
+    // Oxirgi o'zgartiruvchi — joriy aktor.
+    entity.updatedBy = actor?.userId ?? null;
+    entity.updatedByName = actor?.username ?? null;
+    entity.updatedByRole = actor?.role ?? null;
+
     await this.transactions.save(entity);
     await this.recordAudit(actor?.userId, 'transaction.updated', entity.id, {
       changed: Object.keys(dto),
@@ -287,6 +311,7 @@ export class TransactionsService {
 
   async remove(id: string, actor?: TransactionActor): Promise<void> {
     const entity = await this.findEntity(id);
+    this.assertCanModify(entity, actor, 'transaction.delete.forbidden');
     await this.transactions.softDelete(id);
     await this.recordAudit(actor?.userId, 'transaction.deleted', entity.id, {
       type: entity.type,
@@ -469,6 +494,31 @@ export class TransactionsService {
     await this.recordAudit(actor?.userId, 'transaction_category.deleted', entity.id, undefined, actor?.ipAddress);
   }
 
+  // ─── Egalik nazorati ────────────────────────────────────────────────────
+
+  /**
+   * Tranzaksiyani faqat uni yaratgan xodim yoki super-admin o'zgartira/o'chira
+   * oladi. Egasi noma'lum eski yozuvlar (createdBy=null) — back-compat:
+   * `finance.manage` guard (controller darajasida) yetarli.
+   */
+  private assertCanModify(
+    entity: FinanceTransaction,
+    actor: TransactionActor | undefined,
+    auditAction: string,
+  ): void {
+    if (!entity.createdBy) return;
+    const isOwner = !!actor?.userId && entity.createdBy === actor.userId;
+    const isSuperAdmin = actor?.permissions?.includes(TransactionsService.SUPER_ADMIN) ?? false;
+    if (isOwner || isSuperAdmin) return;
+
+    void this.recordAudit(actor?.userId, auditAction, entity.id, {
+      createdBy: entity.createdBy,
+    }, actor?.ipAddress);
+    throw new ForbiddenException(
+      'Bu yozuvni faqat uni kiritgan xodim yoki super-admin o‘zgartira oladi',
+    );
+  }
+
   // ─── Helperlar ──────────────────────────────────────────────────────────
 
   private async findEntity(id: string): Promise<FinanceTransaction> {
@@ -533,6 +583,12 @@ export class TransactionsService {
       price: this.toNumber(entity.price),
       classId: entity.classId ?? null,
       studentId: entity.studentId ?? null,
+      createdBy: entity.createdBy ?? null,
+      createdByName: entity.createdByName ?? null,
+      createdByRole: entity.createdByRole ?? null,
+      updatedBy: entity.updatedBy ?? null,
+      updatedByName: entity.updatedByName ?? null,
+      updatedByRole: entity.updatedByRole ?? null,
       createdAt: entity.createdAt,
       updatedAt: entity.updatedAt,
       deletedAt: entity.deletedAt ?? null,

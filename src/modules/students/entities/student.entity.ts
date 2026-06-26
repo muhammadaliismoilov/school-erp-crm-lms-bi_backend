@@ -64,7 +64,7 @@ export class Student extends UuidAuditEntity {
   @Column({ name: "contract_number", type: "varchar", length: 60, nullable: true })
   contractNumber?: string | null;
 
-  /** Chegirma foizi (0–100). */
+  /** Chegirma foizi (0–100). Eski maydon — back-compat; yangi kod discountValue/Type ishlatadi. */
   @Column({
     name: "discount_percent",
     type: "numeric",
@@ -73,6 +73,24 @@ export class Student extends UuidAuditEntity {
     default: 0,
   })
   discountPercent: number;
+
+  // --- Billing (oylik tarif + chegirma) ---
+
+  /** O'quvchining oylik to'lov tarifi. */
+  @Column({ name: "monthly_fee", type: "numeric", precision: 14, scale: 2, default: 0 })
+  monthlyFee: number;
+
+  /** Chegirma turi: foiz yoki so'mdagi qiymat. */
+  @Column({ name: "discount_type", type: "varchar", length: 10, default: "percent" })
+  discountType: "percent" | "amount";
+
+  /** Chegirma qiymati — foiz (0–100) yoki so'mdagi summa (discountType ga qarab). */
+  @Column({ name: "discount_value", type: "numeric", precision: 14, scale: 2, default: 0 })
+  discountValue: number;
+
+  /** To'lov hisobi boshlanish sanasi — null bo'lsa created_at oyi olinadi. */
+  @Column({ name: "billing_start_date", type: "date", nullable: true })
+  billingStartDate?: string | null;
 
   // --- Manzil ---
   @Column({ type: "varchar", length: 80, nullable: true })

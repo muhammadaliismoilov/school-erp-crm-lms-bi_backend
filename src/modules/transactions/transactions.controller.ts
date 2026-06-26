@@ -304,7 +304,13 @@ export class TransactionsController {
   }
 
   private buildActor(user: AuthenticatedUser, request: Request): TransactionActor {
-    return { userId: user?.id, ipAddress: request?.ip };
+    return {
+      userId: user?.id,
+      username: user?.username,
+      role: user?.roles?.[0],
+      permissions: user?.permissions,
+      ipAddress: request?.ip,
+    };
   }
 
   private handleError(error: unknown, fallbackMessage: string): never {
