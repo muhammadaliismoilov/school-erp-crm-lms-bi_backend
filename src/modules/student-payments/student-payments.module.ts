@@ -9,6 +9,7 @@ import { PaymentType } from '../transactions/entities/payment-type.entity';
 import { PaymentPlanConfig } from './entities/payment-plan-config.entity';
 import { PaymentPlanRate } from './entities/payment-plan-rate.entity';
 import { StudentPayment } from './entities/student-payment.entity';
+import { DebtsService } from './debts.service';
 import { PaymentPlanService } from './payment-plan.service';
 import { StudentBillingService } from './student-billing.service';
 import { StudentPaymentsController } from './student-payments.controller';
@@ -29,7 +30,7 @@ import { StudentPaymentsService } from './student-payments.service';
     AuditModule,
   ],
   controllers: [StudentPaymentsController],
-  providers: [StudentPaymentsService, StudentBillingService, PaymentPlanService],
-  exports: [StudentPaymentsService, StudentBillingService, PaymentPlanService],
+  providers: [StudentPaymentsService, StudentBillingService, PaymentPlanService, DebtsService],
+  exports: [StudentPaymentsService, StudentBillingService, PaymentPlanService, DebtsService],
 })
 export class StudentPaymentsModule {}

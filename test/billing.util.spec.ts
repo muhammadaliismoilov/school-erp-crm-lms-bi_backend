@@ -1,4 +1,5 @@
 import {
+  allocateInstallments,
   balanceStatus,
   buildInstallmentSchedule,
   comparePlans,
@@ -190,6 +191,42 @@ describe('billing.util', () => {
     it('split_3 lekin 2 oy qoldi → bo‘lim soni qisqaradi', () => {
       const s = buildInstallmentSchedule({ planCode: 'split_3', total: 2000000, effectiveStart: '2026-05-01', billedMonths: 2 });
       expect(s).toHaveLength(2);
+    });
+  });
+
+  describe('allocateInstallments', () => {
+    const schedule = [
+      { seq: 1, dueDate: '2025-09-01', amount: 10000000 },
+      { seq: 2, dueDate: '2026-02-01', amount: 10000000 },
+    ];
+
+    it('hech to‘lov yo‘q → 1-bo‘lim keyingi to‘lov', () => {
+      const { installments, nextDue } = allocateInstallments(schedule, 0);
+      expect(installments.map((i) => i.status)).toEqual(['pending', 'pending']);
+      expect(nextDue?.seq).toBe(1);
+      expect(nextDue?.remaining).toBe(10000000);
+    });
+
+    it('1-bo‘lim to‘liq → keyingi 2-bo‘lim', () => {
+      const { installments, nextDue } = allocateInstallments(schedule, 10000000);
+      expect(installments[0].status).toBe('paid');
+      expect(installments[1].status).toBe('pending');
+      expect(nextDue?.seq).toBe(2);
+      expect(nextDue?.dueDate).toBe('2026-02-01');
+    });
+
+    it('qisman to‘lov waterfall: 1 to‘liq + 2 qisman', () => {
+      const { installments, nextDue } = allocateInstallments(schedule, 13000000);
+      expect(installments[0].status).toBe('paid');
+      expect(installments[1].status).toBe('partial');
+      expect(installments[1].paid).toBe(3000000);
+      expect(nextDue?.seq).toBe(2);
+      expect(nextDue?.remaining).toBe(7000000);
+    });
+
+    it('hammasi to‘langan → nextDue null', () => {
+      const { nextDue } = allocateInstallments(schedule, 20000000);
+      expect(nextDue).toBeNull();
     });
   });
 

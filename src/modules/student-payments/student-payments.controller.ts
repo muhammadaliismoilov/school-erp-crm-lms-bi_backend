@@ -25,6 +25,8 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import type { AuthenticatedUser } from '../../common/security/authenticated-user.interface';
 import { ApiLocalizedErrorResponses } from '../../common/swagger/api-localized-error-responses.decorator';
+import { DebtsService } from './debts.service';
+import { DebtsQueryDto } from './dto/debts-query.dto';
 import { CreateStudentPaymentDto } from './dto/create-student-payment.dto';
 import { PlanPreviewQueryDto, UpdatePaymentPlanConfigDto } from './dto/payment-plan-config.dto';
 import { StudentBalanceQueryDto } from './dto/student-balance-query.dto';
@@ -55,7 +57,32 @@ export class StudentPaymentsController {
     private readonly service: StudentPaymentsService,
     private readonly billing: StudentBillingService,
     private readonly plans: PaymentPlanService,
+    private readonly debts: DebtsService,
   ) {}
+
+  // ─── Qarzlar (debts) ──────────────────────────────────────────────────────
+
+  @Get('debts/overview')
+  @Permissions([AppPermission.FINANCE_READ])
+  @ApiOperation({ summary: 'Qarzlar: KPI + chart + oylik taqsimot' })
+  async debtsOverview() {
+    try {
+      return await this.debts.getOverview();
+    } catch (error) {
+      this.handleError(error, 'Qarzlar umumiy ko‘rinishini hisoblashda server xatosi yuz berdi');
+    }
+  }
+
+  @Get('debts/students')
+  @Permissions([AppPermission.FINANCE_READ])
+  @ApiOperation({ summary: 'O‘quvchilar qarzlari (oylik matritsa, filtr, sahifalash)' })
+  async debtsStudents(@Query() query: DebtsQueryDto) {
+    try {
+      return await this.debts.getStudents(query);
+    } catch (error) {
+      this.handleError(error, 'O‘quvchilar qarzlarini hisoblashda server xatosi yuz berdi');
+    }
+  }
 
   // ─── To'lov rejasi chegirmasi ─────────────────────────────────────────────
 
@@ -127,6 +154,17 @@ export class StudentPaymentsController {
       return await this.billing.computeForStudent(studentId);
     } catch (error) {
       this.handleError(error, 'O‘quvchi balansini hisoblashda server xatosi yuz berdi');
+    }
+  }
+
+  @Get('agreement/:studentId')
+  @Permissions([AppPermission.FINANCE_READ])
+  @ApiOperation({ summary: 'O‘quvchi to‘lov kelishuvi: reja + jadval + keyingi to‘lov' })
+  async agreement(@Param('studentId') studentId: string) {
+    try {
+      return await this.billing.getAgreement(studentId);
+    } catch (error) {
+      this.handleError(error, 'O‘quvchi to‘lov kelishuvini olishda server xatosi yuz berdi');
     }
   }
 

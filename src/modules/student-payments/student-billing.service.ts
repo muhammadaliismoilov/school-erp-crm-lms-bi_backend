@@ -5,10 +5,14 @@ import { SchoolClass } from '../academic/entities/school-class.entity';
 import { Student } from '../students/entities/student.entity';
 import { StudentStatus } from '../students/enums/student-status.enum';
 import {
+  allocateInstallments,
   BalanceStatus,
+  comparePlans,
   computePlanBalance,
   computeStudentBalance,
   DiscountType,
+  effectiveMonthlyFee,
+  InstallmentState,
   PlanCode,
   PlanConfig,
 } from './billing.util';
@@ -253,4 +257,97 @@ export class StudentBillingService {
     if (!cls) return null;
     return cls.name ?? null;
   }
+
+  /**
+   * O'quvchining to'lov kelishuvi — qaysi reja (1 yillik/2/3/oyma-oy), to'liq
+   * jadval (har bo'lim summasi + muddati), to'langan/qolgan va "keyingi to'lov"
+   * (qachon, qancha). To'lov kiritish formasi shu panelni ko'rsatadi.
+   */
+  async getAgreement(studentId: string): Promise<StudentAgreement | null> {
+    const student = await this.students.findOne({ where: { id: studentId }, relations: { currentClass: true } });
+    if (!student) return null;
+
+    const ctx = await this.plans.getContext();
+    const plan = (student.paymentPlan ?? 'monthly') as PlanCode;
+    const monthlyFee = Number(student.monthlyFee) || 0;
+    const discountType = (student.discountType ?? 'percent') as DiscountType;
+    const discountValue = Number(student.discountValue) || 0;
+    const effectiveMonthly = effectiveMonthlyFee(monthlyFee, discountType, discountValue);
+
+    const config = this.configWithOverride(ctx.config, student, plan);
+    const rows = comparePlans(
+      {
+        monthlyFee,
+        discountType,
+        discountValue,
+        billingStart: student.billingStartDate ?? student.createdAt,
+        academicStart: ctx.academic.start,
+        academicEnd: ctx.academic.end,
+      },
+      config,
+    );
+    const row = rows.find((r) => r.planCode === plan) ?? rows.find((r) => r.planCode === 'monthly')!;
+
+    const paidRow = await this.payments
+      .createQueryBuilder('p')
+      .select('COALESCE(SUM(p.amount), 0)', 'paid')
+      .where('p.student_id = :studentId', { studentId })
+      .getRawOne<{ paid: string }>();
+    const totalPaid = Number(paidRow?.paid) || 0;
+
+    const { installments, nextDue } = allocateInstallments(row.schedule, totalPaid);
+
+    return {
+      studentId: student.id,
+      studentName: `${student.lastName ?? ''} ${student.firstName ?? ''}`.trim() || student.studentCode,
+      classId: student.currentClassId ?? null,
+      className: this.classLabel(student.currentClass),
+      plan: (student.paymentPlan ?? null) as PlanCode | null,
+      monthlyFee,
+      effectiveMonthly,
+      installmentCount: row.installments,
+      total: row.total,
+      paid: totalPaid,
+      remaining: Math.max(row.total - totalPaid, 0),
+      installments: installments.map((i) => ({
+        seq: i.seq,
+        dueDate: i.dueDate,
+        amount: i.amount,
+        paid: i.paid,
+        remaining: i.remaining,
+        status: i.status,
+      })),
+      nextDue: nextDue
+        ? { seq: nextDue.seq, dueDate: nextDue.dueDate, amount: nextDue.amount, remaining: nextDue.remaining }
+        : null,
+    };
+  }
+}
+
+export interface AgreementInstallment {
+  seq: number;
+  dueDate: string;
+  amount: number;
+  paid: number;
+  remaining: number;
+  status: InstallmentState;
+}
+
+export interface StudentAgreement {
+  studentId: string;
+  studentName: string;
+  classId: string | null;
+  className: string | null;
+  /** Tanlangan reja (null → oyma-oy). */
+  plan: PlanCode | null;
+  monthlyFee: number;
+  effectiveMonthly: number;
+  /** Bo'limlar soni (oyma-oyda akademik oylar soni). */
+  installmentCount: number;
+  total: number;
+  paid: number;
+  remaining: number;
+  installments: AgreementInstallment[];
+  /** Keyingi to'lov — birinchi to'lanmagan bo'lim (null → hammasi to'langan). */
+  nextDue: { seq: number; dueDate: string; amount: number; remaining: number } | null;
 }

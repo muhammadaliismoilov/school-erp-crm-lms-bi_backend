@@ -312,6 +312,42 @@ export function comparePlans(input: PlanComparisonInput, config: PlanConfig): Pl
   return rows;
 }
 
+export type InstallmentState = 'paid' | 'partial' | 'pending';
+
+export interface InstallmentStatus extends Installment {
+  /** Shu bo'limga taqsimlangan to'lov. */
+  paid: number;
+  /** Qolgan (amount − paid). */
+  remaining: number;
+  status: InstallmentState;
+}
+
+export interface AllocationResult {
+  installments: InstallmentStatus[];
+  /** Birinchi to'liq to'lanmagan bo'lim (keyingi to'lov) — barchasi to'langan bo'lsa null. */
+  nextDue: InstallmentStatus | null;
+}
+
+/**
+ * To'langan jami summani bo'limlarga ketma-ket (waterfall) taqsimlaydi: avval
+ * 1-bo'lim to'liq, keyin 2-bo'lim va h.k. Har bo'lim holati va "keyingi to'lov"
+ * (birinchi to'lanmagan bo'lim) aniqlanadi. UI "keyingi to'lov: qachon, qancha"
+ * ko'rsatish uchun ishlatadi.
+ */
+export function allocateInstallments(schedule: Installment[], totalPaid: number): AllocationResult {
+  let remainingMoney = Math.max(Number(totalPaid) || 0, 0);
+  const installments: InstallmentStatus[] = schedule.map((inst) => {
+    const amount = Math.max(Number(inst.amount) || 0, 0);
+    const paid = Math.min(remainingMoney, amount);
+    remainingMoney -= paid;
+    const remaining = Math.max(amount - paid, 0);
+    const status: InstallmentState = remaining <= 1 ? 'paid' : paid > 0 ? 'partial' : 'pending';
+    return { ...inst, amount, paid, remaining, status };
+  });
+  const nextDue = installments.find((i) => i.status !== 'paid') ?? null;
+  return { installments, nextDue };
+}
+
 /** Jadvaldagi muddati kelgan (dueDate ≤ now) bo'limlar yig'indisi. */
 export function expectedToDate(schedule: Installment[], now: Date = new Date()): number {
   const nowTime = now.getTime();
