@@ -92,6 +92,21 @@ export class Student extends UuidAuditEntity {
   @Column({ name: "billing_start_date", type: "date", nullable: true })
   billingStartDate?: string | null;
 
+  /**
+   * Tanlangan to'lov rejasi: yearly_1x / split_2 / split_3 / monthly.
+   * null → maktab default (monthly) — eski o'quvchilar uchun back-compat.
+   */
+  @Column({ name: "payment_plan", type: "varchar", length: 20, nullable: true })
+  paymentPlan?: "yearly_1x" | "split_2" | "split_3" | "monthly" | null;
+
+  /** Per-student reja chegirma override turi (null → global config'dan olinadi). */
+  @Column({ name: "plan_discount_override_type", type: "varchar", length: 10, nullable: true })
+  planDiscountOverrideType?: "percent" | "amount" | null;
+
+  /** Per-student reja chegirma override qiymati (null → global config'dan). */
+  @Column({ name: "plan_discount_override_value", type: "numeric", precision: 14, scale: 2, nullable: true })
+  planDiscountOverrideValue?: number | null;
+
   // --- Manzil ---
   @Column({ type: "varchar", length: 80, nullable: true })
   region?: string | null;

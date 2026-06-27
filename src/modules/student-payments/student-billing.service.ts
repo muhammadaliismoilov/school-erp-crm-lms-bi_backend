@@ -6,10 +6,14 @@ import { Student } from '../students/entities/student.entity';
 import { StudentStatus } from '../students/enums/student-status.enum';
 import {
   BalanceStatus,
+  computePlanBalance,
   computeStudentBalance,
   DiscountType,
+  PlanCode,
+  PlanConfig,
 } from './billing.util';
 import { StudentPayment } from './entities/student-payment.entity';
+import { AcademicWindow, PaymentPlanService } from './payment-plan.service';
 
 export interface StudentBalanceQuery {
   search?: string;
@@ -33,6 +37,8 @@ export interface StudentBalanceRow {
   paid: number;
   balance: number;
   status: BalanceStatus;
+  /** Tanlangan to'lov rejasi (null → oyma-oy). */
+  plan?: PlanCode | null;
 }
 
 export interface StudentBalancesResponse {
@@ -58,12 +64,82 @@ export class StudentBillingService {
     private readonly students: Repository<Student>,
     @InjectRepository(StudentPayment)
     private readonly payments: Repository<StudentPayment>,
+    private readonly plans: PaymentPlanService,
   ) {}
+
+  /**
+   * Bitta o'quvchi balansini hisoblaydi — reja tanlangan bo'lsa reja jadvali
+   * bo'yicha (yaxlit/bo'lib), aks holda oyma-oy. Per-student override config'ga
+   * qo'llanadi.
+   */
+  private balanceFor(
+    student: Student,
+    paid: number,
+    ctx: { config: PlanConfig; academic: AcademicWindow },
+    now: Date,
+  ): {
+    effectiveMonthly: number;
+    months: number;
+    expected: number;
+    paid: number;
+    balance: number;
+    status: BalanceStatus;
+    plan: PlanCode | null;
+  } {
+    const plan = (student.paymentPlan ?? null) as PlanCode | null;
+    const base = {
+      monthlyFee: Number(student.monthlyFee) || 0,
+      discountType: (student.discountType ?? 'percent') as DiscountType,
+      discountValue: Number(student.discountValue) || 0,
+      billingStart: student.billingStartDate ?? student.createdAt,
+      paid,
+    };
+
+    // Reja yo'q yoki oyma-oy → mavjud sodda hisob (regresiya yo'q).
+    if (!plan || plan === 'monthly') {
+      const r = computeStudentBalance(base, now);
+      return { ...r, plan };
+    }
+
+    // Reja-aware: per-student override config'ga qo'llanadi.
+    const config = this.configWithOverride(ctx.config, student, plan);
+    const r = computePlanBalance(
+      { ...base, academicStart: ctx.academic.start, academicEnd: ctx.academic.end, planCode: plan },
+      config,
+      now,
+    );
+    return {
+      effectiveMonthly: r.effectiveMonthly,
+      months: r.months,
+      expected: r.expected,
+      paid: r.paid,
+      balance: r.balance,
+      status: r.status,
+      plan,
+    };
+  }
+
+  private configWithOverride(config: PlanConfig, student: Student, plan: PlanCode): PlanConfig {
+    if (!student.planDiscountOverrideType || student.planDiscountOverrideValue == null) return config;
+    return {
+      ...config,
+      rates: config.rates.map((r) =>
+        r.planCode === plan
+          ? {
+              ...r,
+              discountType: student.planDiscountOverrideType as DiscountType,
+              discountValue: Number(student.planDiscountOverrideValue),
+            }
+          : r,
+      ),
+    };
+  }
 
   async findBalances(query: StudentBalanceQuery = {}): Promise<StudentBalancesResponse> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const now = new Date();
+    const ctx = await this.plans.getContext();
 
     // 1. Faol o'quvchilar (filtr: sinf, qidiruv).
     const qb = this.students
@@ -96,18 +172,9 @@ export class StudentBillingService {
       .getRawMany<{ studentId: string; paid: string }>();
     const paidMap = new Map(paidRows.map((r) => [r.studentId, Number(r.paid) || 0]));
 
-    // 3. Balansni hisoblaymiz.
+    // 3. Balansni hisoblaymiz (reja tanlangan bo'lsa reja jadvali bo'yicha).
     let rows: StudentBalanceRow[] = students.map((student) => {
-      const result = computeStudentBalance(
-        {
-          monthlyFee: Number(student.monthlyFee) || 0,
-          discountType: (student.discountType ?? 'percent') as DiscountType,
-          discountValue: Number(student.discountValue) || 0,
-          billingStart: student.billingStartDate ?? student.createdAt,
-          paid: paidMap.get(student.id) ?? 0,
-        },
-        now,
-      );
+      const result = this.balanceFor(student, paidMap.get(student.id) ?? 0, ctx, now);
       return {
         studentId: student.id,
         studentName: `${student.lastName ?? ''} ${student.firstName ?? ''}`.trim() || student.studentCode,
@@ -120,6 +187,7 @@ export class StudentBillingService {
         paid: result.paid,
         balance: result.balance,
         status: result.status,
+        plan: result.plan,
       };
     });
 
@@ -162,16 +230,8 @@ export class StudentBillingService {
       .where('p.student_id = :studentId', { studentId })
       .getRawOne<{ paid: string }>();
 
-    const result = computeStudentBalance(
-      {
-        monthlyFee: Number(student.monthlyFee) || 0,
-        discountType: (student.discountType ?? 'percent') as DiscountType,
-        discountValue: Number(student.discountValue) || 0,
-        billingStart: student.billingStartDate ?? student.createdAt,
-        paid: Number(paidRow?.paid) || 0,
-      },
-      new Date(),
-    );
+    const ctx = await this.plans.getContext();
+    const result = this.balanceFor(student, Number(paidRow?.paid) || 0, ctx, new Date());
 
     return {
       studentId: student.id,
@@ -185,6 +245,7 @@ export class StudentBillingService {
       paid: result.paid,
       balance: result.balance,
       status: result.status,
+      plan: result.plan,
     };
   }
 

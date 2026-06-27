@@ -139,6 +139,23 @@ export class CreateStudentDto {
   @IsISO8601()
   billingStartDate?: string;
 
+  @ApiPropertyOptional({ enum: ["yearly_1x", "split_2", "split_3", "monthly"], description: "Tanlangan to'lov rejasi." })
+  @IsOptional()
+  @IsIn(["yearly_1x", "split_2", "split_3", "monthly"])
+  paymentPlan?: "yearly_1x" | "split_2" | "split_3" | "monthly";
+
+  @ApiPropertyOptional({ enum: ["percent", "amount"], description: "Reja chegirma override turi (ixtiyoriy)." })
+  @IsOptional()
+  @IsIn(["percent", "amount"])
+  planDiscountOverrideType?: "percent" | "amount";
+
+  @ApiPropertyOptional({ example: 1800000, minimum: 0, description: "Reja chegirma override qiymati." })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  planDiscountOverrideValue?: number;
+
   // --- Manzil ---
   @ApiPropertyOptional({ example: "Toshkent", maxLength: 80 })
   @IsOptional()

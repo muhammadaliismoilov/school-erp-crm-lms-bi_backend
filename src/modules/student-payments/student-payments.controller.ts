@@ -10,6 +10,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -25,9 +26,11 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import type { AuthenticatedUser } from '../../common/security/authenticated-user.interface';
 import { ApiLocalizedErrorResponses } from '../../common/swagger/api-localized-error-responses.decorator';
 import { CreateStudentPaymentDto } from './dto/create-student-payment.dto';
+import { PlanPreviewQueryDto, UpdatePaymentPlanConfigDto } from './dto/payment-plan-config.dto';
 import { StudentBalanceQueryDto } from './dto/student-balance-query.dto';
 import { StudentPaymentQueryDto } from './dto/student-payment-query.dto';
 import { UpdateStudentPaymentDto } from './dto/update-student-payment.dto';
+import { PaymentPlanService } from './payment-plan.service';
 import { StudentBillingService } from './student-billing.service';
 import { StudentPaymentActor, StudentPaymentsService } from './student-payments.service';
 import {
@@ -51,7 +54,55 @@ export class StudentPaymentsController {
   constructor(
     private readonly service: StudentPaymentsService,
     private readonly billing: StudentBillingService,
+    private readonly plans: PaymentPlanService,
   ) {}
+
+  // ─── To'lov rejasi chegirmasi ─────────────────────────────────────────────
+
+  @Get('plan-config')
+  @Permissions([AppPermission.FINANCE_READ])
+  @ApiOperation({ summary: 'To‘lov rejasi chegirma konfiguratsiyasi' })
+  async planConfig() {
+    try {
+      return await this.plans.getConfig();
+    } catch (error) {
+      this.handleError(error, 'Reja konfiguratsiyasini olishda server xatosi yuz berdi');
+    }
+  }
+
+  @Put('plan-config')
+  @Permissions([AppPermission.FINANCE_MANAGE])
+  @ApiOperation({
+    summary: 'To‘lov rejasi chegirmasini sozlash',
+    description:
+      'Invariant: yillik 1 martalik chegirma eng katta, oyma-oy eng kichik (qat‘iy kamayish). Buzilsa 400 qaytadi.',
+  })
+  async updatePlanConfig(
+    @Body() dto: UpdatePaymentPlanConfigDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: Request,
+  ) {
+    try {
+      return await this.plans.updateConfig(dto, { userId: user?.id, username: user?.username, ipAddress: request?.ip });
+    } catch (error) {
+      this.handleError(error, 'Reja konfiguratsiyasini saqlashda server xatosi yuz berdi');
+    }
+  }
+
+  @Get('plan-preview')
+  @Permissions([AppPermission.FINANCE_READ])
+  @ApiOperation({ summary: '4 rejani solishtirish (jonli preview)' })
+  async planPreview(@Query() query: PlanPreviewQueryDto) {
+    try {
+      const override =
+        query.overridePlan && query.overrideType && query.overrideValue != null
+          ? { planCode: query.overridePlan, discountType: query.overrideType, discountValue: query.overrideValue }
+          : undefined;
+      return await this.plans.preview(query.monthlyFee, query.discountType, query.discountValue, query.billingStart, override);
+    } catch (error) {
+      this.handleError(error, 'Rejalarni solishtirishda server xatosi yuz berdi');
+    }
+  }
 
   @Get('balances')
   @Permissions([AppPermission.FINANCE_READ])
@@ -76,6 +127,17 @@ export class StudentPaymentsController {
       return await this.billing.computeForStudent(studentId);
     } catch (error) {
       this.handleError(error, 'O‘quvchi balansini hisoblashda server xatosi yuz berdi');
+    }
+  }
+
+  @Get('plan-comparison/:studentId')
+  @Permissions([AppPermission.FINANCE_READ])
+  @ApiOperation({ summary: 'O‘quvchi uchun 4 reja solishtiruvi (tejam ko‘rsatish)' })
+  async planComparison(@Param('studentId') studentId: string) {
+    try {
+      return await this.plans.compareForStudent(studentId);
+    } catch (error) {
+      this.handleError(error, 'O‘quvchi rejalarini solishtirishda server xatosi yuz berdi');
     }
   }
 
