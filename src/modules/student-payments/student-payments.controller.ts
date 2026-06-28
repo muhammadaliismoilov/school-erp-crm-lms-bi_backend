@@ -179,6 +179,21 @@ export class StudentPaymentsController {
     }
   }
 
+  @Post('reconcile-transactions')
+  @Permissions([AppPermission.FINANCE_MANAGE])
+  @ApiOperation({
+    summary: 'Moliya defteri proyeksiyalarini qayta sinxronlash (drift tuzatish)',
+    description:
+      'Har faol o‘quvchi to‘lovi uchun `transactions` proyeksiyasini qayta yozadi — yo‘q bo‘lsa yaratadi, summasi eskirgan bo‘lsa yangilaydi, o‘chirilgan bo‘lsa tiklaydi. Idempotent.',
+  })
+  async reconcileTransactions() {
+    try {
+      return await this.service.reconcileFinanceTransactions();
+    } catch (error) {
+      this.handleError(error, 'Tranzaksiyalarni qayta sinxronlashda server xatosi yuz berdi');
+    }
+  }
+
   @Get()
   @Permissions([AppPermission.FINANCE_READ])
   @ApiOperation({

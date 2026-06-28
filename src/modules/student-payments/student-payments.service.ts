@@ -383,6 +383,32 @@ export class StudentPaymentsService {
     }
   }
 
+  /**
+   * Barcha faol o'quvchi to'lovlarining moliya-defteri (`transactions`)
+   * proyeksiyasini qayta sinxronlaydi — drift tuzatish (mas. to'lov summasi
+   * tashqaridan o'zgartirilib, tranzaksiya eski qolib ketgan holatlar). Har
+   * to'lov uchun `syncFinanceTransaction` qayta yuritiladi (idempotent):
+   * yo'q bo'lsa yaratiladi, eski summa yangilanadi, o'chirilgan tiklanadi.
+   */
+  async reconcileFinanceTransactions(): Promise<{ processed: number; changed: number }> {
+    const payments = await this.payments.find(); // soft-delete avtomatik chetlatiladi
+    let changed = 0;
+    for (const payment of payments) {
+      await this.dataSource.transaction(async (manager) => {
+        const repo = manager.getRepository(FinanceTransaction);
+        const before = await repo.findOne({
+          where: { sourceType: StudentPaymentsService.TX_SOURCE, sourceId: payment.id },
+          withDeleted: true,
+        });
+        await this.syncFinanceTransaction(manager, payment);
+        const expected = Number(payment.amount) || 0;
+        const wasCorrect = before && !before.deletedAt && Number(before.amount) === expected;
+        if (expected > 0 && !wasCorrect) changed += 1;
+      });
+    }
+    return { processed: payments.length, changed };
+  }
+
   // ─── Egalik nazorati ────────────────────────────────────────────────────────
 
   /**

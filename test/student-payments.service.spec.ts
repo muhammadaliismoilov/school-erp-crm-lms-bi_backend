@@ -214,6 +214,25 @@ describe('StudentPaymentsService', () => {
     });
   });
 
+  describe('reconcileFinanceTransactions', () => {
+    it('eskirgan tranzaksiya summasini to‘g‘rilaydi (changed 1)', async () => {
+      (payments as unknown as { find: jest.Mock }).find = jest.fn().mockResolvedValue([basePayment({ amount: 200000 })]);
+      // Har findOne yangi obyekt (real DB xulqi) — `before` mutatsiyadan himoyalanadi.
+      finance.findOne.mockImplementation(async () => ({ id: 'tx-1', amount: 20000, deletedAt: null }));
+      const res = await service.reconcileFinanceTransactions();
+      expect(res).toEqual({ processed: 1, changed: 1 });
+      const savedTx = finance.save.mock.calls.at(-1)![0] as FinanceTransaction;
+      expect(Number(savedTx.amount)).toBe(200000);
+    });
+
+    it('summa to‘g‘ri bo‘lsa changed 0', async () => {
+      (payments as unknown as { find: jest.Mock }).find = jest.fn().mockResolvedValue([basePayment({ amount: 200000 })]);
+      finance.findOne.mockImplementation(async () => ({ id: 'tx-1', amount: 200000, deletedAt: null }));
+      const res = await service.reconcileFinanceTransactions();
+      expect(res.changed).toBe(0);
+    });
+  });
+
   describe('findAll', () => {
     it('returns paginated items, meta and stats', async () => {
       qb.getManyAndCount.mockResolvedValue([[basePayment()], 1]);
