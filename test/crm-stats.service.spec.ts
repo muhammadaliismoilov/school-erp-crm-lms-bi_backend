@@ -8,7 +8,9 @@ import type { AuditLog } from '../src/modules/audit/entities/audit-log.entity';
 import { LeadStatus } from '../src/modules/crm/enums/lead-status.enum';
 import type { StudentsService } from '../src/modules/students/students.service';
 
-const now = new Date('2026-06-17T10:00:00.000Z');
+// Joriy vaqtga nisbatan "yaqin" sana (1 soat oldin) — test sanaga bog'liq
+// bo'lmasligi uchun: "stuck leads" chegarasi (7 kun) doimo o'tilmaydi.
+const now = new Date(Date.now() - 60 * 60 * 1000);
 
 const lead = (over: Partial<Lead>): Lead =>
   ({
