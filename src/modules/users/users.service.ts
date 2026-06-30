@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -11,6 +12,8 @@ import type { FindOptionsWhere } from 'typeorm';
 import { CommonStatus } from '../../common/enums/common-status.enum';
 import { PasswordService } from '../auth/password.service';
 import { Role } from '../identity/entities/role.entity';
+import { StaffMember } from '../hr/entities/staff-member.entity';
+import { EmploymentStatus } from '../hr/enums/hr.enums';
 import { User } from './entities/user.entity';
 import { AssignRolesDto } from './dto/assign-roles.dto';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -23,15 +26,25 @@ type IdentifierInput = Partial<Pick<User, 'username' | 'email' | 'phone' | 'docu
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
+  /** "Xodim" deb hisoblanmaydigan rollar — bular HR xodimlar ro'yxatiga tushmaydi. */
+  private static readonly NON_STAFF_ROLE_NAMES = new Set(['student', 'parent']);
+
   constructor(
     @InjectRepository(User)
     private readonly users: Repository<User>,
     @InjectRepository(Role)
     private readonly roles: Repository<Role>,
+    @InjectRepository(StaffMember)
+    private readonly staffMembers: Repository<StaffMember>,
     private readonly passwords: PasswordService,
   ) {}
 
-  async create(dto: CreateUserDto): Promise<UserResponseSchema & { generatedPassword: string }> {
+  async create(
+    dto: CreateUserDto,
+    opts?: { skipStaffSync?: boolean },
+  ): Promise<UserResponseSchema & { generatedPassword: string }> {
     const username = dto.username
       ? this.normalizeUsername(dto.username)
       : await this.generateUniqueUsername(dto.role);
@@ -69,9 +82,88 @@ export class UsersService {
     });
 
     const saved = await this.users.save(user);
+
+    // Xodim rolidagi foydalanuvchi HR > Xodimlar ro'yxatida ham ko'rinishi uchun
+    // ko'zgu yozuv yaratamiz. HR oqimi o'z staff yozuvini o'zi yaratadi — u yerda
+    // skipStaffSync orqali ikkilanishning oldini olamiz.
+    if (!opts?.skipStaffSync) {
+      await this.ensureStaffMember(saved);
+    }
+
     // The plaintext password exists only here (DB stores the argon2 hash), so it
     // is returned once for the "credentials created" dialog and never again.
     return { ...this.toUserResponse(saved), generatedPassword: password };
+  }
+
+  /** Foydalanuvchi student/parent'dan boshqa rolga ega bo'lsa — xodim hisoblanadi. */
+  private isStaffUser(user: User): boolean {
+    return (user.roles ?? []).some(
+      (role) => !UsersService.NON_STAFF_ROLE_NAMES.has(role.name.toLowerCase()),
+    );
+  }
+
+  /**
+   * Xodim rolidagi foydalanuvchi uchun hr_staff_members yozuvini kafolatlaydi.
+   * Bog'lanish yo'q bo'lsa minimal yozuv yaratadi (bo'lim/lavozim/maosh keyin
+   * HR'da to'ldiriladi). User yaratish ushbu best-effort sinxronizatsiyaga
+   * bog'liq bo'lmasligi uchun xatolik yutiladi va log qilinadi.
+   */
+  private async ensureStaffMember(user: User): Promise<void> {
+    if (!this.isStaffUser(user)) return;
+    try {
+      const existing = await this.staffMembers.findOne({
+        where: { userId: user.id },
+        withDeleted: true,
+      });
+      if (existing) return;
+
+      const employeeCode = await this.generateEmployeeCode();
+      await this.staffMembers.save(
+        this.staffMembers.create({
+          employeeCode,
+          userId: user.id,
+          firstName: user.firstName,
+          firstNameCyrillic: user.firstNameCyrillic ?? null,
+          lastName: user.lastName,
+          lastNameCyrillic: user.lastNameCyrillic ?? null,
+          middleName: user.middleName ?? null,
+          middleNameCyrillic: user.middleNameCyrillic ?? null,
+          gender: user.gender ?? null,
+          birthDate: user.birthDate ?? null,
+          passportSeries: user.documentNumber ?? null,
+          pinfl: user.pinfl ?? null,
+          phone: user.phone ?? null,
+          email: user.email ?? null,
+          departmentId: null,
+          positionId: null,
+          hireDate: (user.createdAt ?? new Date()).toISOString().slice(0, 10),
+          status: EmploymentStatus.ACTIVE,
+          salary: 0,
+        }),
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Foydalanuvchi uchun xodim yozuvini yaratib bo'lmadi (userId=${user.id}): ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  /** Keyingi bo'sh EMP-#### kodini topadi (soft-deleted'larni ham hisobga olib). */
+  private async generateEmployeeCode(): Promise<string> {
+    const count = await this.staffMembers.count({ withDeleted: true });
+    let n = count + 1;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const code = `EMP-${String(n).padStart(4, '0')}`;
+      const exists = await this.staffMembers.findOne({
+        where: { employeeCode: code },
+        withDeleted: true,
+      });
+      if (!exists) return code;
+      n += 1;
+    }
   }
 
   /**

@@ -16,6 +16,10 @@ export class Project extends UuidAuditEntity {
   @Column({ type: 'text', nullable: true })
   description?: string | null;
 
+  /** UI rangi (hex), masalan `#f59e0b`. */
+  @Column({ type: 'varchar', length: 9, nullable: true })
+  color?: string | null;
+
   @Column({ type: 'enum', enum: ProjectStatus, default: ProjectStatus.ACTIVE })
   status: ProjectStatus;
 

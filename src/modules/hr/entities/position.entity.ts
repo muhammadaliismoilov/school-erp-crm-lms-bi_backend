@@ -1,6 +1,7 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 import { Branch } from '../../settings/entities/branch.entity';
+import { School } from '../../settings/entities/school.entity';
 import { Department } from './department.entity';
 import { StaffMember } from './staff-member.entity';
 
@@ -34,6 +35,14 @@ export class Position extends UuidAuditEntity {
   @ManyToOne(() => Department, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'department_id' })
   department?: Department | null;
+
+  /** Egasi: bosh ofis (asosiy maktab). `filialId` bilan o'zaro istisno. */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @ManyToOne(() => School, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'school_id' })
+  school?: School | null;
 
   /** Filial (branch). */
   @Column({ name: 'filial_id', type: 'uuid', nullable: true })

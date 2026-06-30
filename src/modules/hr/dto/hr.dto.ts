@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsBoolean, IsEmail, IsEnum, IsISO8601, IsInt, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Length, Matches, Max, Min } from 'class-validator';
-import { EmploymentStatus, LeaveStatus, LeaveType, PayrollStatus } from '../enums/hr.enums';
+import { EmploymentStatus, LeaveStatus, LeaveType, PayrollStatus, QualificationCategory, StaffAchievementCategory, StaffAchievementIcon, StaffAchievementRank } from '../enums/hr.enums';
 import { DepartmentStatus } from '../entities/department.entity';
 import { PositionStatus } from '../entities/position.entity';
 import { UserGender } from '../../users/enums/user.enums';
@@ -11,6 +11,8 @@ export class CreateDepartmentDto {
   @ApiPropertyOptional({ example: 'academic', description: 'Yuborilmasa nomdan avtomatik generatsiya qilinadi.' })
   @IsOptional() @IsString() @Length(2, 40) code?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 1000) description?: string;
+  @ApiPropertyOptional({ format: 'uuid', description: 'Asosiy maktab (bosh ofis) IDsi.' })
+  @IsOptional() @IsUUID() schoolId?: string;
   @ApiPropertyOptional({ format: 'uuid', description: 'Filial (branch) IDsi.' })
   @IsOptional() @IsUUID() filialId?: string;
   @ApiPropertyOptional({ format: 'uuid', description: 'Ota bo‘lim IDsi.' })
@@ -71,6 +73,8 @@ export class CreatePositionDto {
   @ApiPropertyOptional({ example: 5000000 }) @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) baseSalary?: number;
   @ApiPropertyOptional({ format: 'uuid', description: 'Bo‘lim IDsi.' })
   @IsOptional() @IsUUID() departmentId?: string;
+  @ApiPropertyOptional({ format: 'uuid', description: 'Asosiy maktab (bosh ofis) IDsi.' })
+  @IsOptional() @IsUUID() schoolId?: string;
   @ApiPropertyOptional({ format: 'uuid', description: 'Filial (branch) IDsi.' })
   @IsOptional() @IsUUID() filialId?: string;
   @ApiPropertyOptional({ enum: PositionStatus })
@@ -118,6 +122,12 @@ export class CreateStaffMemberDto {
   @ApiPropertyOptional({ enum: EmploymentStatus }) @IsOptional() @IsEnum(EmploymentStatus) status?: EmploymentStatus;
   @ApiPropertyOptional({ example: 5000000 }) @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) salary?: number;
 
+  /** O'qituvchining malaka toifasi (mutaxassis/ikkinchi/birinchi/oliy). */
+  @ApiPropertyOptional({ enum: QualificationCategory, description: 'O‘qituvchining malaka toifasi.' })
+  @IsOptional() @IsEnum(QualificationCategory) qualificationCategory?: QualificationCategory;
+  @ApiPropertyOptional({ example: '2025-06-01', format: 'date', description: 'Toifa berilgan sana (attestatsiya).' })
+  @IsOptional() @IsISO8601({ strict: true }) qualificationDate?: string;
+
   /** Login user uchun tizim roli nomi (masalan 'accountant'). Tanlanmasa user rolsiz yaratiladi. */
   @ApiPropertyOptional({ example: 'accountant', description: 'Login user uchun tizim roli nomi.' })
   @IsOptional() @IsString() @Length(1, 80) roleName?: string;
@@ -127,6 +137,29 @@ export class CreateStaffMemberDto {
   @IsOptional() @IsString() @Length(1, 500) salaryChangeReason?: string;
 }
 export class UpdateStaffMemberDto extends PartialType(CreateStaffMemberDto) {}
+
+// ─── Sertifikatlar ──────────────────────────────────────────────────────────
+
+export class CreateStaffCertificateDto {
+  @ApiProperty({ example: 'IELTS 7.0' }) @IsString() @Length(1, 200) name: string;
+  @ApiPropertyOptional({ example: '2027-06-01', format: 'date', description: 'Amal qilish muddati (tugash sanasi).' })
+  @IsOptional() @IsISO8601({ strict: true }) expiresAt?: string;
+}
+export class UpdateStaffCertificateDto extends PartialType(CreateStaffCertificateDto) {}
+
+// ─── Yutuqlar ───────────────────────────────────────────────────────────────
+
+export class CreateStaffAchievementDto {
+  @ApiProperty({ example: 'Eng yaxshi o‘qituvchi 2025' }) @IsString() @Length(1, 200) title: string;
+  @ApiPropertyOptional({ enum: StaffAchievementCategory }) @IsOptional() @IsEnum(StaffAchievementCategory) category?: StaffAchievementCategory;
+  @ApiPropertyOptional({ enum: StaffAchievementRank }) @IsOptional() @IsEnum(StaffAchievementRank) rank?: StaffAchievementRank;
+  @ApiPropertyOptional({ enum: StaffAchievementIcon }) @IsOptional() @IsEnum(StaffAchievementIcon) icon?: StaffAchievementIcon;
+  @ApiPropertyOptional({ example: '2025-05-20', format: 'date' }) @IsOptional() @IsISO8601({ strict: true }) achievedAt?: string;
+  @ApiPropertyOptional({ example: 'Xalq ta‘limi vazirligi' }) @IsOptional() @IsString() @Length(1, 200) organization?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 2000) description?: string;
+  @ApiPropertyOptional({ description: 'Sertifikat/diplom havolasi.' }) @IsOptional() @IsString() @Length(1, 2000) certificateUrl?: string;
+}
+export class UpdateStaffAchievementDto extends PartialType(CreateStaffAchievementDto) {}
 
 export class StaffQueryDto {
   @ApiPropertyOptional({ minimum: 1, default: 1 })

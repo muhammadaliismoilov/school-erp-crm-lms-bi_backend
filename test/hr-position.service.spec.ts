@@ -39,10 +39,12 @@ describe('PositionService', () => {
     };
     departments = { findOne: jest.fn() };
     branches = { findOne: jest.fn() };
+    const schools = { findOne: jest.fn() };
     service = new PositionService(
       positions as unknown as Repository<Position>,
       departments as unknown as Repository<Department>,
       branches as unknown as Repository<Branch>,
+      schools as never,
     );
   });
 

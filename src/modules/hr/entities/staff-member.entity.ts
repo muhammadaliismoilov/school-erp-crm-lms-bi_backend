@@ -6,7 +6,9 @@ import { Position } from './position.entity';
 import { StaffLeave } from './staff-leave.entity';
 import { Payroll } from './payroll.entity';
 import { StaffSalaryHistory } from './staff-salary-history.entity';
-import { EmploymentStatus } from '../enums/hr.enums';
+import { StaffCertificate } from './staff-certificate.entity';
+import { StaffAchievement } from './staff-achievement.entity';
+import { EmploymentStatus, QualificationCategory } from '../enums/hr.enums';
 import { UserGender } from '../../users/enums/user.enums';
 
 @Entity('hr_staff_members')
@@ -83,6 +85,14 @@ export class StaffMember extends UuidAuditEntity {
   @Column({ name: 'salary', type: 'numeric', precision: 14, scale: 2, default: 0 })
   salary: number;
 
+  /** O'qituvchining malaka toifasi (faqat o'qituvchilar uchun to'ldiriladi). */
+  @Column({ name: 'qualification_category', type: 'enum', enum: QualificationCategory, nullable: true })
+  qualificationCategory?: QualificationCategory | null;
+
+  /** Toifa berilgan sana (attestatsiya). */
+  @Column({ name: 'qualification_date', type: 'date', nullable: true })
+  qualificationDate?: string | null;
+
   @OneToMany(() => StaffLeave, (leave) => leave.staffMember)
   leaves: StaffLeave[];
 
@@ -91,4 +101,10 @@ export class StaffMember extends UuidAuditEntity {
 
   @OneToMany(() => StaffSalaryHistory, (history) => history.staffMember)
   salaryHistory: StaffSalaryHistory[];
+
+  @OneToMany(() => StaffCertificate, (certificate) => certificate.staffMember)
+  certificates: StaffCertificate[];
+
+  @OneToMany(() => StaffAchievement, (achievement) => achievement.staffMember)
+  achievements: StaffAchievement[];
 }

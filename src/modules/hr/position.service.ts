@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
 import { pickLocalizedText } from '../../common/i18n/locale';
 import { Branch } from '../settings/entities/branch.entity';
+import { School } from '../settings/entities/school.entity';
 import { CreatePositionDto, PositionQueryDto, UpdatePositionDto } from './dto/hr.dto';
 import { Department } from './entities/department.entity';
 import { Position, PositionStatus } from './entities/position.entity';
@@ -22,8 +23,12 @@ export interface PositionResponse {
   baseSalary: number;
   departmentId: string | null;
   departmentName: string | null;
+  schoolId: string | null;
+  schoolName: string | null;
   filialId: string | null;
   filialLabel: string | null;
+  /** Egasi yorlig'i: filial bo'lsa filial nomi, aks holda "Maktab (Bosh ofis)". */
+  ownerLabel: string | null;
   status: PositionStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -40,6 +45,7 @@ export class PositionService {
     @InjectRepository(Position) private readonly positions: Repository<Position>,
     @InjectRepository(Department) private readonly departments: Repository<Department>,
     @InjectRepository(Branch) private readonly branches: Repository<Branch>,
+    @InjectRepository(School) private readonly schools: Repository<School>,
   ) {}
 
   async findPositions(query: PositionQueryDto): Promise<PositionListResult> {
@@ -50,7 +56,8 @@ export class PositionService {
       .createQueryBuilder('p')
       .leftJoinAndSelect('p.department', 'department')
       .leftJoinAndSelect('p.filial', 'filial')
-      .leftJoinAndSelect('filial.school', 'school')
+      .leftJoinAndSelect('filial.school', 'fschool')
+      .leftJoinAndSelect('p.school', 'school')
       .where('p.deleted_at IS NULL');
 
     if (query.status) qb.andWhere('p.status = :status', { status: query.status });
@@ -84,6 +91,7 @@ export class PositionService {
 
   async createPosition(dto: CreatePositionDto): Promise<PositionResponse> {
     await this.assertDepartment(dto.departmentId);
+    await this.assertSchool(dto.schoolId);
     await this.assertFilial(dto.filialId);
 
     const code = await this.resolveCode(dto.code, dto.title);
@@ -94,6 +102,8 @@ export class PositionService {
         description: this.nullableText(dto.description),
         baseSalary: dto.baseSalary ?? 0,
         departmentId: dto.departmentId ?? null,
+        // Egasi bittadan: filial tanlansa — maktab tozalanadi.
+        schoolId: dto.filialId ? null : dto.schoolId ?? null,
         filialId: dto.filialId ?? null,
         status: dto.status ?? PositionStatus.ACTIVE,
       }),
@@ -104,6 +114,7 @@ export class PositionService {
   async updatePosition(id: string, dto: UpdatePositionDto): Promise<PositionResponse> {
     const entity = await this.findEntity(id);
     await this.assertDepartment(dto.departmentId);
+    await this.assertSchool(dto.schoolId);
     await this.assertFilial(dto.filialId);
 
     if (dto.title !== undefined) entity.title = dto.title.trim();
@@ -111,7 +122,15 @@ export class PositionService {
     if (dto.description !== undefined) entity.description = this.nullableText(dto.description);
     if (dto.baseSalary !== undefined) entity.baseSalary = dto.baseSalary;
     if (dto.departmentId !== undefined) entity.departmentId = dto.departmentId ?? null;
-    if (dto.filialId !== undefined) entity.filialId = dto.filialId ?? null;
+    // Egasi (maktab/filial) — o'zaro istisno.
+    if (dto.filialId !== undefined) {
+      entity.filialId = dto.filialId ?? null;
+      if (dto.filialId) entity.schoolId = null;
+    }
+    if (dto.schoolId !== undefined) {
+      entity.schoolId = dto.schoolId ?? null;
+      if (dto.schoolId) entity.filialId = null;
+    }
     if (dto.status !== undefined) entity.status = dto.status;
 
     await this.positions.save(entity);
@@ -128,7 +147,7 @@ export class PositionService {
   private async findEntity(id: string): Promise<Position> {
     const entity = await this.positions.findOne({
       where: { id },
-      relations: { department: true, filial: { school: true } },
+      relations: { department: true, filial: { school: true }, school: true },
     });
     if (!entity) throw new NotFoundException('Lavozim topilmadi');
     return entity;
@@ -138,6 +157,12 @@ export class PositionService {
     if (!departmentId) return;
     const exists = await this.departments.findOne({ where: { id: departmentId } });
     if (!exists) throw new NotFoundException('Bo‘lim topilmadi');
+  }
+
+  private async assertSchool(schoolId?: string): Promise<void> {
+    if (!schoolId) return;
+    const exists = await this.schools.findOne({ where: { id: schoolId } });
+    if (!exists) throw new NotFoundException('Maktab topilmadi');
   }
 
   private async assertFilial(filialId?: string): Promise<void> {
@@ -165,6 +190,9 @@ export class PositionService {
   }
 
   private toResponse(p: Position): PositionResponse {
+    const schoolName = p.school?.name ? pickLocalizedText(p.school.name, 'uz') : null;
+    const filialLabel = p.filial ? this.branchLabel(p.filial) : null;
+    const ownerLabel = filialLabel ?? (schoolName ? `${schoolName} (Bosh ofis)` : null);
     return {
       id: p.id,
       title: p.title,
@@ -173,8 +201,11 @@ export class PositionService {
       baseSalary: Number(p.baseSalary) || 0,
       departmentId: p.departmentId ?? null,
       departmentName: p.department?.name ?? null,
+      schoolId: p.schoolId ?? null,
+      schoolName,
       filialId: p.filialId ?? null,
-      filialLabel: p.filial ? this.branchLabel(p.filial) : null,
+      filialLabel,
+      ownerLabel,
       status: p.status,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,

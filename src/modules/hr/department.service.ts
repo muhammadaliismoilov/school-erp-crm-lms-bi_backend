@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
 import { pickLocalizedText } from '../../common/i18n/locale';
 import { Branch } from '../settings/entities/branch.entity';
+import { School } from '../settings/entities/school.entity';
 import { CreateDepartmentDto, DepartmentQueryDto, UpdateDepartmentDto } from './dto/hr.dto';
 import { Department, DepartmentStatus } from './entities/department.entity';
 
@@ -18,8 +19,12 @@ export interface DepartmentResponse {
   name: string;
   code: string;
   description: string | null;
+  schoolId: string | null;
+  schoolName: string | null;
   filialId: string | null;
   filialLabel: string | null;
+  /** Bo'lim egasi yorlig'i: filial bo'lsa filial nomi, aks holda "Maktab (Bosh ofis)". */
+  ownerLabel: string | null;
   parentId: string | null;
   parentName: string | null;
   telegramChatId: string | null;
@@ -43,6 +48,7 @@ export class DepartmentService {
   constructor(
     @InjectRepository(Department) private readonly departments: Repository<Department>,
     @InjectRepository(Branch) private readonly branches: Repository<Branch>,
+    @InjectRepository(School) private readonly schools: Repository<School>,
   ) {}
 
   async findDepartments(query: DepartmentQueryDto): Promise<DepartmentListResult> {
@@ -52,7 +58,8 @@ export class DepartmentService {
     const qb = this.departments
       .createQueryBuilder('d')
       .leftJoinAndSelect('d.filial', 'filial')
-      .leftJoinAndSelect('filial.school', 'school')
+      .leftJoinAndSelect('filial.school', 'fschool')
+      .leftJoinAndSelect('d.school', 'school')
       .leftJoinAndSelect('d.parent', 'parent')
       .where('d.deleted_at IS NULL');
 
@@ -86,6 +93,7 @@ export class DepartmentService {
   }
 
   async createDepartment(dto: CreateDepartmentDto): Promise<DepartmentResponse> {
+    await this.assertSchool(dto.schoolId);
     await this.assertFilial(dto.filialId);
     await this.assertParent(dto.parentId);
 
@@ -95,6 +103,8 @@ export class DepartmentService {
         name: dto.name.trim(),
         code,
         description: this.nullableText(dto.description),
+        // Egasi bittadan: filial tanlansa — maktab tozalanadi va aksincha.
+        schoolId: dto.filialId ? null : dto.schoolId ?? null,
         filialId: dto.filialId ?? null,
         parentId: dto.parentId ?? null,
         telegramChatId: this.nullableText(dto.telegramChatId),
@@ -109,13 +119,22 @@ export class DepartmentService {
     if (dto.parentId && dto.parentId === id) {
       throw new BadRequestException('Bo‘lim o‘ziga ota bo‘la olmaydi');
     }
+    await this.assertSchool(dto.schoolId);
     await this.assertFilial(dto.filialId);
     await this.assertParent(dto.parentId);
 
     if (dto.name !== undefined) entity.name = dto.name.trim();
     if (dto.code !== undefined) entity.code = dto.code.trim();
     if (dto.description !== undefined) entity.description = this.nullableText(dto.description);
-    if (dto.filialId !== undefined) entity.filialId = dto.filialId ?? null;
+    // Egasi (maktab/filial) yangilanishi — bittadan bo'ladi.
+    if (dto.filialId !== undefined) {
+      entity.filialId = dto.filialId ?? null;
+      if (dto.filialId) entity.schoolId = null;
+    }
+    if (dto.schoolId !== undefined) {
+      entity.schoolId = dto.schoolId ?? null;
+      if (dto.schoolId) entity.filialId = null;
+    }
     if (dto.parentId !== undefined) entity.parentId = dto.parentId ?? null;
     if (dto.telegramChatId !== undefined) entity.telegramChatId = this.nullableText(dto.telegramChatId);
     if (dto.status !== undefined) entity.status = dto.status;
@@ -144,10 +163,16 @@ export class DepartmentService {
   private async findEntity(id: string): Promise<Department> {
     const entity = await this.departments.findOne({
       where: { id },
-      relations: { filial: { school: true }, parent: true },
+      relations: { filial: { school: true }, school: true, parent: true },
     });
     if (!entity) throw new NotFoundException('Bo‘lim topilmadi');
     return entity;
+  }
+
+  private async assertSchool(schoolId?: string): Promise<void> {
+    if (!schoolId) return;
+    const exists = await this.schools.findOne({ where: { id: schoolId } });
+    if (!exists) throw new NotFoundException('Maktab topilmadi');
   }
 
   private async assertFilial(filialId?: string): Promise<void> {
@@ -180,13 +205,19 @@ export class DepartmentService {
   }
 
   private toResponse(d: Department): DepartmentResponse {
+    const schoolName = d.school?.name ? pickLocalizedText(d.school.name, 'uz') : null;
+    const filialLabel = d.filial ? this.branchLabel(d.filial) : null;
+    const ownerLabel = filialLabel ?? (schoolName ? `${schoolName} (Bosh ofis)` : null);
     return {
       id: d.id,
       name: d.name,
       code: d.code,
       description: d.description ?? null,
+      schoolId: d.schoolId ?? null,
+      schoolName,
       filialId: d.filialId ?? null,
-      filialLabel: d.filial ? this.branchLabel(d.filial) : null,
+      filialLabel,
+      ownerLabel,
       parentId: d.parentId ?? null,
       parentName: d.parent?.name ?? null,
       telegramChatId: d.telegramChatId ?? null,

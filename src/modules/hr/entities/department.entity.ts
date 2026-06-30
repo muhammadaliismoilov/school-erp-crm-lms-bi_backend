@@ -1,6 +1,7 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 import { Branch } from '../../settings/entities/branch.entity';
+import { School } from '../../settings/entities/school.entity';
 import { StaffMember } from './staff-member.entity';
 
 /** Bo'lim holati. Ro'yxatda "Faol" / "Faol emas" sifatida ko'rsatiladi. */
@@ -22,6 +23,18 @@ export class Department extends UuidAuditEntity {
 
   @Column({ type: 'text', nullable: true })
   description?: string | null;
+
+  /**
+   * Bo'lim egasi — yoki bosh ofis (asosiy maktab) yoki filial.
+   * `schoolId` to'ldirilsa — bo'lim asosiy maktabniki (bosh ofis);
+   * `filialId` to'ldirilsa — bo'lim shu filialniki.
+   */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @ManyToOne(() => School, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'school_id' })
+  school?: School | null;
 
   /** Filial (branch) — bo'lim tegishli bo'lgan filial. */
   @Column({ name: 'filial_id', type: 'uuid', nullable: true })

@@ -4,6 +4,50 @@ export enum EmploymentStatus {
   DISMISSED = 'dismissed',
 }
 
+/**
+ * O'qituvchining malaka toifasi (past→yuqori). Har bir toifa rasmiy lavozim
+ * nomiga mos keladi:
+ *   mutaxassis → O'qituvchi, ikkinchi → Katta o'qituvchi,
+ *   birinchi → Yetakchi o'qituvchi, oliy → Bosh o'qituvchi.
+ * Toifa attestatsiya orqali beriladi.
+ */
+export enum QualificationCategory {
+  MUTAXASSIS = 'mutaxassis',
+  IKKINCHI = 'ikkinchi',
+  BIRINCHI = 'birinchi',
+  OLIY = 'oliy',
+}
+
+/** Xodim yutug'i kategoriyasi (Akademik / Olimpiada / Sport / San'at / Jamiyat / Ishtirok). */
+export enum StaffAchievementCategory {
+  ACADEMIC = 'academic',
+  OLYMPIAD = 'olympiad',
+  SPORT = 'sport',
+  ART = 'art',
+  COMMUNITY = 'community',
+  PARTICIPATION = 'participation',
+}
+
+/** Yutuq o'rni yoki ishtirok darajasi. */
+export enum StaffAchievementRank {
+  FIRST = 'first',
+  SECOND = 'second',
+  THIRD = 'third',
+  FOURTH = 'fourth',
+  FIFTH = 'fifth',
+  PARTICIPATION = 'participation',
+}
+
+/** Yutuq ikonkasi (Kubok / Medal / Mukofot / Yulduzcha / Sertifikat / Toj). */
+export enum StaffAchievementIcon {
+  TROPHY = 'trophy',
+  MEDAL = 'medal',
+  AWARD = 'award',
+  STAR = 'star',
+  CERTIFICATE = 'certificate',
+  CROWN = 'crown',
+}
+
 export enum LeaveStatus {
   REQUESTED = 'requested',
   APPROVED = 'approved',
@@ -62,4 +106,110 @@ export enum AttendanceReviewStatus {
   PENDING = 'pending',
   APPROVED = 'approved',
   REJECTED = 'rejected',
+}
+
+/** O'qituvchi ish turi (To'liq stavka / Soatbay). */
+export enum TeacherWorkType {
+  FULL = 'full',
+  HOURLY = 'hourly',
+}
+
+/** O'qituvchining ma'lumot darajasi (Daraja). */
+export enum TeacherDegree {
+  SECONDARY_SPECIAL = 'secondary_special',
+  BACHELOR = 'bachelor',
+  MASTER = 'master',
+  PHD = 'phd',
+  DOCTOR = 'doctor',
+}
+
+/** Ishlash turi (Asosiy / O'rindosh). */
+export enum TeacherEmploymentType {
+  PRIMARY = 'primary',
+  SECONDARY = 'secondary',
+}
+
+/** O'qituvchi ish statusi (Faol / Ta'tilda / Bo'shatilgan). */
+export enum TeacherStatus {
+  ACTIVE = 'active',
+  ON_LEAVE = 'on_leave',
+  DISMISSED = 'dismissed',
+}
+
+/** O'qituvchi malaka toifasi (Oliy / 1-toifa / 2-toifa / Maxsus). */
+export enum TeacherCategory {
+  OLIY = 'oliy',
+  FIRST = 'first',
+  SECOND = 'second',
+  SPECIAL = 'special',
+}
+
+/** Vakansiya holati (Ochiq / Yopiq / Qoralama / Kutishda). */
+export enum VacancyStatus {
+  OPEN = 'open',
+  CLOSED = 'closed',
+  DRAFT = 'draft',
+  PENDING = 'pending',
+}
+
+/** Nomzod recruitment bosqichi (Yangi / Screening / Suhbat / Test / Taklif / Ishga olingan / Rad etilgan). */
+export enum CandidateStage {
+  NEW = 'new',
+  SCREENING = 'screening',
+  INTERVIEW = 'interview',
+  TEST = 'test',
+  OFFER = 'offer',
+  HIRED = 'hired',
+  REJECTED = 'rejected',
+}
+
+/** Muloqot turi (Qo'ng'iroq / Uchrashuv / Email / Suhbat / Boshqa). */
+export enum InteractionType {
+  CALL = 'call',
+  MEETING = 'meeting',
+  EMAIL = 'email',
+  INTERVIEW = 'interview',
+  OTHER = 'other',
+}
+
+/** Muloqot holati (Rejalashtirilgan / Bajarilgan / Bekor qilingan). */
+export enum InteractionStatus {
+  PLANNED = 'planned',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled',
+}
+
+/** So'rovnoma turi (Anonim / Ochiq). */
+export enum SurveyType {
+  ANONYMOUS = 'anonymous',
+  PUBLIC = 'public',
+}
+
+/** So'rovnoma holati (Qoralama / Faol / Yakunlangan). */
+export enum SurveyStatus {
+  DRAFT = 'draft',
+  ACTIVE = 'active',
+  CLOSED = 'closed',
+}
+
+/** Samaradorlik baholash holati (Qoralama / Yakunlangan). */
+export enum PerformanceReviewStatus {
+  DRAFT = 'draft',
+  COMPLETED = 'completed',
+}
+
+/** Ish vaqti taqvimi holati (Qoralama / Yuborilgan / Tasdiqlangan). */
+export enum TimesheetStatus {
+  DRAFT = 'draft',
+  SUBMITTED = 'submitted',
+  APPROVED = 'approved',
+}
+
+/** Xodim to'lovi holati (Kutilmoqda / Jarayonda / To'langan / Muvaffaqiyatsiz / Bekor qilingan). */
+export enum HrPaymentStatus {
+  PENDING = 'pending',
+  PROCESSING = 'processing',
+  PAID = 'paid',
+  FAILED = 'failed',
+  CANCELLED = 'cancelled',
 }

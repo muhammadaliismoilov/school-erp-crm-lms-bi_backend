@@ -25,6 +25,7 @@ function makeDept(overrides: Partial<Department> = {}): Department {
 describe('DepartmentService', () => {
   let departments: jest.Mocked<Pick<Repository<Department>, 'createQueryBuilder' | 'create' | 'save' | 'findOne' | 'softDelete'>>;
   let branches: jest.Mocked<Pick<Repository<Branch>, 'find' | 'findOne'>>;
+  let schools: { findOne: jest.Mock };
   let service: DepartmentService;
 
   beforeEach(() => {
@@ -36,10 +37,12 @@ describe('DepartmentService', () => {
       softDelete: jest.fn(),
     };
     branches = { find: jest.fn(), findOne: jest.fn() };
+    schools = { findOne: jest.fn() };
 
     service = new DepartmentService(
       departments as unknown as Repository<Department>,
       branches as unknown as Repository<Branch>,
+      schools as never,
     );
   });
 

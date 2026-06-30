@@ -3,6 +3,7 @@ import type { Repository, SelectQueryBuilder } from 'typeorm';
 import { CommonStatus } from '../src/common/enums/common-status.enum';
 import type { Role } from '../src/modules/identity/entities/role.entity';
 import type { User } from '../src/modules/identity/entities/user.entity';
+import type { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
 import type { PasswordService } from '../src/modules/auth/password.service';
 import { UsersService } from '../src/modules/users/users.service';
 
@@ -15,6 +16,9 @@ describe('UsersService', () => {
     >
   >;
   let roles: jest.Mocked<Pick<Repository<Role>, 'find' | 'count'>>;
+  let staffMembers: jest.Mocked<
+    Pick<Repository<StaffMember>, 'create' | 'save' | 'findOne' | 'count'>
+  >;
   let passwords: jest.Mocked<Pick<PasswordService, 'hash'>>;
   let service: UsersService;
 
@@ -57,12 +61,21 @@ describe('UsersService', () => {
       find: jest.fn(),
       count: jest.fn(),
     };
+    staffMembers = {
+      create: jest.fn(),
+      save: jest.fn(),
+      findOne: jest.fn(),
+      count: jest.fn(),
+    };
+    staffMembers.findOne.mockResolvedValue(null);
+    staffMembers.count.mockResolvedValue(0);
     passwords = {
       hash: jest.fn(),
     };
     service = new UsersService(
       users as unknown as Repository<User>,
       roles as unknown as Repository<Role>,
+      staffMembers as unknown as Repository<StaffMember>,
       passwords as unknown as PasswordService,
     );
   });

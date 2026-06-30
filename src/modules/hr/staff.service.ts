@@ -112,7 +112,9 @@ export class StaffService {
       roleNames,
     } as CreateUserDto;
 
-    const createdUser = await this.usersService.create(userDto);
+    // Staff yozuvini quyida o'zimiz (bo'lim/lavozim/maosh bilan) yaratamiz, shu
+    // sababli UsersService'ning avtomatik ko'zgu yozuvini o'chiramiz.
+    const createdUser = await this.usersService.create(userDto, { skipStaffSync: true });
 
     // 2) Xodim yozuvini yaratamiz. Xatolik bo'lsa — userni qaytarib olamiz.
     try {
@@ -139,6 +141,8 @@ export class StaffService {
           hireDate: dto.hireDate,
           status: dto.status,
           salary,
+          qualificationCategory: dto.qualificationCategory ?? null,
+          qualificationDate: dto.qualificationDate ?? null,
         }),
       );
 
@@ -214,6 +218,7 @@ export class StaffService {
       'firstName', 'firstNameCyrillic', 'lastName', 'lastNameCyrillic',
       'middleName', 'middleNameCyrillic', 'gender', 'birthDate', 'passportSeries',
       'pinfl', 'phone', 'email', 'departmentId', 'positionId', 'hireDate', 'status', 'salary',
+      'qualificationCategory', 'qualificationDate',
     ];
     for (const f of fields) {
       const value = dto[f];

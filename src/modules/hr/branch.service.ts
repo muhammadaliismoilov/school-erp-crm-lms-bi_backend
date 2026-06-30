@@ -17,6 +17,8 @@ export interface PageMeta {
 export interface BranchNode {
   id: string;
   name: string;
+  schoolId: string | null;
+  schoolName: string | null;
   parentId: string | null;
   parentName: string | null;
   isHeadOffice: boolean;
@@ -102,6 +104,15 @@ export class BranchService {
     return all.map((b) => ({ id: b.id, label: this.toLabel(b) }));
   }
 
+  /** Boshqaruv (Maktablar) bo'limida yaratilgan maktablar — filial ularga bog'lanadi. */
+  async schoolOptions(): Promise<BranchOption[]> {
+    const all = await this.schools.find({ order: { createdAt: 'DESC' } });
+    return all.map((s) => ({
+      id: s.id,
+      label: s.name ? pickLocalizedText(s.name, 'uz') : s.id,
+    }));
+  }
+
   async getBranch(id: string): Promise<Branch> {
     const entity = await this.branches.findOne({ where: { id }, relations: { school: true, parent: true } });
     if (!entity) throw new NotFoundException('Filial topilmadi');
@@ -160,6 +171,8 @@ export class BranchService {
     return {
       id: b.id,
       name: labelOf.get(b.id) ?? this.toLabel(b),
+      schoolId: b.schoolId ?? null,
+      schoolName: b.school?.name ? pickLocalizedText(b.school.name, 'uz') : null,
       parentId: b.parentId ?? null,
       parentName: b.parentId ? labelOf.get(b.parentId) ?? null : null,
       isHeadOffice: b.isHeadOffice,

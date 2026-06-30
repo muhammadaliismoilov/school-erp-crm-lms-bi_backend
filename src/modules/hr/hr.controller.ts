@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AppPermission } from '../../common/constants/permissions';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -7,9 +7,9 @@ import { UuidParamDto } from '../../common/dto/uuid-param.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import type { AuthenticatedUser } from '../../common/security/authenticated-user.interface';
-import { BranchQueryDto, CreateBranchDto, CreateDepartmentDto, CreateLeaveDto, CreatePayrollDto, CreatePositionDto, CreateStaffMemberDto, DepartmentQueryDto, LeaveQueryDto, PositionQueryDto, ReviewLeaveDto, StaffQueryDto, UpdateBranchDto, UpdateDepartmentDto, UpdateLeaveDto, UpdatePayrollDto, UpdatePositionDto, UpdateStaffMemberDto } from './dto/hr.dto';
-import { CreateProjectDto, CreateTaskDto, TaskQueryDto, UpdateTaskDto } from './dto/task.dto';
-import { AttendanceQueryDto, CreateAttendanceDto, CreateGeofenceDto, ReviewAttendanceDto, UpdateAttendanceDto } from './dto/attendance.dto';
+import { BranchQueryDto, CreateBranchDto, CreateDepartmentDto, CreateLeaveDto, CreatePayrollDto, CreatePositionDto, CreateStaffAchievementDto, CreateStaffCertificateDto, CreateStaffMemberDto, DepartmentQueryDto, LeaveQueryDto, PositionQueryDto, ReviewLeaveDto, StaffQueryDto, UpdateBranchDto, UpdateDepartmentDto, UpdateLeaveDto, UpdatePayrollDto, UpdatePositionDto, UpdateStaffAchievementDto, UpdateStaffCertificateDto, UpdateStaffMemberDto } from './dto/hr.dto';
+import { CreateTaskDto, TaskQueryDto, UpdateTaskDto } from './dto/task.dto';
+import { AttendanceQueryDto, CreateAttendanceDto, ReviewAttendanceDto, UpdateAttendanceDto } from './dto/attendance.dto';
 import { AttendanceHrService } from './attendance-hr.service';
 import { BranchService } from './branch.service';
 import { DepartmentService } from './department.service';
@@ -18,6 +18,7 @@ import { PositionService } from './position.service';
 import { TaskService } from './task.service';
 import { HrService } from './hr.service';
 import { StaffActor, StaffService } from './staff.service';
+import { StaffPortfolioService } from './staff-portfolio.service';
 
 @ApiTags('HR')
 @ApiBearerAuth()
@@ -33,12 +34,14 @@ export class HrController {
     private readonly leaveService: LeaveService,
     private readonly taskService: TaskService,
     private readonly attendanceService: AttendanceHrService,
+    private readonly portfolioService: StaffPortfolioService,
   ) {}
 
   private actor(user: AuthenticatedUser): StaffActor {
     return { userId: user?.id, username: user?.username };
   }
 
+  @Get('schools/options') @Permissions([AppPermission.HR_READ]) findSchoolOptions() { return this.branchService.schoolOptions(); }
   @Get('branches/options') @Permissions([AppPermission.HR_READ]) findBranchOptions() { return this.branchService.options(); }
   @Get('branches') @Permissions([AppPermission.HR_READ]) findBranches(@Query() query: BranchQueryDto) { return this.branchService.findBranches(query); }
   @Get('branches/:id') @Permissions([AppPermission.HR_READ]) getBranch(@Param() p: UuidParamDto) { return this.branchService.getBranch(p.id); }
@@ -64,6 +67,16 @@ export class HrController {
   @Patch('staff/:id') @Permissions([AppPermission.HR_MANAGE]) updateStaffMember(@Param() p: UuidParamDto, @Body() dto: UpdateStaffMemberDto, @CurrentUser() user: AuthenticatedUser) { return this.staffService.updateStaff(p.id, dto, this.actor(user)); }
   @Delete('staff/:id') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_MANAGE]) removeStaffMember(@Param() p: UuidParamDto) { return this.staffService.removeStaff(p.id); }
 
+  @Get('staff/:id/certificates') @Permissions([AppPermission.HR_READ]) listStaffCertificates(@Param() p: UuidParamDto) { return this.portfolioService.listCertificates(p.id); }
+  @Post('staff/:id/certificates') @Permissions([AppPermission.HR_MANAGE]) createStaffCertificate(@Param() p: UuidParamDto, @Body() dto: CreateStaffCertificateDto) { return this.portfolioService.createCertificate(p.id, dto); }
+  @Patch('staff/:id/certificates/:certId') @Permissions([AppPermission.HR_MANAGE]) updateStaffCertificate(@Param('id', ParseUUIDPipe) id: string, @Param('certId', ParseUUIDPipe) certId: string, @Body() dto: UpdateStaffCertificateDto) { return this.portfolioService.updateCertificate(id, certId, dto); }
+  @Delete('staff/:id/certificates/:certId') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_MANAGE]) removeStaffCertificate(@Param('id', ParseUUIDPipe) id: string, @Param('certId', ParseUUIDPipe) certId: string) { return this.portfolioService.removeCertificate(id, certId); }
+
+  @Get('staff/:id/achievements') @Permissions([AppPermission.HR_READ]) listStaffAchievements(@Param() p: UuidParamDto) { return this.portfolioService.listAchievements(p.id); }
+  @Post('staff/:id/achievements') @Permissions([AppPermission.HR_MANAGE]) createStaffAchievement(@Param() p: UuidParamDto, @Body() dto: CreateStaffAchievementDto) { return this.portfolioService.createAchievement(p.id, dto); }
+  @Patch('staff/:id/achievements/:achId') @Permissions([AppPermission.HR_MANAGE]) updateStaffAchievement(@Param('id', ParseUUIDPipe) id: string, @Param('achId', ParseUUIDPipe) achId: string, @Body() dto: UpdateStaffAchievementDto) { return this.portfolioService.updateAchievement(id, achId, dto); }
+  @Delete('staff/:id/achievements/:achId') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_MANAGE]) removeStaffAchievement(@Param('id', ParseUUIDPipe) id: string, @Param('achId', ParseUUIDPipe) achId: string) { return this.portfolioService.removeAchievement(id, achId); }
+
   @Get('leaves') @Permissions([AppPermission.HR_READ]) findLeaves(@Query() query: LeaveQueryDto) { return this.leaveService.findLeaves(query); }
   @Get('leaves/:id') @Permissions([AppPermission.HR_READ]) getLeave(@Param() p: UuidParamDto) { return this.leaveService.getLeave(p.id); }
   @Post('leaves') @Permissions([AppPermission.HR_MANAGE]) createLeave(@Body() dto: CreateLeaveDto) { return this.leaveService.createLeave(dto); }
@@ -71,8 +84,7 @@ export class HrController {
   @Patch('leaves/:id') @Permissions([AppPermission.HR_MANAGE]) updateLeave(@Param() p: UuidParamDto, @Body() dto: UpdateLeaveDto) { return this.leaveService.updateLeave(p.id, dto); }
   @Delete('leaves/:id') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_MANAGE]) removeLeave(@Param() p: UuidParamDto) { return this.leaveService.removeLeave(p.id); }
 
-  @Get('projects/options') @Permissions([AppPermission.HR_READ]) findProjectOptions() { return this.taskService.projectOptions(); }
-  @Post('projects') @Permissions([AppPermission.HR_MANAGE]) createProject(@Body() dto: CreateProjectDto) { return this.taskService.createProject(dto); }
+  // Loyihalar (projects) endi alohida ProjectController orqali boshqariladi.
 
   @Get('tasks') @Permissions([AppPermission.HR_READ]) findTasks(@Query() query: TaskQueryDto) { return this.taskService.findTasks(query); }
   @Get('tasks/:id') @Permissions([AppPermission.HR_READ]) getTask(@Param() p: UuidParamDto) { return this.taskService.getTask(p.id); }
@@ -80,8 +92,7 @@ export class HrController {
   @Patch('tasks/:id') @Permissions([AppPermission.HR_MANAGE]) updateTask(@Param() p: UuidParamDto, @Body() dto: UpdateTaskDto) { return this.taskService.updateTask(p.id, dto); }
   @Delete('tasks/:id') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_MANAGE]) removeTask(@Param() p: UuidParamDto) { return this.taskService.removeTask(p.id); }
 
-  @Get('geofences/options') @Permissions([AppPermission.HR_READ]) findGeofenceOptions() { return this.attendanceService.geofenceOptions(); }
-  @Post('geofences') @Permissions([AppPermission.HR_MANAGE]) createGeofence(@Body() dto: CreateGeofenceDto) { return this.attendanceService.createGeofence(dto.name); }
+  // Geofencelar (geozonalar) endi alohida GeofenceController orqali boshqariladi.
 
   @Get('attendance') @Permissions([AppPermission.HR_READ]) findAttendance(@Query() query: AttendanceQueryDto) { return this.attendanceService.findRecords(query); }
   @Get('attendance/:id') @Permissions([AppPermission.HR_READ]) getAttendance(@Param() p: UuidParamDto) { return this.attendanceService.getRecord(p.id); }
