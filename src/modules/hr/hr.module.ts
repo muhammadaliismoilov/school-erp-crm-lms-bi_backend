@@ -46,6 +46,7 @@ import { TimesheetController } from './timesheet.controller';
 import { HrPaymentController } from './hr-payment.controller';
 import { ProjectController } from './project.controller';
 import { GeofenceController } from './geofence.controller';
+import { HrStatsController } from './hr-stats.controller';
 import { HrService } from './hr.service';
 import { StaffService } from './staff.service';
 import { StaffPortfolioService } from './staff-portfolio.service';
@@ -60,6 +61,7 @@ import { TimesheetService } from './timesheet.service';
 import { HrPaymentService } from './hr-payment.service';
 import { ProjectService } from './project.service';
 import { GeofenceService } from './geofence.service';
+import { HrStatsService } from './hr-stats.service';
 
 @Module({
   imports: [
@@ -94,8 +96,8 @@ import { GeofenceService } from './geofence.service';
     ]),
     UsersModule,
   ],
-  controllers: [HrController, TeacherController, VacancyController, CandidateController, InteractionController, SurveyController, PerformanceReviewController, WorkScheduleController, TimesheetController, HrPaymentController, ProjectController, GeofenceController],
-  providers: [HrService, StaffService, StaffPortfolioService, DepartmentService, BranchService, PositionService, LeaveService, TaskService, AttendanceHrService, TeacherService, VacancyService, CandidateService, InteractionService, SurveyService, PerformanceReviewService, WorkScheduleService, TimesheetService, HrPaymentService, ProjectService, GeofenceService],
+  controllers: [HrController, TeacherController, VacancyController, CandidateController, InteractionController, SurveyController, PerformanceReviewController, WorkScheduleController, TimesheetController, HrPaymentController, ProjectController, GeofenceController, HrStatsController],
+  providers: [HrService, StaffService, StaffPortfolioService, DepartmentService, BranchService, PositionService, LeaveService, TaskService, AttendanceHrService, TeacherService, VacancyService, CandidateService, InteractionService, SurveyService, PerformanceReviewService, WorkScheduleService, TimesheetService, HrPaymentService, ProjectService, GeofenceService, HrStatsService],
   exports: [HrService, StaffService, StaffPortfolioService, DepartmentService, BranchService, PositionService, LeaveService, TaskService, AttendanceHrService, TeacherService, VacancyService, CandidateService, InteractionService, SurveyService, PerformanceReviewService, WorkScheduleService, TimesheetService, HrPaymentService, ProjectService, GeofenceService],
 })
 export class HrModule {}
