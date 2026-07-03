@@ -5,6 +5,9 @@ import { Quarter } from './quarter.entity';
 @Entity('academic_years')
 @Index('uq_academic_years_name', ['name'], { unique: true })
 export class AcademicYear extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ type: 'varchar', length: 40 })
   name: string;
 

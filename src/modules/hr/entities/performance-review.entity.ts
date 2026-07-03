@@ -8,6 +8,9 @@ import { PerformanceReviewStatus } from '../enums/hr.enums';
 @Index('idx_hr_perf_reviews_staff', ['staffMemberId'])
 @Index('idx_hr_perf_reviews_status', ['status'])
 export class PerformanceReview extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'staff_member_id', type: 'uuid' })
   staffMemberId: string;
 

@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Not, Repository } from 'typeorm';
+import { In, IsNull, Not, Repository, type FindOptionsWhere } from 'typeorm';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import type { LocalizedText } from '../../common/i18n/locale';
 import { normalizeOptionalLocalizedText } from '../../common/i18n/localized-text.util';
 import {
@@ -28,20 +29,42 @@ export class RolesService {
     private readonly roles: Repository<Role>,
     @InjectRepository(Permission)
     private readonly permissions: Repository<Permission>,
+    private readonly tenant: TenantContextService,
   ) {}
+
+  /**
+   * Aktiv maktab kontekstida global (school_id IS NULL) va shu maktab rollari
+   * ko'rinadi; kontekst yo'q bo'lsa (super-admin) — hammasi.
+   */
+  private tenantRoleWhere(base: FindOptionsWhere<Role> = {}): FindOptionsWhere<Role>[] {
+    const schoolId = this.tenant.getSchoolId();
+    if (!schoolId) return [base];
+    return [
+      { ...base, schoolId: IsNull() },
+      { ...base, schoolId },
+    ];
+  }
+
+  /** Maktab kontekstidan turib global rolni o'zgartirish/o'chirish taqiqlanadi. */
+  private assertRoleIsEditable(role: Role): void {
+    const schoolId = this.tenant.getSchoolId();
+    if (schoolId && role.schoolId == null) {
+      throw new BadRequestException('Global role can only be managed by super admin');
+    }
+  }
 
   async findAll(query: Partial<RoleQueryDto> = {}): Promise<RoleListResponseSchema> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const search = this.nullableText(query.search)?.toLowerCase();
-    const allRoles = await this.roles.find({ order: { name: 'ASC' } });
+    const allRoles = await this.roles.find({ where: this.tenantRoleWhere(), order: { name: 'ASC' } });
     const filteredRoles = search
       ? allRoles.filter((role) => this.roleMatchesSearch(role, search))
       : allRoles;
     const total = filteredRoles.length;
     const items = filteredRoles.slice((page - 1) * limit, page * limit);
     const [roleCount, permissionCount] = await Promise.all([
-      this.roles.count(),
+      this.roles.count({ where: this.tenantRoleWhere() }),
       this.permissions.count(),
     ]);
 
@@ -142,6 +165,7 @@ export class RolesService {
     }
 
     const role = await this.findRoleEntity(id);
+    this.assertRoleIsEditable(role);
     if (dto.name !== undefined) {
       const name = this.normalizeRoleName(dto.name);
       if (role.isSystem && name !== role.name) {
@@ -168,6 +192,7 @@ export class RolesService {
 
   async remove(id: string): Promise<void> {
     const role = await this.findRoleEntity(id);
+    this.assertRoleIsEditable(role);
 
     if (role.isSystem) {
       throw new BadRequestException('System role cannot be deleted');
@@ -194,7 +219,7 @@ export class RolesService {
 
   private async findRoleEntity(id: string): Promise<Role> {
     const role = await this.roles.findOne({
-      where: { id },
+      where: this.tenantRoleWhere({ id }),
       relations: { permissions: true },
     });
 
@@ -206,11 +231,12 @@ export class RolesService {
   }
 
   private async ensureRoleNameIsAvailable(name: string, excludeRoleId?: string): Promise<void> {
+    // Nom global rollar va aktiv maktab rollari orasida band bo'lmasligi kerak.
     const role = await this.roles.findOne({
-      where: {
+      where: this.tenantRoleWhere({
         name,
         ...(excludeRoleId ? { id: Not(excludeRoleId) } : {}),
-      },
+      }),
     });
 
     if (role) {

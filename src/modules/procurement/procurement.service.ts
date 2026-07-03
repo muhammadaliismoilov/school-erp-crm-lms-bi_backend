@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { Vendor } from './entities/vendor.entity';
 import { PurchaseRequest } from './entities/purchase-request.entity';
 import { PurchaseOrder } from './entities/purchase-order.entity';
@@ -9,21 +11,21 @@ import { CreateVendorDto, UpdateVendorDto, CreatePurchaseRequestDto, UpdatePurch
 
 @Injectable()
 export class ProcurementService {
-  constructor(@InjectRepository(Vendor) private readonly vendors: Repository<Vendor>, @InjectRepository(PurchaseRequest) private readonly requests: Repository<PurchaseRequest>, @InjectRepository(PurchaseOrder) private readonly orders: Repository<PurchaseOrder>, @InjectRepository(GoodsReceipt) private readonly receipts: Repository<GoodsReceipt>) {}
+  constructor(@InjectRepository(Vendor) private readonly vendors: Repository<Vendor>, @InjectRepository(PurchaseRequest) private readonly requests: Repository<PurchaseRequest>, @InjectRepository(PurchaseOrder) private readonly orders: Repository<PurchaseOrder>, @InjectRepository(GoodsReceipt) private readonly receipts: Repository<GoodsReceipt>, private readonly tenant: TenantContextService) {}
 
-  findVendors() { return this.vendors.find({ order: { createdAt: 'DESC' } }); }
+  findVendors() { return this.vendors.find({ where: tenantWhere<Vendor>(this.tenant, {}, { branch: true }), order: { createdAt: 'DESC' } }); }
   createVendors(dto: CreateVendorDto) { return this.vendors.save(this.vendors.create(dto)); }
-  async updateVendors(id: string, dto: UpdateVendorDto) { const entity = await this.vendors.preload({ id, ...dto }); if (!entity) throw new NotFoundException('Vendor not found'); return this.vendors.save(entity); }
+  async updateVendors(id: string, dto: UpdateVendorDto) { const existing = await this.vendors.findOne({ where: tenantWhere<Vendor>(this.tenant, { id }, { branch: true }) }); if (!existing) throw new NotFoundException('Vendor not found'); const entity = await this.vendors.preload({ id, ...dto }); if (!entity) throw new NotFoundException('Vendor not found'); return this.vendors.save(entity); }
 
-  findRequests() { return this.requests.find({ order: { createdAt: 'DESC' } }); }
+  findRequests() { return this.requests.find({ where: tenantWhere<PurchaseRequest>(this.tenant, {}, { branch: true }), order: { createdAt: 'DESC' } }); }
   createRequests(dto: CreatePurchaseRequestDto) { return this.requests.save(this.requests.create(dto)); }
-  async updateRequests(id: string, dto: UpdatePurchaseRequestDto) { const entity = await this.requests.preload({ id, ...dto }); if (!entity) throw new NotFoundException('PurchaseRequest not found'); return this.requests.save(entity); }
+  async updateRequests(id: string, dto: UpdatePurchaseRequestDto) { const existing = await this.requests.findOne({ where: tenantWhere<PurchaseRequest>(this.tenant, { id }, { branch: true }) }); if (!existing) throw new NotFoundException('PurchaseRequest not found'); const entity = await this.requests.preload({ id, ...dto }); if (!entity) throw new NotFoundException('PurchaseRequest not found'); return this.requests.save(entity); }
 
-  findOrders() { return this.orders.find({ order: { createdAt: 'DESC' } }); }
+  findOrders() { return this.orders.find({ where: tenantWhere<PurchaseOrder>(this.tenant, {}, { branch: true }), order: { createdAt: 'DESC' } }); }
   createOrders(dto: CreatePurchaseOrderDto) { return this.orders.save(this.orders.create(dto)); }
-  async updateOrders(id: string, dto: UpdatePurchaseOrderDto) { const entity = await this.orders.preload({ id, ...dto }); if (!entity) throw new NotFoundException('PurchaseOrder not found'); return this.orders.save(entity); }
+  async updateOrders(id: string, dto: UpdatePurchaseOrderDto) { const existing = await this.orders.findOne({ where: tenantWhere<PurchaseOrder>(this.tenant, { id }, { branch: true }) }); if (!existing) throw new NotFoundException('PurchaseOrder not found'); const entity = await this.orders.preload({ id, ...dto }); if (!entity) throw new NotFoundException('PurchaseOrder not found'); return this.orders.save(entity); }
 
-  findReceipts() { return this.receipts.find({ order: { createdAt: 'DESC' } }); }
+  findReceipts() { return this.receipts.find({ where: tenantWhere<GoodsReceipt>(this.tenant, {}, { branch: true }), order: { createdAt: 'DESC' } }); }
   createReceipts(dto: CreateGoodsReceiptDto) { return this.receipts.save(this.receipts.create(dto)); }
-  async updateReceipts(id: string, dto: UpdateGoodsReceiptDto) { const entity = await this.receipts.preload({ id, ...dto }); if (!entity) throw new NotFoundException('GoodsReceipt not found'); return this.receipts.save(entity); }
+  async updateReceipts(id: string, dto: UpdateGoodsReceiptDto) { const existing = await this.receipts.findOne({ where: tenantWhere<GoodsReceipt>(this.tenant, { id }, { branch: true }) }); if (!existing) throw new NotFoundException('GoodsReceipt not found'); const entity = await this.receipts.preload({ id, ...dto }); if (!entity) throw new NotFoundException('GoodsReceipt not found'); return this.receipts.save(entity); }
 }

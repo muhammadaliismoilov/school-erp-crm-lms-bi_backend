@@ -5,6 +5,9 @@ import { ApprovalPriority, ApprovalStatus } from '../enums/workflow.enums';
 @Entity('approval_requests')
 @Index(['entityType', 'entityId'])
 export class ApprovalRequest extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'entity_type', length: 100 }) entityType: string;
   @Column({ name: 'entity_id', type: 'uuid' }) entityId: string;
   @Column({ name: 'requested_by_id', type: 'uuid', nullable: true }) requestedById?: string | null;

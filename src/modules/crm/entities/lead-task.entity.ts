@@ -5,6 +5,9 @@ import { Lead } from './lead.entity';
 
 @Entity('lead_tasks')
 export class LeadTask extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'lead_id', type: 'uuid' })
   leadId: string;
 

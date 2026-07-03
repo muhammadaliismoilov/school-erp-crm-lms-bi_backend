@@ -4,6 +4,9 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Entity('bank_accounts')
 @Index('uq_bank_accounts_number', ['accountNumber'], { unique: true })
 export class BankAccount extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ type: 'varchar', length: 120 })
   name: string;
 

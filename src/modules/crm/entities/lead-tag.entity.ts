@@ -5,6 +5,9 @@ import { Lead } from './lead.entity';
 /** A reusable colored label for leads ("Issiq", "VIP", ...). */
 @Entity('lead_tags')
 export class LeadTag extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Index('uq_lead_tags_name', { unique: true })
   @Column({ type: 'varchar', length: 60 })
   name: string;

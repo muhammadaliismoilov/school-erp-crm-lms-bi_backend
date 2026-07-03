@@ -5,6 +5,9 @@ import { AccessDecision, AccessDirection } from '../enums/access-control.enums';
 @Entity('access_events')
 @Index(['personType', 'personId', 'eventTime'])
 export class AccessEvent extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'device_id', type: 'uuid' }) deviceId: string;
   @Column({ name: 'person_type', type: 'varchar', length: 80, nullable: true }) personType?: string | null;
   @Column({ name: 'person_id', type: 'uuid', nullable: true }) personId?: string | null;

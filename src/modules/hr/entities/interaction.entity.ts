@@ -8,6 +8,9 @@ import { InteractionStatus, InteractionType } from '../enums/hr.enums';
 @Index('idx_hr_interactions_status', ['status'])
 @Index('idx_hr_interactions_candidate', ['candidateId'])
 export class Interaction extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ type: 'varchar', length: 200 })
   title: string;
 

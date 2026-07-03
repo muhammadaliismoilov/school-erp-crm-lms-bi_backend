@@ -6,6 +6,9 @@ import { WorkScheduleDay } from './work-schedule-day.entity';
 @Entity('hr_work_schedules')
 @Index('idx_hr_work_schedules_standard', ['isStandard'])
 export class WorkSchedule extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ type: 'varchar', length: 160 })
   name: string;
 

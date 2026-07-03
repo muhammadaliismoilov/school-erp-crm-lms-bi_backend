@@ -4,6 +4,9 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Entity('purchase_requests')
 @Index('uq_purchase_requests_no', ['requestNo'], { unique: true })
 export class PurchaseRequest extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'request_no', type: 'varchar', length: 60 })
   requestNo: string;
 

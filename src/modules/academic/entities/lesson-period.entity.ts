@@ -5,6 +5,9 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Index('uq_lesson_periods_code_active', ['code'], { unique: true, where: 'deleted_at IS NULL' })
 @Index('uq_lesson_periods_order_active', ['order'], { unique: true, where: 'deleted_at IS NULL' })
 export class LessonPeriod extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ type: 'varchar', length: 20 })
   code: string;
 

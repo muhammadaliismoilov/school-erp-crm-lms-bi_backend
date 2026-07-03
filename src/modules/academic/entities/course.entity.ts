@@ -18,6 +18,9 @@ import { Subject } from './subject.entity';
 @Index('idx_courses_room', ['roomId'])
 @Index('idx_courses_status', ['status'])
 export class Course extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ type: 'varchar', length: 160 })
   name: string;
 

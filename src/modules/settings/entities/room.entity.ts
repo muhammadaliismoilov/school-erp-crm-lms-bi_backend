@@ -8,6 +8,9 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 })
 @Index('idx_rooms_floor_active', ['floor'], { where: 'deleted_at IS NULL' })
 export class Room extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'room_number', type: 'varchar', length: 32 })
   roomNumber: string;
 

@@ -5,6 +5,9 @@ import { DeviceStatus, DeviceType } from '../enums/access-control.enums';
 @Entity('access_devices')
 @Index(['serialNumber'], { unique: true, where: 'deleted_at IS NULL' })
 export class AccessDevice extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'serial_number', length: 120 }) serialNumber: string;
   @Column({ length: 180 }) name: string;
   @Column({ type: 'enum', enum: DeviceType }) type: DeviceType;

@@ -5,6 +5,9 @@ import { DataEntityType, DataJobStatus, DataJobType } from '../enums/imports-exp
 @Entity('data_jobs')
 @Index(['type', 'entityType', 'status'])
 export class DataJob extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ type: 'enum', enum: DataJobType }) type: DataJobType;
   @Column({ name: 'entity_type', type: 'enum', enum: DataEntityType, default: DataEntityType.OTHER }) entityType: DataEntityType;
   @Column({ name: 'file_url', type: 'text', nullable: true }) fileUrl?: string | null;

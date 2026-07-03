@@ -9,6 +9,9 @@ import { VacancyStatus } from '../enums/hr.enums';
 @Entity('hr_vacancies')
 @Index('idx_hr_vacancies_status', ['status'])
 export class Vacancy extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ type: 'varchar', length: 200 })
   title: string;
 

@@ -4,6 +4,9 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Entity('vendors')
 @Index('idx_vendors_status', ['status'])
 export class Vendor extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'name', type: 'varchar', length: 140 })
   name: string;
 

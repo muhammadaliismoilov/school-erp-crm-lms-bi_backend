@@ -5,6 +5,9 @@ import { User } from '../../identity/entities/user.entity';
 @Entity('audit_logs')
 @Index('idx_audit_logs_entity', ['entity', 'entityId'])
 export class AuditLog extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'user_id', type: 'uuid', nullable: true })
   userId?: string | null;
 

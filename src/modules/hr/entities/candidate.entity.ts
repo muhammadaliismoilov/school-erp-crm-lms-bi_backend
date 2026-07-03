@@ -9,6 +9,9 @@ import { CandidateStage } from '../enums/hr.enums';
 @Index('idx_hr_candidates_stage', ['stage'])
 @Index('idx_hr_candidates_vacancy', ['vacancyId'])
 export class Candidate extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'first_name', type: 'varchar', length: 80 })
   firstName: string;
 

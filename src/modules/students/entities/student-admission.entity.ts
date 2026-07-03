@@ -10,6 +10,9 @@ import { Student } from './student.entity';
 @Entity('student_admissions')
 @Index('uq_student_admissions_student', ['studentId'], { unique: true })
 export class StudentAdmission extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'student_id', type: 'uuid' })
   studentId: string;
 

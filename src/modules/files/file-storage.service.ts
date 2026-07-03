@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'crypto';
 import { Repository } from 'typeorm';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { ObjectStorageService } from '../storage/object-storage.service';
 import { StoredFile } from './entities/stored-file.entity';
 
@@ -19,6 +21,7 @@ export class FileStorageService {
     @InjectRepository(StoredFile)
     private readonly files: Repository<StoredFile>,
     private readonly objectStorage: ObjectStorageService,
+    private readonly tenant: TenantContextService,
   ) {}
 
   async storeFile(input: StoreFileInput): Promise<StoredFile> {
@@ -42,7 +45,8 @@ export class FileStorageService {
   }
 
   async findFile(id: string): Promise<StoredFile> {
-    const file = await this.files.findOne({ where: { id } });
+    // Fayllar maktab darajasida ajratiladi (filial emas — umumiy resurslar).
+    const file = await this.files.findOne({ where: tenantWhere<StoredFile>(this.tenant, { id }) });
     if (!file) {
       throw new NotFoundException('File not found');
     }

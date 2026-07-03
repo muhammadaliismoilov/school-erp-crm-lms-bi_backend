@@ -17,6 +17,9 @@ export enum Weekday {
 @Entity('hr_work_schedule_days')
 @Index('idx_hr_work_schedule_days_schedule', ['scheduleId'])
 export class WorkScheduleDay extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'schedule_id', type: 'uuid' })
   scheduleId: string;
 

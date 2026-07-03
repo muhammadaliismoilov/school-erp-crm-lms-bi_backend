@@ -10,6 +10,9 @@ import { StaffMember } from './staff-member.entity';
 @Entity('hr_staff_salary_history')
 @Index('idx_hr_salary_history_staff', ['staffMemberId'])
 export class StaffSalaryHistory extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'staff_member_id', type: 'uuid' })
   staffMemberId: string;
 

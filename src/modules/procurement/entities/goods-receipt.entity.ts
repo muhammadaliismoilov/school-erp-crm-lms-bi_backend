@@ -5,6 +5,9 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Index('uq_goods_receipts_no', ['receiptNo'], { unique: true })
 @Index('idx_goods_receipts_po', ['purchaseOrderId'])
 export class GoodsReceipt extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'receipt_no', type: 'varchar', length: 60 })
   receiptNo: string;
 

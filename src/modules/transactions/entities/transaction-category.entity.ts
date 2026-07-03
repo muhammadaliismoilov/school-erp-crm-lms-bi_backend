@@ -17,6 +17,9 @@ export enum TransactionCategoryKind {
 @Index('idx_tx_categories_kind', ['kind'])
 @Index('idx_tx_categories_parent', ['parentId'])
 export class TransactionCategory extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ type: 'varchar', length: 120 })
   name: string;
 

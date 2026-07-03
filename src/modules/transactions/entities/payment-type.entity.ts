@@ -9,6 +9,9 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Entity('payment_types')
 @Index('idx_payment_types_active', ['isActive'])
 export class PaymentType extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ type: 'varchar', length: 80 })
   name: string;
 

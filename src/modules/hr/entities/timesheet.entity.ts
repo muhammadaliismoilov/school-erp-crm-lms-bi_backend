@@ -9,6 +9,9 @@ import { TimesheetStatus } from '../enums/hr.enums';
 @Index('idx_hr_timesheets_status', ['status'])
 @Unique('uq_hr_timesheets_period', ['year', 'month', 'departmentId'])
 export class Timesheet extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ type: 'integer' })
   year: number;
 

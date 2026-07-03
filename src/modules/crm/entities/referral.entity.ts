@@ -13,6 +13,9 @@ import { LeadSource } from './lead-source.entity';
 @Index('uq_crm_referrals_code', ['code'], { unique: true })
 @Index('idx_crm_referrals_active', ['isActive'])
 export class Referral extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ type: 'varchar', length: 120 })
   name: string;
 

@@ -8,6 +8,9 @@ import { Student } from "./student.entity";
   unique: true,
 })
 export class StudentParent extends UuidAuditEntity {
+  @Column({ name: "school_id", type: "uuid", nullable: true }) schoolId?: string | null;
+  @Column({ name: "filial_id", type: "uuid", nullable: true }) filialId?: string | null;
+
   @Column({ name: "student_id", type: "uuid" })
   studentId: string;
 

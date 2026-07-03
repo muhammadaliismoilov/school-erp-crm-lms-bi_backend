@@ -22,6 +22,9 @@ export enum OpenAiModel {
 @Index('idx_integrations_category', ['category'])
 @Index('idx_integrations_is_enabled', ['isEnabled'])
 export class Integration extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ type: 'varchar', length: 100, nullable: false })
   name: string;
 

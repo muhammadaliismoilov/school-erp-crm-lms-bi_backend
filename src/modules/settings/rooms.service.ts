@@ -1,6 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindManyOptions, FindOptionsWhere, ILike, Not, Repository } from 'typeorm';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { RoomQueryDto } from './dto/room-query.dto';
 import { RoomListResponseDto, RoomResponseDto } from './dto/room-response.dto';
@@ -18,6 +20,7 @@ export class RoomsService {
   constructor(
     @InjectRepository(Room)
     private readonly rooms: Repository<Room>,
+    private readonly tenant: TenantContextService,
   ) {}
 
   async createRoom(dto: CreateRoomDto): Promise<RoomResponseDto> {
@@ -42,13 +45,11 @@ export class RoomsService {
       where.normalizedRoomNumber = ILike('%' + this.normalizeRoomNumber(query.search) + '%');
     }
 
-    if (Object.keys(where).length > 0) {
-      options.where = where;
-    }
+    options.where = tenantWhere<Room>(this.tenant, where, { branch: true });
 
     const [filteredRooms, allRooms] = await Promise.all([
       this.rooms.find(options),
-      this.rooms.find({ select: ['floor', 'createdAt'] }),
+      this.rooms.find({ where: tenantWhere<Room>(this.tenant, {}, { branch: true }), select: ['floor', 'createdAt'] }),
     ]);
 
     const floorSet = new Set(allRooms.map((r) => r.floor));
@@ -108,11 +109,12 @@ export class RoomsService {
     excludeRoomId?: string,
   ): Promise<void> {
     const excludedIdWhere = excludeRoomId ? { id: Not(excludeRoomId) } : {};
+    // Xona raqami har maktab (va filial) ichida unikal bo'lishi kifoya.
     const duplicateRoom = await this.rooms.findOne({
-      where: {
+      where: tenantWhere<Room>(this.tenant, {
         normalizedRoomNumber: input.normalizedRoomNumber,
         ...excludedIdWhere,
-      },
+      }, { branch: true }),
     });
 
     if (duplicateRoom) {
@@ -121,7 +123,7 @@ export class RoomsService {
   }
 
   private async findRoomEntity(id: string): Promise<Room> {
-    const room = await this.rooms.findOne({ where: { id } });
+    const room = await this.rooms.findOne({ where: tenantWhere<Room>(this.tenant, { id }, { branch: true }) });
 
     if (!room) {
       throw new NotFoundException('Room not found');

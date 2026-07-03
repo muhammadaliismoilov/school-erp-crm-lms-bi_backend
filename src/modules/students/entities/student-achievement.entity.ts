@@ -14,6 +14,9 @@ import { Student } from "./student.entity";
 @Index("idx_student_achievements_student", ["studentId"])
 @Index("idx_student_achievements_category", ["category"])
 export class StudentAchievement extends UuidAuditEntity {
+  @Column({ name: "school_id", type: "uuid", nullable: true }) schoolId?: string | null;
+  @Column({ name: "filial_id", type: "uuid", nullable: true }) filialId?: string | null;
+
   @Column({ name: "student_id", type: "uuid" })
   studentId: string;
 

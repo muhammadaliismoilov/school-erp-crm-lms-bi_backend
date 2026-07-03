@@ -10,6 +10,9 @@ import { Task } from './task.entity';
 @Entity('hr_projects')
 @Index('uq_hr_projects_name_active', ['name'], { unique: true, where: 'deleted_at IS NULL' })
 export class Project extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ type: 'varchar', length: 160 })
   name: string;
 

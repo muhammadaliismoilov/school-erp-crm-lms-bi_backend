@@ -5,6 +5,9 @@ import { Lead } from './lead.entity';
 
 @Entity('crm_lead_applications')
 export class LeadApplication extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'lead_id', type: 'uuid' })
   leadId: string;
 

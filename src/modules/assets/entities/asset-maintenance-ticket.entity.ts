@@ -5,6 +5,9 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Index('idx_asset_maintenance_tickets_asset', ['assetId'])
 @Index('idx_asset_maintenance_tickets_status', ['status'])
 export class AssetMaintenanceTicket extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'asset_id', type: 'uuid' })
   assetId: string;
 

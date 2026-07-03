@@ -4,6 +4,9 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Entity('asset_depreciations')
 @Index('idx_asset_depreciations_asset', ['assetId'])
 export class AssetDepreciation extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'asset_id', type: 'uuid' })
   assetId: string;
 

@@ -3,6 +3,7 @@ import type { Repository } from 'typeorm';
 import type { Permission } from '../src/modules/identity/entities/permission.entity';
 import type { Role } from '../src/modules/identity/entities/role.entity';
 import { RolesService } from '../src/modules/identity/roles.service';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 describe('RolesService', () => {
   const roleId = 'c9c1df8f-2c6d-4f55-a60a-d29127b3ebd6';
@@ -41,6 +42,7 @@ describe('RolesService', () => {
     service = new RolesService(
       roles as unknown as Repository<Role>,
       permissions as unknown as Repository<Permission>,
+      new TenantContextService(),
     );
   });
 

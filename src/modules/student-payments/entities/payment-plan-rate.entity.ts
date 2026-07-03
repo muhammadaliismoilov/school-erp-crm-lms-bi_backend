@@ -10,6 +10,9 @@ import { PaymentPlanConfig } from './payment-plan-config.entity';
 @Entity('payment_plan_rates')
 @Index('uq_payment_plan_rate', ['configId', 'planCode'], { unique: true })
 export class PaymentPlanRate extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'config_id', type: 'uuid' })
   configId: string;
 

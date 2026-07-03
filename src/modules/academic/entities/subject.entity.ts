@@ -11,6 +11,9 @@ import type { LocalizedText } from '../../../common/i18n/locale';
 })
 @Index('idx_subjects_status', ['status'])
 export class Subject extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ type: 'jsonb' })
   name: LocalizedText;
 

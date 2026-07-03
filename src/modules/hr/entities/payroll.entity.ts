@@ -7,6 +7,9 @@ import { StaffMember } from './staff-member.entity';
 @Index('idx_hr_payrolls_staff', ['staffMemberId'])
 @Index('idx_hr_payrolls_period', ['period'])
 export class Payroll extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'staff_member_id', type: 'uuid' })
   staffMemberId: string;
 

@@ -5,6 +5,9 @@ import { Contract } from './contract.entity';
 
 @Entity('payment_plans')
 export class PaymentPlan extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'contract_id', type: 'uuid' })
   contractId: string;
 

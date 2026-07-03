@@ -8,6 +8,9 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Entity('hr_geofences')
 @Index('uq_hr_geofences_name_active', ['name'], { unique: true, where: 'deleted_at IS NULL' })
 export class Geofence extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ type: 'varchar', length: 160 })
   name: string;
 

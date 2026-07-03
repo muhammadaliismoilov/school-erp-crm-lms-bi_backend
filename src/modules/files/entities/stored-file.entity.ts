@@ -5,6 +5,9 @@ import { User } from '../../identity/entities/user.entity';
 @Entity('files')
 @Index('idx_files_storage_key', ['storageKey'], { unique: true })
 export class StoredFile extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'file_name', type: 'varchar', length: 255 })
   fileName: string;
 

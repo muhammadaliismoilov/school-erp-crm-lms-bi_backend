@@ -9,6 +9,9 @@ import { HrPaymentStatus } from '../enums/hr.enums';
 @Index('idx_hr_payments_status', ['status'])
 @Index('idx_hr_payments_staff', ['staffMemberId'])
 export class HrPayment extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'staff_member_id', type: 'uuid' })
   staffMemberId: string;
 

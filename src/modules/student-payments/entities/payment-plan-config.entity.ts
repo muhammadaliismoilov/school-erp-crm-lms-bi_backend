@@ -11,6 +11,9 @@ import { PaymentPlanRate } from './payment-plan-rate.entity';
 @Entity('payment_plan_configs')
 @Index('uq_payment_plan_config_year', ['academicYearId'], { unique: true, where: '"academic_year_id" IS NOT NULL' })
 export class PaymentPlanConfig extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'academic_year_id', type: 'uuid', nullable: true })
   academicYearId?: string | null;
 

@@ -5,8 +5,16 @@ import { User } from './user.entity';
 import { Permission } from './permission.entity';
 
 @Entity('roles')
-@Index('uq_roles_name', ['name'], { unique: true })
+// Global (school_id IS NULL) va maktab ichidagi rollar uchun alohida unikallik:
+// bir nom global darajada bitta, har maktab ichida ham bitta bo'lishi mumkin.
+@Index('uq_roles_global_name', ['name'], { unique: true, where: 'school_id IS NULL AND deleted_at IS NULL' })
+@Index('uq_roles_school_name', ['schoolId', 'name'], { unique: true, where: 'school_id IS NOT NULL AND deleted_at IS NULL' })
+@Index('idx_roles_school', ['schoolId'])
 export class Role extends UuidAuditEntity {
+  /** NULL — global (tizim) rol; aks holda faqat shu maktabga tegishli. */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
   @Column({ type: 'varchar', length: 80 })
   name: string;
 

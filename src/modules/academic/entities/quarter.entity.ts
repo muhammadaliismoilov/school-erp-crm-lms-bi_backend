@@ -11,6 +11,9 @@ import { AcademicYear } from './academic-year.entity';
   where: 'deleted_at IS NULL',
 })
 export class Quarter extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'academic_year_id', type: 'uuid' })
   academicYearId: string;
 

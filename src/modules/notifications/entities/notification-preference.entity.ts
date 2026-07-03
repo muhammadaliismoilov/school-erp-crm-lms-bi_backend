@@ -6,6 +6,9 @@ import { NotificationChannel } from '../enums/notification-status.enum';
 @Entity('notification_preferences')
 @Index('uq_notification_preferences_user_channel', ['userId', 'channel'], { unique: true })
 export class NotificationPreference extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 

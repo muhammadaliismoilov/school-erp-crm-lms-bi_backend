@@ -29,6 +29,9 @@ export enum TransactionChangeRequestStatus {
 @Index('idx_tcr_transaction', ['transactionId'])
 @Index('idx_tcr_created', ['createdAt'])
 export class TransactionChangeRequest extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'transaction_id', type: 'uuid', nullable: true })
   transactionId?: string | null;
 

@@ -6,6 +6,9 @@ import { SurveyStatus, SurveyType } from '../enums/hr.enums';
 @Entity('hr_surveys')
 @Index('idx_hr_surveys_status', ['status'])
 export class Survey extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ type: 'varchar', length: 200 })
   title: string;
 

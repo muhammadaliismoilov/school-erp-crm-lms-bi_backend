@@ -7,6 +7,9 @@ import { StaffMember } from './staff-member.entity';
 @Entity('hr_timesheet_lines')
 @Index('idx_hr_timesheet_lines_timesheet', ['timesheetId'])
 export class TimesheetLine extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'timesheet_id', type: 'uuid' })
   timesheetId: string;
 

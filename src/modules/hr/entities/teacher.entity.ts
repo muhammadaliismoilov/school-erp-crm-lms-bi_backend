@@ -20,6 +20,9 @@ import {
 @Index('uq_hr_teachers_staff_active', ['staffMemberId'], { unique: true, where: 'deleted_at IS NULL' })
 @Index('idx_hr_teachers_status', ['status'])
 export class Teacher extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   /** Bog'langan xodim yozuvi — shaxsiy ma'lumotning yagona manbasi (majburiy). */
   @Column({ name: 'staff_member_id', type: 'uuid' })
   staffMemberId: string;

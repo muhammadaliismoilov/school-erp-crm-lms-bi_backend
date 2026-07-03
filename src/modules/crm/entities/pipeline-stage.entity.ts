@@ -5,6 +5,9 @@ import { Lead } from './lead.entity';
 
 @Entity('pipeline_stages')
 export class PipelineStage extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ type: 'jsonb' })
   name: LocalizedText;
 

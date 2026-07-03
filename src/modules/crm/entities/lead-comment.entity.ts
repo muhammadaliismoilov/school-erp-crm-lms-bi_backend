@@ -12,6 +12,9 @@ import { Lead } from './lead.entity';
 @Index('idx_lead_comments_lead', ['leadId'])
 @Index('idx_lead_comments_remind_at', ['remindAt'])
 export class LeadComment extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'lead_id', type: 'uuid' })
   leadId: string;
 

@@ -10,6 +10,9 @@ import { StaffMember } from './staff-member.entity';
 @Index('idx_hr_tasks_project', ['projectId'])
 @Index('idx_hr_tasks_assignee', ['assigneeId'])
 export class Task extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ type: 'varchar', length: 200 })
   title: string;
 

@@ -9,6 +9,9 @@ import { StaffMember } from './staff-member.entity';
 @Index('idx_hr_attendance_status', ['status'])
 @Index('idx_hr_attendance_action', ['action'])
 export class AttendanceRecord extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'staff_member_id', type: 'uuid' })
   staffMemberId: string;
 

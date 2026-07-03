@@ -4,6 +4,9 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Entity('fixed_assets')
 @Index('uq_fixed_assets_code', ['assetCode'], { unique: true })
 export class FixedAsset extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
+
   @Column({ name: 'asset_code', type: 'varchar', length: 80 })
   assetCode: string;
 
