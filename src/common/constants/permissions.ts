@@ -339,6 +339,11 @@ export const AppPermission = {
   // Resurs: o'quvchi davomati yozuvlari
   ATTENDANCE_RECORDS_READ: 'attendance-records.read',
   ATTENDANCE_RECORDS_CREATE: 'attendance-records.create',
+  // Resurs: turniket qurilmalari
+  TURNSTILE_DEVICES_READ: 'turnstile-devices.read',
+  TURNSTILE_DEVICES_CREATE: 'turnstile-devices.create',
+  TURNSTILE_DEVICES_UPDATE: 'turnstile-devices.update',
+  TURNSTILE_DEVICES_DELETE: 'turnstile-devices.delete',
   FINANCE_READ: 'finance.read',
   FINANCE_MANAGE: 'finance.manage',
   // Resurs: shartnomalar
@@ -840,7 +845,12 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.DOCUMENT_SIGN_REQUESTS_CREATE,
     AppPermission.DOCUMENT_SIGN_REQUESTS_UPDATE,
   ],
-  [AppPermission.ATTENDANCE_MANAGE]: [AppPermission.ATTENDANCE_RECORDS_CREATE],
+  [AppPermission.ATTENDANCE_MANAGE]: [
+    AppPermission.ATTENDANCE_RECORDS_CREATE,
+    AppPermission.TURNSTILE_DEVICES_CREATE,
+    AppPermission.TURNSTILE_DEVICES_UPDATE,
+    AppPermission.TURNSTILE_DEVICES_DELETE,
+  ],
   [AppPermission.TIMETABLE_MANAGE]: [
     AppPermission.TIMETABLE_TEMPLATES_CREATE,
     AppPermission.TIMETABLE_TEMPLATES_UPDATE,
@@ -1061,7 +1071,10 @@ export const READ_EXPANSION: Record<string, string[]> = {
     AppPermission.DOCUMENT_TEMPLATES_READ,
     AppPermission.DOCUMENT_SIGN_REQUESTS_READ,
   ],
-  [AppPermission.ATTENDANCE_READ]: [AppPermission.ATTENDANCE_RECORDS_READ],
+  [AppPermission.ATTENDANCE_READ]: [
+    AppPermission.ATTENDANCE_RECORDS_READ,
+    AppPermission.TURNSTILE_DEVICES_READ,
+  ],
   [AppPermission.TIMETABLE_READ]: [
     AppPermission.TIMETABLE_TEMPLATES_READ,
     AppPermission.TIMETABLE_SLOTS_READ,

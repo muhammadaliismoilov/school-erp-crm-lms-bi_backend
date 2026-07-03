@@ -38,6 +38,7 @@ const ATTENDANCE_WEIGHTS: Record<AttendanceStatus, number> = {
   [AttendanceStatus.PRESENT]: 1,
   [AttendanceStatus.EXCUSED]: 1,
   [AttendanceStatus.LATE]: 0.5,
+  [AttendanceStatus.LEFT_EARLY]: 0.5,
   [AttendanceStatus.ABSENT]: 0,
 };
 const UZ_SHORT_MONTHS = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];

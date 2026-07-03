@@ -1,5 +1,6 @@
 import { Column, Entity, Index } from 'typeorm';
 import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
+import { SessionType } from '../../../common/enums/session-type.enum';
 
 @Entity('timetable_slots')
 @Index('idx_timetable_slots_template', ['templateId'])
@@ -21,6 +22,10 @@ export class TimetableSlot extends UuidAuditEntity {
 
   @Column({ name: 'subject_id', type: 'uuid' })
   subjectId: string;
+
+  /** Dars yoki kurs. Davomat mantiqi ikkalasiga bir xil, faqat tur bilan ajratiladi. */
+  @Column({ name: 'session_type', type: 'enum', enum: SessionType, default: SessionType.LESSON })
+  sessionType: SessionType;
 
   @Column({ name: 'teacher_id', type: 'uuid' })
   teacherId: string;
