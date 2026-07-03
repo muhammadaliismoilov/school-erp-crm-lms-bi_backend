@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { NotificationsDeliveryModule } from '../notifications-delivery/notifications-delivery.module';
 import { Student } from '../students/entities/student.entity';
 import { TimetableSlot } from '../timetable/entities/timetable-slot.entity';
 import { AttendanceController } from './attendance.controller';
@@ -36,6 +37,7 @@ import { TurnstileDeviceService } from './turnstile-device.service';
       TimetableSlot,
       Student,
     ]),
+    NotificationsDeliveryModule,
   ],
   controllers: [
     AttendanceController,

@@ -34,6 +34,7 @@ import { SettingsModule } from "./modules/settings/settings.module";
 import { StudentsModule } from "./modules/students/students.module";
 import { UsersModule } from "./modules/users/users.module";
 import { WorkersModule } from "./modules/workers/workers.module";
+import { NotificationsDeliveryModule } from "./modules/notifications-delivery/notifications-delivery.module";
 import { YouthServicesModule } from "./modules/youth-services/youth-services.module";
 import { AppealsModule } from "./modules/appeals/appeals.module";
 import { IntegrationsModule } from "./modules/integrations/integrations.module";
@@ -175,6 +176,7 @@ const buildTypeOrmOptions = (
     AttendanceModule,
     FinanceModule,
     NotificationsModule,
+    NotificationsDeliveryModule,
     SettingsModule,
     SchoolsModule,
     AuditModule,

@@ -4,7 +4,9 @@ import { QueryDeepPartialEntity, Repository } from 'typeorm';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { AttendanceStatus } from '../../common/enums/attendance-status.enum';
+import { NotificationCategory } from '../../common/enums/notification-enums';
 import { PersonType } from '../../common/enums/person-type.enum';
+import { AttendanceNotifier } from '../notifications-delivery/attendance-notifier.service';
 import { AttendanceLog } from './entities/attendance-log.entity';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { StaffAttendanceRecord } from './entities/staff-attendance-record.entity';
@@ -52,6 +54,7 @@ export class IngestionService {
     @InjectRepository(TurnstileDevice)
     private readonly devices: Repository<TurnstileDevice>,
     private readonly tenant: TenantContextService,
+    private readonly notifier: AttendanceNotifier,
   ) {}
 
   async ingest(device: TurnstileDevice, events: TurnstileEventDto[]): Promise<IngestionResult> {
@@ -103,6 +106,17 @@ export class IngestionService {
         time,
         capturedAt,
       });
+
+      // O'quvchi kirdi/chiqdi — ota-onaga xabar (asinxron, oqimni bloklamaydi).
+      if (person.personType === PersonType.STUDENT) {
+        await this.notifier.notify({
+          studentId: person.personId,
+          category: event.direction === 'in' ? NotificationCategory.SCHOOL_ENTRY : NotificationCategory.SCHOOL_EXIT,
+          date,
+          time,
+          dedupExtra: time,
+        });
+      }
     }
 
     await this.devices.update({ id: device.id }, { lastSeenAt: new Date() });

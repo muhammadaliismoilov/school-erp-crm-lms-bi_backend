@@ -10,7 +10,9 @@ import { TenantContextService } from '../../common/tenant/tenant-context.service
 import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { AttendanceSource } from '../../common/enums/attendance-source.enum';
 import { AttendanceStatus } from '../../common/enums/attendance-status.enum';
+import { NotificationCategory } from '../../common/enums/notification-enums';
 import { SessionStatus } from '../../common/enums/session-status.enum';
+import { AttendanceNotifier } from '../notifications-delivery/attendance-notifier.service';
 import { StudentStatus } from '../students/enums/student-status.enum';
 import { Student } from '../students/entities/student.entity';
 import { TimetableSlot } from '../timetable/entities/timetable-slot.entity';
@@ -56,6 +58,7 @@ export class SessionAttendanceService {
     @InjectRepository(AttendanceSettings)
     private readonly settingsRepo: Repository<AttendanceSettings>,
     private readonly tenant: TenantContextService,
+    private readonly notifier: AttendanceNotifier,
   ) {}
 
   /**
@@ -125,6 +128,11 @@ export class SessionAttendanceService {
     session.confirmedAt = new Date();
     await this.sessions.save(session);
 
+    // Tasdiqlangan yakuniy holat bo'yicha har o'quvchi uchun ota-onaga xabar.
+    for (const row of await this.roster(session.id)) {
+      await this.notifySessionOutcome(session, row.studentId, row.status, row.minutesLate ?? null);
+    }
+
     return { session, changes };
   }
 
@@ -150,7 +158,46 @@ export class SessionAttendanceService {
     const attendance = await this.attendances.findOneOrFail({
       where: tenantWhere<SessionAttendance>(this.tenant, { sessionId, studentId }, { branch: true }),
     });
+    // Tuzatish tasdiqlangan sessiyada bo'lsa, yangilangan holatni ota-onaga bildiramiz.
+    if (session.status === SessionStatus.CONFIRMED) {
+      await this.notifySessionOutcome(session, studentId, attendance.status, attendance.minutesLate ?? null);
+    }
     return { attendance, change };
+  }
+
+  /** Sessiya davomat holatini tegishli xabar toifasiga o'girib, notifierga uzatadi. */
+  private async notifySessionOutcome(
+    session: ClassSession,
+    studentId: string,
+    status: AttendanceStatus,
+    minutesLate: number | null,
+  ): Promise<void> {
+    const category = this.statusToCategory(status);
+    if (!category) return; // EXCUSED va h.k. — xabar bermaymiz.
+    await this.notifier.notify({
+      studentId,
+      category,
+      date: session.date,
+      time: session.startTime.slice(0, 5),
+      minutesLate: minutesLate ?? undefined,
+      sessionId: session.id,
+      dedupExtra: session.id,
+    });
+  }
+
+  private statusToCategory(status: AttendanceStatus): NotificationCategory | null {
+    switch (status) {
+      case AttendanceStatus.PRESENT:
+        return NotificationCategory.SESSION_PRESENT;
+      case AttendanceStatus.LATE:
+        return NotificationCategory.SESSION_LATE;
+      case AttendanceStatus.ABSENT:
+        return NotificationCategory.SESSION_ABSENT;
+      case AttendanceStatus.LEFT_EARLY:
+        return NotificationCategory.SESSION_LEFT_EARLY;
+      default:
+        return null;
+    }
   }
 
   /** O'qituvchining sana bo'yicha sessiyalari. */
