@@ -32,6 +32,17 @@ interface ResolvedSettings {
   correctionWindowMinutes: number;
 }
 
+/** O'qituvchi UI'si uchun boyitilgan davomat qatori (ism bilan). */
+export interface RosterEntry {
+  id: string;
+  studentId: string;
+  studentName: string;
+  status: AttendanceStatus;
+  minutesLate: number | null;
+  source: AttendanceSource;
+  note: string | null;
+}
+
 /** Notifikatsiya (Bosqich D) uchun sessiya davomati o'zgarishi. */
 export interface SessionAttendanceChange {
   studentId: string;
@@ -65,7 +76,7 @@ export class SessionAttendanceService {
    * Dars/kurs sessiyasini ochadi (yoki mavjudini qaytaradi) va birinchi ochilishda
    * turniket ma'lumotidan davomatni avtomatik oldindan to'ldiradi.
    */
-  async openSession(slotId: string, date: string): Promise<{ session: ClassSession; roster: SessionAttendance[] }> {
+  async openSession(slotId: string, date: string): Promise<{ session: ClassSession; roster: RosterEntry[] }> {
     const slot = await this.slots.findOne({
       where: tenantWhere<TimetableSlot>(this.tenant, { id: slotId }, { branch: true }),
     });
@@ -98,12 +109,27 @@ export class SessionAttendanceService {
     return { session, roster: await this.roster(session.id) };
   }
 
-  /** Sessiya davomat ro'yxati (o'qituvchi UI uchun). */
-  async roster(sessionId: string): Promise<SessionAttendance[]> {
-    return this.attendances.find({
+  /** Sessiya davomat ro'yxati o'quvchi ismi bilan (o'qituvchi UI uchun). */
+  async roster(sessionId: string): Promise<RosterEntry[]> {
+    const rows = await this.attendances.find({
       where: tenantWhere<SessionAttendance>(this.tenant, { sessionId }, { branch: true }),
-      order: { studentId: 'ASC' },
     });
+    const ids = rows.map((r) => r.studentId);
+    const students = ids.length
+      ? await this.students.find({ where: { id: In(ids) }, select: { id: true, firstName: true, lastName: true } })
+      : [];
+    const names = new Map(students.map((s) => [s.id, `${s.lastName} ${s.firstName}`.trim()]));
+    const entries: RosterEntry[] = rows.map((r) => ({
+      id: r.id,
+      studentId: r.studentId,
+      studentName: names.get(r.studentId) ?? '—',
+      status: r.status,
+      minutesLate: r.minutesLate ?? null,
+      source: r.source,
+      note: r.note ?? null,
+    }));
+    entries.sort((a, b) => a.studentName.localeCompare(b.studentName));
+    return entries;
   }
 
   /** O'qituvchi tasdiqlaydi; tuzatilgan yozuvlar MANUAL bo'lib, auditga tushadi. */
