@@ -13,7 +13,9 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import type { AuthenticatedUser } from '../../common/security/authenticated-user.interface';
 import { ApiLocalizedErrorResponses } from '../../common/swagger/api-localized-error-responses.decorator';
+import { AttendanceAgendaService } from './attendance-agenda.service';
 import {
+  AgendaQueryDto,
   ConfirmSessionDto,
   OpenSessionDto,
   SessionListQueryDto,
@@ -27,7 +29,25 @@ import { SessionAttendanceService } from './session-attendance.service';
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller({ path: 'attendance-sessions', version: '1' })
 export class SessionAttendanceController {
-  constructor(private readonly service: SessionAttendanceService) {}
+  constructor(
+    private readonly service: SessionAttendanceService,
+    private readonly agenda: AttendanceAgendaService,
+  ) {}
+
+  @Get('agenda')
+  @Permissions([AppPermission.CLASS_SESSIONS_READ])
+  @ApiOperation({
+    summary: 'O‘qituvchi kun agendasi (darslar + davomat holati)',
+    description:
+      'Berilgan sanadagi darslar (jadval slotlaridan) va har birining sessiya holati/hisoblari. ' +
+      '`teacherId` berilmasa joriy foydalanuvchidan aniqlanadi.',
+  })
+  @ApiOkResponse({ description: 'Agenda ro‘yxati.' })
+  async listAgenda(@Query() query: AgendaQueryDto, @CurrentUser() user: AuthenticatedUser) {
+    const teacherId = query.teacherId ?? (await this.agenda.resolveTeacherId(user.id));
+    if (!teacherId) return [];
+    return this.agenda.agenda(query.date, teacherId);
+  }
 
   @Get()
   @Permissions([AppPermission.CLASS_SESSIONS_READ])

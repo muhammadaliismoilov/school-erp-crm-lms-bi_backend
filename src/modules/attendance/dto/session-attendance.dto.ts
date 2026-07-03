@@ -28,6 +28,20 @@ export class SessionListQueryDto {
   teacherId?: string;
 }
 
+export class AgendaQueryDto {
+  @ApiProperty({ example: '2026-07-03', format: 'date' })
+  @IsISO8601({ strict: true })
+  date: string;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: 'O‘qituvchi. Berilmasa — joriy foydalanuvchidan aniqlanadi.',
+  })
+  @IsOptional()
+  @IsUUID()
+  teacherId?: string;
+}
+
 export class OpenSessionDto {
   @ApiProperty({ format: 'uuid', description: 'Jadval sloti (dars/kurs).' })
   @IsUUID()

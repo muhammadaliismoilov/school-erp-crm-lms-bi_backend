@@ -1,8 +1,13 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { SchoolClass } from '../academic/entities/school-class.entity';
+import { Subject } from '../academic/entities/subject.entity';
+import { StaffMember } from '../hr/entities/staff-member.entity';
+import { Teacher } from '../hr/entities/teacher.entity';
 import { NotificationsDeliveryModule } from '../notifications-delivery/notifications-delivery.module';
 import { Student } from '../students/entities/student.entity';
 import { TimetableSlot } from '../timetable/entities/timetable-slot.entity';
+import { AttendanceAgendaService } from './attendance-agenda.service';
 import { AttendanceController } from './attendance.controller';
 import { AttendanceService } from './attendance.service';
 import { AttendanceLog } from './entities/attendance-log.entity';
@@ -36,6 +41,10 @@ import { TurnstileDeviceService } from './turnstile-device.service';
       SessionAttendanceAudit,
       TimetableSlot,
       Student,
+      Subject,
+      SchoolClass,
+      Teacher,
+      StaffMember,
     ]),
     NotificationsDeliveryModule,
   ],
@@ -51,6 +60,7 @@ import { TurnstileDeviceService } from './turnstile-device.service';
     DeviceAuthGuard,
     TurnstileDeviceService,
     SessionAttendanceService,
+    AttendanceAgendaService,
   ],
 })
 export class AttendanceModule {}
