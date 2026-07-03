@@ -5,6 +5,8 @@ import { DeliveryStatus, MessageChannel } from '../enums/communication.enums';
 @Entity('message_deliveries')
 @Index(['recipientType', 'recipientId'])
 export class MessageDelivery extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
   @Column({ name: 'campaign_id', type: 'uuid', nullable: true }) campaignId?: string | null;
   @Column({ type: 'enum', enum: MessageChannel }) channel: MessageChannel;
   @Column({ name: 'recipient_type', length: 80 }) recipientType: string;

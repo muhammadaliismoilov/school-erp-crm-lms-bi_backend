@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, MoreThanOrEqual, Repository } from 'typeorm';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { AuditLog } from '../audit/entities/audit-log.entity';
 import { AuditService } from '../audit/audit.service';
 import { Course } from '../academic/entities/course.entity';
@@ -47,6 +49,7 @@ export class ScheduleService {
     @InjectRepository(Course) private readonly courses: Repository<Course>,
     @InjectRepository(Subject) private readonly subjects: Repository<Subject>,
     @InjectRepository(User) private readonly users: Repository<User>,
+    private readonly tenant: TenantContextService,
     @Optional() private readonly auditService?: AuditService,
     @Optional() @InjectRepository(AuditLog) private readonly auditLogs?: Repository<AuditLog>,
   ) {}
@@ -56,7 +59,7 @@ export class ScheduleService {
   async getClasses(quarterId: string) {
     const quarter = await this.loadQuarter(quarterId);
     const classes = await this.classes.find({
-      where: { academicYearId: quarter.academicYearId },
+      where: tenantWhere<SchoolClass>(this.tenant, { academicYearId: quarter.academicYearId }, { branch: true }),
       relations: { curator: true },
       order: { gradeLevel: 'ASC', section: 'ASC' },
     });
@@ -79,6 +82,7 @@ export class ScheduleService {
    */
   async getTeachers() {
     const users = await this.users.find({
+      where: tenantWhere<User>(this.tenant, {}),
       order: { firstName: 'ASC', lastName: 'ASC' },
     });
     return { items: users.map((u) => ({ id: u.id, fullName: this.fullName(u) })) };
@@ -90,7 +94,7 @@ export class ScheduleService {
     const quarter = await this.loadQuarter(quarterId);
     const periods = await this.loadPeriods();
     const lessons = await this.lessons.find({
-      where: { classId, quarterId },
+      where: tenantWhere<LessonSchedule>(this.tenant, { classId, quarterId }, { branch: true }),
       relations: { subject: true, teacher: true, room: true, course: true, lessonPeriod: true },
     });
     const cells = this.buildCells(lessons, (l) => ({
@@ -113,7 +117,7 @@ export class ScheduleService {
     const quarter = await this.loadQuarter(quarterId);
     const periods = await this.loadPeriods();
     const lessons = await this.lessons.find({
-      where: { quarterId, teacherId },
+      where: tenantWhere<LessonSchedule>(this.tenant, { quarterId, teacherId }, { branch: true }),
       relations: { subject: true, class: true, room: true, course: true, lessonPeriod: true },
     });
     const cells = this.buildCells(lessons, (l) => ({
@@ -178,7 +182,7 @@ export class ScheduleService {
   }
 
   async updateCell(id: string, dto: UpdateScheduleCellDto, actor?: ScheduleActor) {
-    const rep = await this.lessons.findOne({ where: { id } });
+    const rep = await this.lessons.findOne({ where: tenantWhere<LessonSchedule>(this.tenant, { id }, { branch: true }) });
     if (!rep) throw new NotFoundException('Lesson not found');
     const resolved = await this.resolveSubjectSource(
       dto.subjectId ?? rep.subjectId,
@@ -210,7 +214,7 @@ export class ScheduleService {
   }
 
   async deleteCell(id: string, actor?: ScheduleActor) {
-    const rep = await this.lessons.findOne({ where: { id } });
+    const rep = await this.lessons.findOne({ where: tenantWhere<LessonSchedule>(this.tenant, { id }, { branch: true }) });
     if (!rep) throw new NotFoundException('Lesson not found');
     const where = this.cellWhere(rep, this.currentDate());
     const result = await this.lessons.softDelete(where);
@@ -291,7 +295,7 @@ export class ScheduleService {
     const teacherBusy = new Set<string>();
     const roomBusy = new Set<string>();
     const classSlot = new Set<string>();
-    const existing = await this.lessons.find({ where: { quarterId: dto.quarterId } });
+    const existing = await this.lessons.find({ where: tenantWhere<LessonSchedule>(this.tenant, { quarterId: dto.quarterId }, { branch: true }) });
     const periodIndex = new Map(periods.map((p, i) => [p.id, i] as const));
     for (const l of existing) {
       if (l.weekday == null || l.lessonPeriodId == null) continue;
@@ -367,14 +371,14 @@ export class ScheduleService {
 
   async substitute(dto: SubstituteTeacherDto, actor?: ScheduleActor) {
     const upcoming = await this.lessons.find({
-      where: {
+      where: tenantWhere<LessonSchedule>(this.tenant, {
         classId: dto.classId,
         subjectId: dto.subjectId,
         lessonPeriodId: dto.lessonPeriodId,
         weekday: dto.weekday,
         quarterId: dto.quarterId,
         lessonDate: MoreThanOrEqual(this.currentDate()),
-      },
+      }, { branch: true }),
       order: { lessonDate: 'ASC' },
       take: dto.count,
     });
@@ -400,7 +404,7 @@ export class ScheduleService {
   async getConflicts(quarterId: string) {
     await this.loadQuarter(quarterId);
     const lessons = await this.lessons.find({
-      where: { quarterId },
+      where: tenantWhere<LessonSchedule>(this.tenant, { quarterId }, { branch: true }),
       relations: { subject: true, teacher: true, room: true, class: true, lessonPeriod: true },
     });
     // Haftalik vakillarga qisqartirish (har bir sana takrorini hisobga olmaslik).
@@ -511,7 +515,7 @@ export class ScheduleService {
   private async legend(quarter: Quarter) {
     // Sinf gridining ostidagi fan-ranglar afsonasi: shu o'quv yilidagi darslarda ishlatilgan fanlar.
     const rows = await this.lessons.find({
-      where: { quarterId: quarter.id },
+      where: tenantWhere<LessonSchedule>(this.tenant, { quarterId: quarter.id }, { branch: true }),
       relations: { subject: true },
     });
     const seen = new Map<string, { id: string; name: unknown; color: string }>();
@@ -647,9 +651,9 @@ export class ScheduleService {
     const classIds = Array.from(new Set(dto.distribution.map((d) => d.classId)));
     const subjectIds = Array.from(new Set(dto.distribution.map((d) => d.subjectId)));
     const teacherIds = dto.distribution.map((d) => d.teacherId).filter((x): x is string => !!x);
-    const classes = classIds.length ? await this.classes.find({ where: { id: In(classIds) } }) : [];
+    const classes = classIds.length ? await this.classes.find({ where: tenantWhere<SchoolClass>(this.tenant, { id: In(classIds) }, { branch: true }) }) : [];
     const subjects = subjectIds.length ? await this.subjects.find({ where: { id: In(subjectIds) } }) : [];
-    const teachers = teacherIds.length ? await this.users.find({ where: { id: In(teacherIds) } }) : [];
+    const teachers = teacherIds.length ? await this.users.find({ where: tenantWhere<User>(this.tenant, { id: In(teacherIds) }) }) : [];
     const classMap = new Map(classes.map((c) => [c.id, c.name] as const));
     const subjectMap = new Map(subjects.map((s) => [s.id, s.name] as const));
     const teacherMap = new Map(teachers.map((t) => [t.id, this.fullName(t)] as const));

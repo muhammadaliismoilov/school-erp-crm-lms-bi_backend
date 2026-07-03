@@ -35,6 +35,7 @@ const make = (over: { lessons?: Partial<AnyRepo>; journal?: Partial<AnyRepo>; st
     subjects as unknown as Repository<Subject>,
     periods as unknown as Repository<LessonPeriod>,
     gamification as unknown as GamificationService,
+    { getSchoolId: () => null, getBranchId: () => null } as unknown as import('../src/common/tenant/tenant-context.service').TenantContextService,
   );
   return { service, lessons, journal, students, quarterGrades, gamification, saved };
 };

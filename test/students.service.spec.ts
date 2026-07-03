@@ -23,8 +23,11 @@ describe('StudentsService', () => {
   >;
   let usersService: jest.Mocked<Pick<UsersService, 'createParent' | 'findParentUser'>>;
   let service: StudentsService;
+  const tenantCtx: { schoolId: string | null; branchId: string | null } = { schoolId: null, branchId: null };
 
   beforeEach(() => {
+    tenantCtx.schoolId = null;
+    tenantCtx.branchId = null;
     students = {
       count: jest.fn(),
       createQueryBuilder: jest.fn(),
@@ -46,12 +49,16 @@ describe('StudentsService', () => {
       findParentUser: jest.fn(),
     };
 
+    // Tenant kontekst — sozlanadigan (default: maktab/filial yo'q, scoping o'chiq).
+    const tenant = { getSchoolId: () => tenantCtx.schoolId, getBranchId: () => tenantCtx.branchId };
+
     service = new StudentsService(
       students as unknown as Repository<Student>,
       studentParents as unknown as Repository<StudentParent>,
       emptyRepository<StudentDocument>(),
       {} as DataSource,
       usersService as unknown as UsersService,
+      tenant as unknown as import('../src/common/tenant/tenant-context.service').TenantContextService,
       undefined,
     );
   });
@@ -322,6 +329,27 @@ describe('StudentsService', () => {
 
       expect(map[parentId]).toHaveLength(2);
       expect(map['p2']).toHaveLength(1);
+    });
+  });
+
+  describe('tenant scoping (ko‘p-maktabli ajratish)', () => {
+    it('findStudent — kontekstda maktab/filial bo‘lsa where‘ga qo‘shiladi', async () => {
+      tenantCtx.schoolId = 'school-A';
+      tenantCtx.branchId = 'branch-1';
+      students.findOne.mockResolvedValue({ id: studentId } as Student);
+
+      await service.findStudent(studentId);
+
+      const where = students.findOne.mock.calls[0][0].where;
+      expect(where).toMatchObject({ id: studentId, schoolId: 'school-A', filialId: 'branch-1' });
+    });
+
+    it('findStudent — kontekst yo‘q bo‘lsa faqat id bo‘yicha', async () => {
+      students.findOne.mockResolvedValue({ id: studentId } as Student);
+
+      await service.findStudent(studentId);
+
+      expect(students.findOne.mock.calls[0][0].where).toEqual({ id: studentId });
     });
   });
 });

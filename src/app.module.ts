@@ -64,6 +64,7 @@ import { ProgressReportsModule } from "./modules/progress-reports/progress-repor
 import { TransactionsModule } from "./modules/transactions/transactions.module";
 import { StudentPaymentsModule } from "./modules/student-payments/student-payments.module";
 import { EncryptionModule } from "./common/security/encryption.module";
+import { TenantModule } from "./common/tenant/tenant.module";
 
 const buildTypeOrmOptions = (
   configService: ConfigService,
@@ -213,6 +214,7 @@ const buildTypeOrmOptions = (
     ProgressReportsModule,
     TransactionsModule,
     StudentPaymentsModule,
+    TenantModule,
   ],
   providers: [
     {

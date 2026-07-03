@@ -5,6 +5,8 @@ import { SignStatus } from '../enums/documents.enums';
 @Entity('document_sign_requests')
 @Index(['documentId', 'signerId'])
 export class SignRequest extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
   @Column({ name: 'document_id', type: 'uuid' }) documentId: string;
   @Column({ name: 'signer_id', type: 'uuid' }) signerId: string;
   @Column({ name: 'signer_type', length: 80 }) signerType: string;

@@ -9,6 +9,7 @@ import type { ExamResult } from '../src/modules/lms/entities/exam-result.entity'
 import type { JournalEntry } from '../src/modules/lms/entities/journal-entry.entity';
 import type { QuarterSubjectGrade } from '../src/modules/lms/entities/quarter-subject-grade.entity';
 import { GradeRequestsService } from '../src/modules/grade-requests/grade-requests.service';
+import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
 import {
   GradeChangeRequest,
   GradeRequestKind,
@@ -88,6 +89,7 @@ describe('GradeRequestsService', () => {
       examResults as never as Repository<ExamResult>,
       notifications as never as NotificationsService,
       audit as never as AuditService,
+      undefined as unknown as TenantContextService,
     );
   });
 

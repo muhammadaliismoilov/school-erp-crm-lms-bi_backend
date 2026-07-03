@@ -3,6 +3,8 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { AuditService } from "../audit/audit.service";
 import { ILike, In, LessThan, LessThanOrEqual, MoreThan, MoreThanOrEqual, Not, Repository } from "typeorm";
 import type { FindOptionsWhere } from "typeorm";
+import { TenantContextService } from "../../common/tenant/tenant-context.service";
+import { tenantWhere } from "../../common/tenant/tenant-scope.util";
 import { AttendanceStatus } from "../../common/enums/attendance-status.enum";
 import { CommonStatus } from "../../common/enums/common-status.enum";
 import type { LocalizedText } from "../../common/i18n/locale";
@@ -195,6 +197,10 @@ export class AcademicService {
     @Optional()
     @InjectRepository(LessonSchedule)
     private readonly lessonSchedules?: Repository<LessonSchedule>,
+    // Ko'p-maktabli scoping. @Optional — testlar positional qurgani uchun; prod'da
+    // global TenantModule doim ta'minlaydi. tenantWhere/applyTenantScope undefined'ga bardoshli.
+    @Optional()
+    private readonly tenant?: TenantContextService,
   ) {}
 
   async createAcademicYear(dto: CreateAcademicYearDto, actor?: AcademicActor): Promise<AcademicYear> {
@@ -800,6 +806,8 @@ export class AcademicService {
 
     const schoolClass = await this.classes.save(
       this.classes.create({
+        schoolId: this.tenant?.getSchoolId() ?? null,
+        filialId: this.tenant?.getBranchId() ?? null,
         name: input.name,
         gradeLevel: input.gradeLevel,
         section: input.section,
@@ -1666,13 +1674,18 @@ export class AcademicService {
 
   private async ensureClassCanBeSaved(input: ClassSaveInput, excludeClassId?: string): Promise<void> {
     const excludedIdWhere = excludeClassId ? { id: Not(excludeClassId) } : {};
+    // Dublikat tekshiruvi maktab ichida — turli maktablar bir xil sinfga ega bo'lishi mumkin.
     const duplicateClass = await this.classes.findOne({
-      where: {
-        academicYearId: input.academicYearId,
-        gradeLevel: input.gradeLevel,
-        section: input.section,
-        ...excludedIdWhere,
-      },
+      where: tenantWhere<SchoolClass>(
+        this.tenant,
+        {
+          academicYearId: input.academicYearId,
+          gradeLevel: input.gradeLevel,
+          section: input.section,
+          ...excludedIdWhere,
+        },
+        { branch: true },
+      ),
     });
 
     if (duplicateClass) {
@@ -1681,19 +1694,24 @@ export class AcademicService {
   }
 
   private buildClassWhere(query: ClassQueryDto): FindOptionsWhere<SchoolClass> {
-    return {
-      ...(query.academicYearId ? { academicYearId: query.academicYearId } : {}),
-      ...(query.gradeLevel ? { gradeLevel: query.gradeLevel } : {}),
-      ...(query.language ? { language: query.language } : {}),
-      ...(query.roomId ? { roomId: query.roomId } : {}),
-      ...(query.curatorId ? { curatorId: query.curatorId } : {}),
-      ...(query.search ? { name: ILike("%" + query.search + "%") } : {}),
-    };
+    // Ko'p-maktabli ajratish — aktiv maktab/filial bo'yicha filtr qo'shiladi.
+    return tenantWhere<SchoolClass>(
+      this.tenant,
+      {
+        ...(query.academicYearId ? { academicYearId: query.academicYearId } : {}),
+        ...(query.gradeLevel ? { gradeLevel: query.gradeLevel } : {}),
+        ...(query.language ? { language: query.language } : {}),
+        ...(query.roomId ? { roomId: query.roomId } : {}),
+        ...(query.curatorId ? { curatorId: query.curatorId } : {}),
+        ...(query.search ? { name: ILike("%" + query.search + "%") } : {}),
+      },
+      { branch: true },
+    );
   }
 
   private async findClassEntity(id: string): Promise<SchoolClass> {
     const schoolClass = await this.classes.findOne({
-      where: { id },
+      where: tenantWhere<SchoolClass>(this.tenant, { id }, { branch: true }),
       relations: { academicYear: true, room: true, curator: true },
     });
 

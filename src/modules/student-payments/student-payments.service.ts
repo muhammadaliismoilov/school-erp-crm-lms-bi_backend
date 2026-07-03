@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, DataSource, EntityManager, Repository } from 'typeorm';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { AuditService } from '../audit/audit.service';
 import { SchoolClass } from '../academic/entities/school-class.entity';
 import { Student } from '../students/entities/student.entity';
@@ -60,6 +62,7 @@ export class StudentPaymentsService {
     private readonly paymentTypes: Repository<PaymentType>,
     private readonly auditService: AuditService,
     private readonly dataSource: DataSource,
+    private readonly tenant: TenantContextService,
   ) {}
 
   // ─── O'qish ───────────────────────────────────────────────────────────────
@@ -117,6 +120,9 @@ export class StudentPaymentsService {
       .createQueryBuilder('sp')
       .leftJoin('sp.paymentType', 'paymentType')
       .addSelect(['paymentType.id', 'paymentType.name', 'paymentType.code']);
+
+    // Ko'p-maktabli ajratish — list, stats va export shu qatorda filtrlanadi.
+    applyTenantScope(qb, 'sp', this.tenant, { branch: true });
 
     if (query.month) {
       qb.andWhere('sp.month = :month', { month: query.month });
@@ -211,6 +217,8 @@ export class StudentPaymentsService {
       const repo = manager.getRepository(StudentPayment);
       const saved = await repo.save(
         repo.create({
+          schoolId: this.tenant.getSchoolId(),
+          filialId: this.tenant.getBranchId(),
           studentId: student.id,
           studentName: student.name,
           classId: student.classId,
@@ -353,6 +361,9 @@ export class StudentPaymentsService {
     const fields = {
       sourceType: StudentPaymentsService.TX_SOURCE,
       sourceId: payment.id,
+      // Proyeksiya to'lovning maktab/filialini meros oladi (izchil scoping).
+      schoolId: payment.schoolId ?? null,
+      filialId: payment.filialId ?? null,
       type: 'income' as const,
       amount,
       date: payment.paymentDate,
@@ -438,7 +449,7 @@ export class StudentPaymentsService {
 
   private async findEntity(id: string): Promise<StudentPayment> {
     const entity = await this.payments.findOne({
-      where: { id },
+      where: tenantWhere<StudentPayment>(this.tenant, { id }, { branch: true }),
       relations: { paymentType: true },
     });
     if (!entity) {

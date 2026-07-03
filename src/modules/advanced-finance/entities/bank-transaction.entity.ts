@@ -5,6 +5,13 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Index('uq_bank_transactions_no', ['transactionNo'], { unique: true })
 @Index('idx_bank_transactions_payment', ['matchedPaymentId'])
 export class BankTransaction extends UuidAuditEntity {
+  /** Ko'p-maktabli ajratish (tenant). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'transaction_no', type: 'varchar', length: 100 })
   transactionNo: string;
 

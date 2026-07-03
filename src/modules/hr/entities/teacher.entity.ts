@@ -1,9 +1,7 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, OneToOne } from 'typeorm';
 import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 import { StaffMember } from './staff-member.entity';
-import { UserGender } from '../../users/enums/user.enums';
 import {
-  TeacherCategory,
   TeacherDegree,
   TeacherEmploymentType,
   TeacherStatus,
@@ -12,52 +10,26 @@ import {
 
 /**
  * O'qituvchilar ro'yxati — maktab o'qituvchilarining alohida registri.
- * Ixtiyoriy ravishda xodim (`StaffMember`) yozuviga bog'lanadi, lekin
- * o'qituvchiga xos maydonlar (ish turi, daraja, toifa, stavka, rollar) shu
- * yerda saqlanadi. Form "rasmdagidek": shaxsiy + ish + qo'shimcha ma'lumotlar.
+ * Har bir o'qituvchi majburan bitta xodimga (`StaffMember`) bog'lanadi.
+ * Shaxsiy ma'lumot (ism, pinfl, telefon...) va malaka toifasi XODIMDA saqlanadi —
+ * bu yerda faqat o'qituvchiga xos maydonlar: ish turi, daraja, stavka, rollar.
  */
 @Entity('hr_teachers')
-@Index('idx_hr_teachers_staff', ['staffMemberId'])
+// Bir xodimga faqat bitta faol o'qituvchi to'g'ri keladi (soft-delete
+// qilinganlar hisobga olinmaydi) — "o'qituvchi = xodim" modeli.
+@Index('uq_hr_teachers_staff_active', ['staffMemberId'], { unique: true, where: 'deleted_at IS NULL' })
 @Index('idx_hr_teachers_status', ['status'])
-@Index('idx_hr_teachers_category', ['category'])
 export class Teacher extends UuidAuditEntity {
-  /** Bog'langan xodim yozuvi (ixtiyoriy). */
-  @Column({ name: 'staff_member_id', type: 'uuid', nullable: true })
-  staffMemberId?: string | null;
+  /** Bog'langan xodim yozuvi — shaxsiy ma'lumotning yagona manbasi (majburiy). */
+  @Column({ name: 'staff_member_id', type: 'uuid' })
+  staffMemberId: string;
 
-  @ManyToOne(() => StaffMember, { nullable: true, onDelete: 'SET NULL' })
+  // onDelete: 'SET NULL' saqlanadi (mavjud FK bilan mos) — xodimlar soft-delete
+  // qilingani uchun bu amalda ishga tushmaydi; NOT NULL bilan birga xodimni
+  // qattiq o'chirib bo'lmasligini kafolatlaydi.
+  @OneToOne(() => StaffMember, { nullable: false, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'staff_member_id' })
-  staffMember?: StaffMember | null;
-
-  // --- Shaxsiy ma'lumotlar ---
-  @Column({ name: 'first_name', type: 'varchar', length: 80 })
-  firstName: string;
-
-  @Column({ name: 'last_name', type: 'varchar', length: 80 })
-  lastName: string;
-
-  @Column({ name: 'middle_name', type: 'varchar', length: 80, nullable: true })
-  middleName?: string | null;
-
-  @Column({ type: 'enum', enum: UserGender, nullable: true })
-  gender?: UserGender | null;
-
-  @Column({ name: 'birth_date', type: 'date', nullable: true })
-  birthDate?: string | null;
-
-  /** Hujjat (passport) raqami. */
-  @Column({ name: 'document_number', type: 'varchar', length: 32, nullable: true })
-  documentNumber?: string | null;
-
-  /** JSHSHIR (PINFL) — 14 raqam. */
-  @Column({ type: 'varchar', length: 14, nullable: true })
-  pinfl?: string | null;
-
-  @Column({ type: 'varchar', length: 20, nullable: true })
-  phone?: string | null;
-
-  @Column({ type: 'varchar', length: 120, nullable: true })
-  email?: string | null;
+  staffMember: StaffMember;
 
   // --- Ish ma'lumotlari ---
   @Column({ name: 'work_type', type: 'enum', enum: TeacherWorkType, default: TeacherWorkType.FULL })
@@ -71,9 +43,6 @@ export class Teacher extends UuidAuditEntity {
 
   @Column({ type: 'enum', enum: TeacherStatus, default: TeacherStatus.ACTIVE })
   status: TeacherStatus;
-
-  @Column({ type: 'enum', enum: TeacherCategory, nullable: true })
-  category?: TeacherCategory | null;
 
   /** Ish staji / tajriba (yillarda). */
   @Column({ name: 'experience_years', type: 'integer', default: 0 })

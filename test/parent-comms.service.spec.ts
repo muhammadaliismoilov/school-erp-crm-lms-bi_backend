@@ -4,6 +4,7 @@ import type { AuditService } from '../src/modules/audit/audit.service';
 import type { SchoolClass } from '../src/modules/academic/entities/school-class.entity';
 import type { Student } from '../src/modules/students/entities/student.entity';
 import { ParentCommsService } from '../src/modules/parent-comms/parent-comms.service';
+import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
 import {
   CommunicationSentiment,
   ParentCommunication,
@@ -71,6 +72,7 @@ describe('ParentCommsService', () => {
       students as never as Repository<Student>,
       classes as never as Repository<SchoolClass>,
       audit as never as AuditService,
+      undefined as unknown as TenantContextService,
     );
   });
 

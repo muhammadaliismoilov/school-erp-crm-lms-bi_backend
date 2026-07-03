@@ -7,6 +7,8 @@ import { ServiceRequestStatus } from '../enums/youth-services.enums';
 @Index('idx_youth_service_requests_student', ['studentId'])
 @Index('idx_youth_service_requests_status', ['status'])
 export class YouthServiceRequest extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
   @Column({ name: 'student_id', type: 'uuid', nullable: true }) studentId?: string | null;
   @ManyToOne(() => Student, { nullable: true, onDelete: 'SET NULL' }) @JoinColumn({ name: 'student_id' }) student?: Student | null;
   @Column({ type: 'varchar', length: 100 }) category: string;

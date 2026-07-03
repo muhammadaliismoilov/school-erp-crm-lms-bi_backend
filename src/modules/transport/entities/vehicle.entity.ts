@@ -5,6 +5,13 @@ import { VehicleStatus } from '../enums/transport.enums';
 @Entity('transport_vehicles')
 @Index(['plateNumber'], { unique: true, where: 'deleted_at IS NULL' })
 export class Vehicle extends UuidAuditEntity {
+  /** Ko'p-maktabli ajratish (tenant). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'plate_number', length: 40 }) plateNumber: string;
   @Column({ length: 120 }) model: string;
   @Column({ type: 'int' }) capacity: number;

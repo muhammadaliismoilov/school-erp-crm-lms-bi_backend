@@ -6,6 +6,13 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Index('idx_admission_applications_stage', ['stageId'])
 @Index('idx_admission_applications_status', ['status'])
 export class AdmissionApplication extends UuidAuditEntity {
+  /** Ko'p-maktabli ajratish (tenant). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'application_no', type: 'varchar', length: 50 })
   applicationNo: string;
 

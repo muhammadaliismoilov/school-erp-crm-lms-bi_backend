@@ -29,6 +29,8 @@ export enum GradeRequestStatus {
 @Index('idx_gcr_student', ['studentId'])
 @Index('idx_gcr_subject', ['subjectId'])
 export class GradeChangeRequest extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
   @Column({ type: 'enum', enum: GradeRequestKind })
   kind: GradeRequestKind;
 

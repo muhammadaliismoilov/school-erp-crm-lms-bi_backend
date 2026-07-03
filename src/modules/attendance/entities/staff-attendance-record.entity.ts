@@ -6,6 +6,13 @@ import { User } from '../../identity/entities/user.entity';
 @Entity('staff_attendance_records')
 @Index('uq_staff_attendance_user_date', ['userId', 'date'], { unique: true })
 export class StaffAttendanceRecord extends UuidAuditEntity {
+  /** Ko'p-maktabli ajratish (tenant). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 

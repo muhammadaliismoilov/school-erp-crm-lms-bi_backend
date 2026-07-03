@@ -1,6 +1,8 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { AuditService } from '../audit/audit.service';
 import { SchoolClass } from '../academic/entities/school-class.entity';
 import { Student } from '../students/entities/student.entity';
@@ -34,15 +36,16 @@ export class ParentCommsService {
     @InjectRepository(SchoolClass)
     private readonly classes: Repository<SchoolClass>,
     private readonly auditService: AuditService,
+    private readonly tenant: TenantContextService,
   ) {}
 
   async create(dto: CreateParentCommDto, actor?: ParentCommActor): Promise<ParentCommResponseSchema> {
-    const student = await this.students.findOne({ where: { id: dto.studentId } });
+    const student = await this.students.findOne({ where: tenantWhere<Student>(this.tenant, { id: dto.studentId }, { branch: true }) });
     if (!student) {
       throw new NotFoundException('O‘quvchi topilmadi');
     }
     if (dto.classId) {
-      const cls = await this.classes.findOne({ where: { id: dto.classId } });
+      const cls = await this.classes.findOne({ where: tenantWhere<SchoolClass>(this.tenant, { id: dto.classId }, { branch: true }) });
       if (!cls) {
         throw new NotFoundException('Sinf topilmadi');
       }
@@ -112,6 +115,7 @@ export class ParentCommsService {
     query: Partial<ParentCommQueryDto>,
     search: string | null,
   ): void {
+    applyTenantScope(qb, 'pc', this.tenant, { branch: true });
     if (query.sentiment) {
       qb.andWhere('pc.sentiment = :sentiment', { sentiment: query.sentiment });
     }
@@ -165,7 +169,7 @@ export class ParentCommsService {
 
     if (dto.classId !== undefined) {
       if (dto.classId) {
-        const cls = await this.classes.findOne({ where: { id: dto.classId } });
+        const cls = await this.classes.findOne({ where: tenantWhere<SchoolClass>(this.tenant, { id: dto.classId }, { branch: true }) });
         if (!cls) throw new NotFoundException('Sinf topilmadi');
       }
       entity.classId = dto.classId ?? null;
@@ -199,7 +203,7 @@ export class ParentCommsService {
 
   private async findEntity(id: string): Promise<ParentCommunication> {
     const entity = await this.comms.findOne({
-      where: { id },
+      where: tenantWhere<ParentCommunication>(this.tenant, { id }, { branch: true }),
       relations: { student: true, class: true, parent: true, tutor: true, createdBy: true },
     });
     if (!entity) {

@@ -74,6 +74,19 @@ export class CreateUserDto {
   @IsUUID('4', { message: 'Profil rasmi fayl IDsi UUID formatida bo‘lishi kerak' })
   profileImageFileId?: string;
 
+  @ApiPropertyOptional({
+    description: 'Foydalanuvchi maktabi (tenant chegarasi). Yuborilmasa yaratuvchi maktabi olinadi.',
+    format: 'uuid',
+  })
+  @IsOptional()
+  @IsUUID('4', { message: 'Maktab IDsi UUID formatida bo‘lishi kerak' })
+  schoolId?: string;
+
+  @ApiPropertyOptional({ description: 'Foydalanuvchining asosiy filiali.', format: 'uuid' })
+  @IsOptional()
+  @IsUUID('4', { message: 'Filial IDsi UUID formatida bo‘lishi kerak' })
+  branchId?: string;
+
   @ApiProperty({ description: 'Ism lotin yozuvida.', example: 'Javohir', minLength: 1, maxLength: 80 })
   @Transform(trim)
   @IsString({ message: 'Ism matn bo‘lishi kerak' })

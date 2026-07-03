@@ -11,7 +11,17 @@ import { AcademicYear } from "./academic-year.entity";
   unique: true,
   where: "deleted_at IS NULL",
 })
+@Index("idx_classes_school", ["schoolId"])
+@Index("idx_classes_filial", ["filialId"])
 export class SchoolClass extends UuidAuditEntity {
+  /** Maktab (qattiq tenant chegarasi). */
+  @Column({ name: "school_id", type: "uuid", nullable: true })
+  schoolId?: string | null;
+
+  /** Filial (branch). */
+  @Column({ name: "filial_id", type: "uuid", nullable: true })
+  filialId?: string | null;
+
   @Column({ type: "varchar", length: 80 })
   name: string;
 

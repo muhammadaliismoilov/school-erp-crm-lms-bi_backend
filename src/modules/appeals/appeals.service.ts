@@ -9,6 +9,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
 import { Between, Brackets, In, Repository } from 'typeorm';
 import { CommonStatus } from '../../common/enums/common-status.enum';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { AuditService } from '../audit/audit.service';
 import { User } from '../identity/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -81,13 +83,14 @@ export class AppealsService {
     private readonly notificationsService: NotificationsService,
     private readonly auditService: AuditService,
     private readonly configService: ConfigService,
+    private readonly tenant: TenantContextService,
   ) {}
 
   // ---- Public link management (authed) ----
 
   async getPublicLink(): Promise<AppealPublicLinkSchema> {
     const link = await this.publicLinkRepository.findOne({
-      where: { isActive: true },
+      where: tenantWhere<AppealPublicLink>(this.tenant, { isActive: true }),
       order: { createdAt: 'DESC' },
     });
     if (!link) {
@@ -98,7 +101,7 @@ export class AppealsService {
 
   /** Rotates the active link: deactivates any existing one and issues a fresh token. */
   async createPublicLink(createdById?: string): Promise<AppealPublicLinkSchema> {
-    await this.publicLinkRepository.update({ isActive: true }, { isActive: false });
+    await this.publicLinkRepository.update(tenantWhere<AppealPublicLink>(this.tenant, { isActive: true }), { isActive: false });
     const token = randomBytes(16).toString('hex');
     const link = await this.publicLinkRepository.save(
       this.publicLinkRepository.create({ token, isActive: true, createdById: createdById ?? null }),
@@ -186,6 +189,7 @@ export class AppealsService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const qb = this.appealRepository.createQueryBuilder('appeal').where('1 = 1');
+    applyTenantScope(qb, 'appeal', this.tenant, { branch: true });
     const search = this.nullableText(query.search);
 
     if (search) {
@@ -231,11 +235,11 @@ export class AppealsService {
     const pageCount = Math.ceil(total / limit) || 1;
     const monthRange = this.getPeriodRange(AppealPeriodFilter.MONTH);
     const [totalCount, suggestionCount, complaintCount, monthCount] = await Promise.all([
-      this.appealRepository.count(),
-      this.appealRepository.count({ where: { type: AppealType.SUGGESTION } }),
-      this.appealRepository.count({ where: { type: AppealType.COMPLAINT } }),
+      this.appealRepository.count({ where: tenantWhere<Appeal>(this.tenant, {}, { branch: true }) }),
+      this.appealRepository.count({ where: tenantWhere<Appeal>(this.tenant, { type: AppealType.SUGGESTION }, { branch: true }) }),
+      this.appealRepository.count({ where: tenantWhere<Appeal>(this.tenant, { type: AppealType.COMPLAINT }, { branch: true }) }),
       this.appealRepository.count({
-        where: { createdAt: Between(monthRange.from, monthRange.to) },
+        where: tenantWhere<Appeal>(this.tenant, { createdAt: Between(monthRange.from, monthRange.to) }, { branch: true }),
       }),
     ]);
 
@@ -266,7 +270,7 @@ export class AppealsService {
 
     if (dto.assigneeUserId) {
       const assignee = await this.userRepository.findOne({
-        where: { id: dto.assigneeUserId },
+        where: tenantWhere<User>(this.tenant, { id: dto.assigneeUserId }),
       });
       if (!assignee) {
         throw new NotFoundException('Assignee user not found');
@@ -388,7 +392,7 @@ export class AppealsService {
   }
 
   private async findAppealEntity(id: string): Promise<Appeal> {
-    const appeal = await this.appealRepository.findOne({ where: { id } });
+    const appeal = await this.appealRepository.findOne({ where: tenantWhere<Appeal>(this.tenant, { id }, { branch: true }) });
 
     if (!appeal) {
       throw new NotFoundException('Appeal not found');

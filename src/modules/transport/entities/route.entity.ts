@@ -5,6 +5,13 @@ import { RouteStatus } from '../enums/transport.enums';
 @Entity('transport_routes')
 @Index(['name'])
 export class TransportRoute extends UuidAuditEntity {
+  /** Ko'p-maktabli ajratish (tenant). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ length: 160 }) name: string;
   @Column({ name: 'vehicle_id', type: 'uuid', nullable: true }) vehicleId?: string | null;
   @Column({ name: 'driver_id', type: 'uuid', nullable: true }) driverId?: string | null;

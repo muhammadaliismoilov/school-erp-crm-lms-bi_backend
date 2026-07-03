@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { EncryptionService } from "../../common/security/encryption.service";
+import { TenantContextService } from "../../common/tenant/tenant-context.service";
+import { tenantWhere } from "../../common/tenant/tenant-scope.util";
 import {
   CreateCounselingSessionDto,
   UpdateCounselingSessionDto,
@@ -31,6 +33,7 @@ export class CounselingService {
     @InjectRepository(CounselingSession)
     private readonly sessions: Repository<CounselingSession>,
     private readonly encryption: EncryptionService,
+    private readonly tenant: TenantContextService,
   ) {}
 
   async create(
@@ -48,7 +51,7 @@ export class CounselingService {
     id: string,
     dto: UpdateCounselingSessionDto,
   ): Promise<CounselingSessionDetail> {
-    const entity = await this.sessions.findOne({ where: { id } });
+    const entity = await this.sessions.findOne({ where: tenantWhere<CounselingSession>(this.tenant, { id }, { branch: true }) });
     if (!entity) {
       throw new NotFoundException("CounselingSession not found");
     }
@@ -61,7 +64,7 @@ export class CounselingService {
   }
 
   async findAll(): Promise<CounselingSessionSummary[]> {
-    const rows = await this.sessions.find({ order: { sessionDate: "DESC" } });
+    const rows = await this.sessions.find({ where: tenantWhere<CounselingSession>(this.tenant, {}, { branch: true }), order: { sessionDate: "DESC" } });
     return rows.map((row) => this.toSummary(row));
   }
 
@@ -69,14 +72,14 @@ export class CounselingService {
     studentId: string,
   ): Promise<CounselingSessionSummary[]> {
     const rows = await this.sessions.find({
-      where: { studentId },
+      where: tenantWhere<CounselingSession>(this.tenant, { studentId }, { branch: true }),
       order: { sessionDate: "DESC" },
     });
     return rows.map((row) => this.toSummary(row));
   }
 
   async findOne(id: string): Promise<CounselingSessionDetail> {
-    const entity = await this.sessions.findOne({ where: { id } });
+    const entity = await this.sessions.findOne({ where: tenantWhere<CounselingSession>(this.tenant, { id }, { branch: true }) });
     if (!entity) {
       throw new NotFoundException("CounselingSession not found");
     }

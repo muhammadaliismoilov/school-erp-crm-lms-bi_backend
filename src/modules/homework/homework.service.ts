@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { CheckHomeworkDto, CreateHomeworkAssignmentDto, SubmitHomeworkDto, UpdateHomeworkAssignmentDto } from './dto/homework.dto';
 import { HomeworkAssignment } from './entities/homework-assignment.entity';
 import { HomeworkSubmission } from './entities/homework-submission.entity';
@@ -11,17 +13,18 @@ export class HomeworkService {
   constructor(
     @InjectRepository(HomeworkAssignment) private readonly assignments: Repository<HomeworkAssignment>,
     @InjectRepository(HomeworkSubmission) private readonly submissions: Repository<HomeworkSubmission>,
+    private readonly tenant: TenantContextService,
   ) {}
-  findAssignments() { return this.assignments.find({ order: { dueDate: 'DESC' } }); }
+  findAssignments() { return this.assignments.find({ where: tenantWhere<HomeworkAssignment>(this.tenant, {}, { branch: true }), order: { dueDate: 'DESC' } }); }
   async createAssignment(dto: CreateHomeworkAssignmentDto) { return this.assignments.save(this.assignments.create({ ...dto, dueDate: new Date(dto.dueDate) })); }
   async updateAssignment(id: string, dto: UpdateHomeworkAssignmentDto) {
     const entity = await this.assignments.preload({ id, ...dto, dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined });
     if (!entity) throw new NotFoundException('Homework assignment not found');
     return this.assignments.save(entity);
   }
-  findSubmissions(assignmentId?: string) { return this.submissions.find({ where: assignmentId ? { assignmentId } : {}, order: { createdAt: 'DESC' } }); }
+  findSubmissions(assignmentId?: string) { return this.submissions.find({ where: tenantWhere<HomeworkSubmission>(this.tenant, assignmentId ? { assignmentId } : {}, { branch: true }), order: { createdAt: 'DESC' } }); }
   async submit(dto: SubmitHomeworkDto) {
-    const entity = await this.submissions.findOne({ where: { assignmentId: dto.assignmentId, studentId: dto.studentId } });
+    const entity = await this.submissions.findOne({ where: tenantWhere<HomeworkSubmission>(this.tenant, { assignmentId: dto.assignmentId, studentId: dto.studentId }, { branch: true }) });
     const payload = { ...dto, submittedAt: new Date(), status: SubmissionStatus.SUBMITTED };
     return this.submissions.save(entity ? { ...entity, ...payload } : this.submissions.create(payload));
   }

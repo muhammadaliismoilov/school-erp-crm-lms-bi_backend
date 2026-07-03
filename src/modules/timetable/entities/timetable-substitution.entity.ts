@@ -5,6 +5,13 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Index('idx_timetable_substitutions_slot', ['slotId'])
 @Index('idx_timetable_substitutions_date', ['date'])
 export class TimetableSubstitution extends UuidAuditEntity {
+  /** Ko'p-maktabli ajratish (tenant). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'slot_id', type: 'uuid' })
   slotId: string;
 

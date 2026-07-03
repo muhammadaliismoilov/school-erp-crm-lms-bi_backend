@@ -37,6 +37,8 @@ export enum TargetRole {
 @Index('idx_appeals_phone', ['phone'])
 @Index('idx_appeals_assignee', ['assigneeUserId'])
 export class Appeal extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
   @Column({ name: 'full_name', type: 'varchar', length: 150, nullable: false })
   fullName: string;
 

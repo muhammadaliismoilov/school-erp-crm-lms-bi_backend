@@ -10,6 +10,8 @@ import { randomBytes } from 'crypto';
 import { Brackets, In, Not, Repository } from 'typeorm';
 import type { FindOptionsWhere } from 'typeorm';
 import { CommonStatus } from '../../common/enums/common-status.enum';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope } from '../../common/tenant/tenant-scope.util';
 import { PasswordService } from '../auth/password.service';
 import { Role } from '../identity/entities/role.entity';
 import { StaffMember } from '../hr/entities/staff-member.entity';
@@ -39,6 +41,7 @@ export class UsersService {
     @InjectRepository(StaffMember)
     private readonly staffMembers: Repository<StaffMember>,
     private readonly passwords: PasswordService,
+    private readonly tenant: TenantContextService,
   ) {}
 
   async create(
@@ -59,8 +62,14 @@ export class UsersService {
     await this.ensureUniqueIdentifiers(identifiers);
     const roles = await this.resolveRoles(dto.roleNames, dto.role);
     const password = dto.password ?? randomBytes(18).toString('base64url');
+    // Maktab/filial: yaratuvchining aktiv maktabi ustun (boshqa maktabga xodim
+    // qo'shishning oldini oladi); kontekst yo'q bo'lsa (super-admin) DTO'dan olinadi.
+    const schoolId = this.tenant.getSchoolId() ?? this.nullableText(dto.schoolId);
+    const branchId = this.tenant.getBranchId() ?? this.nullableText(dto.branchId);
     const user = this.users.create({
       username,
+      schoolId,
+      branchId,
       email: identifiers.email,
       phone: identifiers.phone,
       passwordHash: await this.passwords.hash(password),
@@ -122,6 +131,8 @@ export class UsersService {
         this.staffMembers.create({
           employeeCode,
           userId: user.id,
+          schoolId: user.schoolId ?? null,
+          filialId: user.branchId ?? null,
           firstName: user.firstName,
           firstNameCyrillic: user.firstNameCyrillic ?? null,
           lastName: user.lastName,
@@ -235,6 +246,8 @@ export class UsersService {
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.roles', 'role')
       .where('1 = 1');
+    // Ko'p-maktabli ajratish: users faqat school_id (filial_id yo'q) → branch'siz.
+    applyTenantScope(qb, 'user', this.tenant);
     const search = this.nullableText(query.search);
 
     if (search) {
@@ -376,6 +389,12 @@ export class UsersService {
     }
     if (dto.status !== undefined) {
       user.status = dto.status;
+    }
+    if (dto.schoolId !== undefined) {
+      user.schoolId = this.nullableText(dto.schoolId);
+    }
+    if (dto.branchId !== undefined) {
+      user.branchId = this.nullableText(dto.branchId);
     }
     if (dto.password !== undefined) {
       user.passwordHash = await this.passwords.hash(dto.password);
@@ -538,6 +557,8 @@ export class UsersService {
       workplace: user.workplace ?? null,
       profileImageUrl: user.profileImageUrl ?? null,
       profileImageFileId: user.profileImageFileId ?? null,
+      schoolId: user.schoolId ?? null,
+      branchId: user.branchId ?? null,
       role: roles[0]?.name ?? null,
       roles,
       status: user.status ?? CommonStatus.ACTIVE,

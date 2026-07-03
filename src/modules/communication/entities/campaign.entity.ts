@@ -5,6 +5,8 @@ import { CampaignStatus, MessageChannel } from '../enums/communication.enums';
 @Entity('communication_campaigns')
 @Index(['channel', 'status'])
 export class Campaign extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
   @Column({ length: 180 }) name: string;
   @Column({ type: 'enum', enum: MessageChannel }) channel: MessageChannel;
   @Column({ name: 'template_id', type: 'uuid', nullable: true }) templateId?: string | null;

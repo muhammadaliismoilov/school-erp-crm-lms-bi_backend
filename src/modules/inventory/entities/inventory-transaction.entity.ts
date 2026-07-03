@@ -7,6 +7,13 @@ import { InventoryItem } from './inventory-item.entity';
 @Index('idx_inventory_transactions_item', ['itemId'])
 @Index('idx_inventory_transactions_type', ['type'])
 export class InventoryTransaction extends UuidAuditEntity {
+  /** Ko'p-maktabli ajratish (tenant). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'item_id', type: 'uuid' }) itemId: string;
   @ManyToOne(() => InventoryItem, (item) => item.transactions, { onDelete: 'CASCADE' }) @JoinColumn({ name: 'item_id' }) item: InventoryItem;
   @Column({ type: 'enum', enum: InventoryTransactionType }) type: InventoryTransactionType;

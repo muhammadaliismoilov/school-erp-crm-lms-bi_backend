@@ -5,6 +5,13 @@ import { PersonType } from '../../../common/enums/person-type.enum';
 @Entity('attendance_logs')
 @Index('idx_attendance_logs_person_time', ['personType', 'personId', 'timestamp'])
 export class AttendanceLog extends UuidAuditEntity {
+  /** Ko'p-maktabli ajratish (tenant). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'person_type', type: 'enum', enum: PersonType })
   personType: PersonType;
 

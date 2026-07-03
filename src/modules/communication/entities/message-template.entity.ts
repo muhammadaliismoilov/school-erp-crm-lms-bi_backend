@@ -5,6 +5,8 @@ import { MessageChannel } from '../enums/communication.enums';
 @Entity('message_templates')
 @Index(['code'], { unique: true, where: 'deleted_at IS NULL' })
 export class MessageTemplate extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
   @Column({ length: 80 }) code: string;
   @Column({ length: 180 }) name: string;
   @Column({ type: 'enum', enum: MessageChannel }) channel: MessageChannel;

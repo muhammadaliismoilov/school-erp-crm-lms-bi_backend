@@ -10,6 +10,8 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Index('uq_appeal_public_links_token', ['token'], { unique: true })
 @Index('idx_appeal_public_links_active', ['isActive'])
 export class AppealPublicLink extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
   @Column({ type: 'varchar', length: 64 })
   token: string;
 

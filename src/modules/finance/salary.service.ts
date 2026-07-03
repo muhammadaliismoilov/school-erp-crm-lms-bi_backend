@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, In, Repository } from 'typeorm';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { AuditService } from '../audit/audit.service';
 import { AcademicYear } from '../academic/entities/academic-year.entity';
 import { User } from '../identity/entities/user.entity';
@@ -96,6 +98,7 @@ export class SalaryService {
     @InjectRepository(FinanceTransaction)
     private readonly transactions: Repository<FinanceTransaction>,
     private readonly auditService: AuditService,
+    private readonly tenant: TenantContextService,
   ) {}
 
   // ─── O'qituvchilar uchun dars stavkalari ────────────────────────────────
@@ -147,7 +150,13 @@ export class SalaryService {
     if (rate) {
       rate.ratePerLesson = dto.ratePerLesson;
     } else {
-      rate = this.rates.create({ teacherId, academicYearId, ratePerLesson: dto.ratePerLesson });
+      rate = this.rates.create({
+        teacherId,
+        academicYearId,
+        ratePerLesson: dto.ratePerLesson,
+        schoolId: this.tenant.getSchoolId(),
+        filialId: this.tenant.getBranchId(),
+      });
     }
     await this.rates.save(rate);
 
@@ -217,7 +226,7 @@ export class SalaryService {
     const academicYearId = await this.resolveAcademicYearId(dto.academicYearId);
     await this.ensureSalaryRows(dto.period, academicYearId);
 
-    const rows = await this.salaries.find({ where: { period: dto.period } });
+    const rows = await this.salaries.find({ where: tenantWhere<TeacherSalary>(this.tenant, { period: dto.period }, { branch: true }) });
     const pending = rows.filter((r) => r.status !== TeacherSalaryStatus.APPROVED);
     if (pending.length === 0) {
       return { updated: 0 };
@@ -283,6 +292,8 @@ export class SalaryService {
         this.transactions.create({
           sourceType: 'teacher_salary',
           sourceId: row.id,
+          schoolId: row.schoolId ?? this.tenant.getSchoolId(),
+          filialId: row.filialId ?? this.tenant.getBranchId(),
           type: 'expense',
           amount: finalAmount,
           date: this.periodEndDate(row.period),
@@ -330,6 +341,9 @@ export class SalaryService {
       })
       .where('u.deleted_at IS NULL');
 
+    // Faqat aktiv maktab o'qituvchilari (users faqat school_id, filial_id yo'q).
+    applyTenantScope(qb, 'u', this.tenant);
+
     const term = this.nullableText(search);
     if (term) {
       qb.andWhere(
@@ -367,6 +381,8 @@ export class SalaryService {
         teacherId,
         academicYearId,
         period,
+        schoolId: this.tenant.getSchoolId(),
+        filialId: this.tenant.getBranchId(),
         completedLessons,
         ratePerLesson,
         computedAmount,
@@ -395,12 +411,13 @@ export class SalaryService {
   }
 
   private async allTeacherIds(): Promise<string[]> {
-    const rows = await this.users
+    const qb = this.users
       .createQueryBuilder('u')
       .select('u.id', 'id')
       .innerJoin('u.roles', 'role', 'role.name = :role', { role: SalaryService.TEACHER_ROLE })
-      .where('u.deleted_at IS NULL')
-      .getRawMany<{ id: string }>();
+      .where('u.deleted_at IS NULL');
+    applyTenantScope(qb, 'u', this.tenant);
+    const rows = await qb.getRawMany<{ id: string }>();
     return rows.map((r) => r.id);
   }
 
@@ -454,7 +471,7 @@ export class SalaryService {
 
   private async findTeacher(teacherId: string): Promise<User> {
     const teacher = await this.users.findOne({
-      where: { id: teacherId },
+      where: tenantWhere<User>(this.tenant, { id: teacherId }),
       relations: { roles: true },
     });
     if (!teacher) throw new NotFoundException('O‘qituvchi topilmadi');
@@ -464,7 +481,7 @@ export class SalaryService {
   }
 
   private async findSalaryEntity(id: string): Promise<TeacherSalary> {
-    const row = await this.salaries.findOne({ where: { id } });
+    const row = await this.salaries.findOne({ where: tenantWhere<TeacherSalary>(this.tenant, { id }, { branch: true }) });
     if (!row) throw new NotFoundException('Maosh yozuvi topilmadi');
     return row;
   }

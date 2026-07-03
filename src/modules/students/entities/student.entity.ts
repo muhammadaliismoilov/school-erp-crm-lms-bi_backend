@@ -17,7 +17,17 @@ export interface ExtraDocumentsFlags {
 @Entity("students")
 @Index("uq_students_student_code", ["studentCode"], { unique: true })
 @Index("idx_students_current_class", ["currentClassId"])
+@Index("idx_students_school", ["schoolId"])
+@Index("idx_students_filial", ["filialId"])
 export class Student extends UuidAuditEntity {
+  /** Maktab (qattiq tenant chegarasi) — ko'p-maktabli ajratish uchun. */
+  @Column({ name: "school_id", type: "uuid", nullable: true })
+  schoolId?: string | null;
+
+  /** Filial (branch) — maktab ichida. */
+  @Column({ name: "filial_id", type: "uuid", nullable: true })
+  filialId?: string | null;
+
   @Column({ name: "first_name", type: "varchar", length: 80 })
   firstName: string;
 

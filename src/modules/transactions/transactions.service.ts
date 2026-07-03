@@ -8,6 +8,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { FinanceTransaction } from '../finance/entities/transaction.entity';
 import { User } from '../identity/entities/user.entity';
 import { CreateTransactionDto, TransactionType } from './dto/create-transaction.dto';
@@ -66,6 +68,7 @@ export class TransactionsService {
     @InjectRepository(User)
     private readonly users: Repository<User>,
     private readonly auditService: AuditService,
+    private readonly tenant: TenantContextService,
   ) {}
 
   // ─── Tranzaksiyalar ────────────────────────────────────────────────────
@@ -173,6 +176,9 @@ export class TransactionsService {
       .leftJoin('tx.paymentType', 'paymentType')
       .addSelect(['paymentType.id', 'paymentType.name']);
 
+    // Ko'p-maktabli ajratish — list, statistika va export shu qatorда filtrlanadi.
+    applyTenantScope(qb, 'tx', this.tenant, { branch: true });
+
     if (query.type) {
       qb.andWhere('tx.type = :type', { type: query.type });
     }
@@ -222,6 +228,8 @@ export class TransactionsService {
     const entity = await this.transactions.save(
       this.transactions.create({
         sourceType: 'manual',
+        schoolId: this.tenant.getSchoolId(),
+        filialId: this.tenant.getBranchId(),
         type: dto.type,
         amount: dto.amount,
         date,
@@ -523,7 +531,7 @@ export class TransactionsService {
 
   private async findEntity(id: string): Promise<FinanceTransaction> {
     const entity = await this.transactions.findOne({
-      where: { id },
+      where: tenantWhere<FinanceTransaction>(this.tenant, { id }, { branch: true }),
       relations: { purposeCategory: true, paymentType: true },
     });
     if (!entity) {

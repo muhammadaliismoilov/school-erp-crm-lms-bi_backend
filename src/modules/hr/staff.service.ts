@@ -1,6 +1,8 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository } from 'typeorm';
+import { Brackets, FindOptionsWhere, Repository } from 'typeorm';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope } from '../../common/tenant/tenant-scope.util';
 import { Role } from '../identity/entities/role.entity';
 import { User } from '../identity/entities/user.entity';
 import { CreateUserDto } from '../users/dto/create-user.dto';
@@ -9,6 +11,24 @@ import { UsersService } from '../users/users.service';
 import { CreateStaffMemberDto, StaffQueryDto, UpdateStaffMemberDto } from './dto/hr.dto';
 import { StaffMember } from './entities/staff-member.entity';
 import { StaffSalaryHistory } from './entities/staff-salary-history.entity';
+import { EmploymentStatus, QualificationCategory } from './enums/hr.enums';
+
+/** Login akkauntsiz xodim yaratish uchun kirish ma'lumoti (`createBareStaff`). */
+export interface BareStaffInput {
+  firstName: string;
+  lastName: string;
+  middleName?: string | null;
+  gender?: UserGender | null;
+  birthDate?: string | null;
+  passportSeries?: string | null;
+  pinfl?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  photoUrl?: string | null;
+  qualificationCategory?: QualificationCategory | null;
+  hireDate: string;
+  employeeCode?: string | null;
+}
 
 /** Amalni bajargan aktor (audit/snapshot uchun). */
 export interface StaffActor {
@@ -44,6 +64,7 @@ export class StaffService {
     @InjectRepository(User) private readonly users: Repository<User>,
     @InjectRepository(Role) private readonly roles: Repository<Role>,
     private readonly usersService: UsersService,
+    private readonly tenant: TenantContextService,
   ) {}
 
   async findStaff(query: StaffQueryDto): Promise<StaffListResult> {
@@ -56,6 +77,9 @@ export class StaffService {
       .leftJoinAndSelect('s.position', 'position')
       .leftJoinAndSelect('s.user', 'user')
       .where('s.deleted_at IS NULL');
+
+    // Ko'p-maktabli ajratish: aktiv maktab/filial bo'yicha avtomatik filtr.
+    applyTenantScope(qb, 's', this.tenant, { branch: true });
 
     if (query.status) qb.andWhere('s.status = :status', { status: query.status });
     if (query.departmentId) qb.andWhere('s.department_id = :dep', { dep: query.departmentId });
@@ -85,8 +109,16 @@ export class StaffService {
   }
 
   async getStaff(id: string): Promise<StaffMember> {
+    // Boshqa maktab/filial xodimiga kirishni to'sish uchun scope shartlarini
+    // where'ga qo'shamiz (kontekst yo'q — masalan worker — bo'lsa filtrsiz).
+    const where: FindOptionsWhere<StaffMember> = { id };
+    const schoolId = this.tenant.getSchoolId();
+    if (schoolId) where.schoolId = schoolId;
+    const branchId = this.tenant.getBranchId();
+    if (branchId) where.filialId = branchId;
+
     const entity = await this.staff.findOne({
-      where: { id },
+      where,
       relations: { department: true, position: true, user: true },
     });
     if (!entity) throw new NotFoundException('Xodim topilmadi');
@@ -124,6 +156,8 @@ export class StaffService {
         this.staff.create({
           employeeCode,
           userId: createdUser.id,
+          schoolId: this.tenant.getSchoolId(),
+          filialId: this.tenant.getBranchId(),
           firstName: dto.firstName,
           firstNameCyrillic: dto.firstNameCyrillic ?? null,
           lastName: dto.lastName,
@@ -136,6 +170,7 @@ export class StaffService {
           pinfl: dto.pinfl ?? null,
           phone: dto.phone ?? null,
           email: dto.email ?? null,
+          photoUrl: dto.photoUrl ?? null,
           departmentId: dto.departmentId ?? null,
           positionId: dto.positionId ?? null,
           hireDate: dto.hireDate,
@@ -169,6 +204,37 @@ export class StaffService {
       await this.users.softDelete(createdUser.id).catch(() => undefined);
       throw error;
     }
+  }
+
+  /**
+   * Login akkauntsiz ("bare") xodim yozuvi yaratadi. `createStaff`dan farqi —
+   * `User` (login) yaratmaydi. Boshqa modullar (masalan o'qituvchi qo'shish)
+   * shaxsiy ma'lumotni yagona manba — `StaffMember` da saqlash uchun ishlatadi.
+   * Kerak bo'lsa login keyinroq xodim modulidan biriktiriladi.
+   */
+  async createBareStaff(input: BareStaffInput): Promise<StaffMember> {
+    const employeeCode = input.employeeCode?.trim() || (await this.generateEmployeeCode());
+    return this.staff.save(
+      this.staff.create({
+        employeeCode,
+        schoolId: this.tenant.getSchoolId(),
+        filialId: this.tenant.getBranchId(),
+        firstName: input.firstName,
+        lastName: input.lastName,
+        middleName: input.middleName ?? null,
+        gender: input.gender ?? null,
+        birthDate: input.birthDate ?? null,
+        passportSeries: input.passportSeries ?? null,
+        pinfl: input.pinfl ?? null,
+        phone: input.phone ?? null,
+        email: input.email ?? null,
+        photoUrl: input.photoUrl ?? null,
+        qualificationCategory: input.qualificationCategory ?? null,
+        hireDate: input.hireDate,
+        status: EmploymentStatus.ACTIVE,
+        salary: 0,
+      }),
+    );
   }
 
   async updateStaff(id: string, dto: UpdateStaffMemberDto, actor?: StaffActor): Promise<StaffMember> {
@@ -217,7 +283,7 @@ export class StaffService {
     const fields: (keyof UpdateStaffMemberDto & keyof StaffMember)[] = [
       'firstName', 'firstNameCyrillic', 'lastName', 'lastNameCyrillic',
       'middleName', 'middleNameCyrillic', 'gender', 'birthDate', 'passportSeries',
-      'pinfl', 'phone', 'email', 'departmentId', 'positionId', 'hireDate', 'status', 'salary',
+      'pinfl', 'phone', 'email', 'photoUrl', 'departmentId', 'positionId', 'hireDate', 'status', 'salary',
       'qualificationCategory', 'qualificationDate',
     ];
     for (const f of fields) {

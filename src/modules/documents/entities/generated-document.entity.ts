@@ -5,6 +5,8 @@ import { DocumentStatus, DocumentType } from '../enums/documents.enums';
 @Entity('generated_documents')
 @Index(['ownerType', 'ownerId'])
 export class GeneratedDocument extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
   @Column({ name: 'template_id', type: 'uuid', nullable: true }) templateId?: string | null;
   @Column({ name: 'owner_type', length: 80 }) ownerType: string;
   @Column({ name: 'owner_id', type: 'uuid' }) ownerId: string;

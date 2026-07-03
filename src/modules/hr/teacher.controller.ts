@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AppPermission } from '../../common/constants/permissions';
 import { Permissions } from '../../common/decorators/permissions.decorator';
@@ -17,6 +17,7 @@ export class TeacherController {
 
   @Get('stats') @Permissions([AppPermission.HR_READ]) stats() { return this.teacherService.stats(); }
   @Get() @Permissions([AppPermission.HR_READ]) find(@Query() query: TeacherQueryDto) { return this.teacherService.findTeachers(query); }
+  @Get('by-staff/:staffMemberId') @Permissions([AppPermission.HR_READ]) getByStaff(@Param('staffMemberId', ParseUUIDPipe) staffMemberId: string) { return this.teacherService.getTeacherByStaff(staffMemberId); }
   @Get(':id') @Permissions([AppPermission.HR_READ]) get(@Param() p: UuidParamDto) { return this.teacherService.getTeacher(p.id); }
   @Post() @Permissions([AppPermission.HR_MANAGE]) create(@Body() dto: CreateTeacherDto) { return this.teacherService.createTeacher(dto); }
   @Patch(':id') @Permissions([AppPermission.HR_MANAGE]) update(@Param() p: UuidParamDto, @Body() dto: UpdateTeacherDto) { return this.teacherService.updateTeacher(p.id, dto); }

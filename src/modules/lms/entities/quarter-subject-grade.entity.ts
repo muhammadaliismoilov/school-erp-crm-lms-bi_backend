@@ -11,6 +11,13 @@ import { Student } from '../../students/entities/student.entity';
   where: 'deleted_at IS NULL',
 })
 export class QuarterSubjectGrade extends UuidAuditEntity {
+  /** Ko'p-maktabli ajratish (tenant). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'student_id', type: 'uuid' }) studentId: string;
   @ManyToOne(() => Student, { onDelete: 'CASCADE' }) @JoinColumn({ name: 'student_id' }) student: Student;
   @Column({ name: 'subject_id', type: 'uuid' }) subjectId: string;

@@ -179,6 +179,8 @@ export class AuthService {
       roles,
       permissions,
       sessionId,
+      schoolId: user.schoolId ?? null,
+      branchId: user.branchId ?? null,
     };
   }
 

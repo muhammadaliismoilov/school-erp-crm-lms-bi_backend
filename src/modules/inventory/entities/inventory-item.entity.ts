@@ -9,6 +9,13 @@ import { InventoryTransaction } from './inventory-transaction.entity';
 @Index('uq_inventory_items_asset_code_active', ['assetCode'], { unique: true, where: 'deleted_at IS NULL' })
 @Index('idx_inventory_items_category', ['categoryId'])
 export class InventoryItem extends UuidAuditEntity {
+  /** Ko'p-maktabli ajratish (tenant). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'asset_code', type: 'varchar', length: 60 }) assetCode: string;
   @Column({ type: 'varchar', length: 120 }) name: string;
   @Column({ name: 'category_id', type: 'uuid', nullable: true }) categoryId?: string | null;

@@ -5,7 +5,17 @@ import { PaymentMethod } from '../enums/contract-status.enum';
 
 @Entity('payments')
 @Index('idx_payments_transaction_id', ['transactionId'])
+@Index('idx_payments_school', ['schoolId'])
+@Index('idx_payments_filial', ['filialId'])
 export class Payment extends UuidAuditEntity {
+  /** Maktab (qattiq tenant chegarasi). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  /** Filial (branch). */
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'contract_id', type: 'uuid' })
   contractId: string;
 

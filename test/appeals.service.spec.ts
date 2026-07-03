@@ -8,6 +8,7 @@ import type { User } from '../src/modules/identity/entities/user.entity';
 import type { NotificationsService } from '../src/modules/notifications/notifications.service';
 import { NotificationChannel } from '../src/modules/notifications/enums/notification-status.enum';
 import { AppealsService } from '../src/modules/appeals/appeals.service';
+import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
 import {
   Appeal,
   AppealSource,
@@ -76,6 +77,7 @@ describe('AppealsService', () => {
       notifications as unknown as NotificationsService,
       audit as unknown as AuditService,
       { get: jest.fn() } as unknown as ConfigService,
+      undefined as unknown as TenantContextService,
     );
   });
 

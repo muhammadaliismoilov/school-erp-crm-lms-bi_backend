@@ -65,6 +65,12 @@ export class UserResponseSchema {
   @ApiPropertyOptional({ example: '8cf35a94-92b4-4f1a-8a7a-90a78003892d', format: 'uuid', nullable: true })
   profileImageFileId?: string | null;
 
+  @ApiPropertyOptional({ format: 'uuid', nullable: true, description: 'Foydalanuvchi maktabi (tenant).' })
+  schoolId?: string | null;
+
+  @ApiPropertyOptional({ format: 'uuid', nullable: true, description: 'Foydalanuvchi filiali.' })
+  branchId?: string | null;
+
   @ApiPropertyOptional({ example: 'teacher', nullable: true })
   role?: string | null;
 

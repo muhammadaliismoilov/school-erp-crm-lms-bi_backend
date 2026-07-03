@@ -5,6 +5,8 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Entity('coin_presets')
 @Index('idx_coin_presets_active', ['isActive'])
 export class CoinPreset extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
   @Column({ type: 'varchar', length: 120 }) name: string;
   @Column({ type: 'int' }) amount: number;
   @Column({ type: 'varchar', length: 64, nullable: true }) icon?: string | null;

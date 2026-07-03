@@ -2,6 +2,8 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
 import { pickLocalizedText } from '../../common/i18n/locale';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { AuditService } from '../audit/audit.service';
 import { NotificationChannel } from '../notifications/enums/notification-status.enum';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -57,10 +59,11 @@ export class GradeRequestsService {
     private readonly examResults: Repository<ExamResult>,
     private readonly notificationsService: NotificationsService,
     private readonly auditService: AuditService,
+    private readonly tenant: TenantContextService,
   ) {}
 
   async create(dto: CreateGradeRequestDto, actor?: GradeRequestActor): Promise<GradeRequestResponseSchema> {
-    const student = await this.students.findOne({ where: { id: dto.studentId } });
+    const student = await this.students.findOne({ where: tenantWhere<Student>(this.tenant, { id: dto.studentId }, { branch: true }) });
     if (!student) {
       throw new NotFoundException('O‘quvchi topilmadi');
     }
@@ -113,6 +116,7 @@ export class GradeRequestsService {
       .createQueryBuilder('gcr')
       .leftJoinAndSelect('gcr.student', 'student')
       .leftJoinAndSelect('gcr.subject', 'subject');
+    applyTenantScope(qb, 'gcr', this.tenant, { branch: true });
 
     if (query.kind) {
       qb.andWhere('gcr.kind = :kind', { kind: query.kind });
@@ -151,8 +155,9 @@ export class GradeRequestsService {
   private async computeStats(kind?: GradeRequestKind) {
     const base = () => {
       const qb = this.requests.createQueryBuilder('gcr');
+      applyTenantScope(qb, 'gcr', this.tenant, { branch: true });
       if (kind) {
-        qb.where('gcr.kind = :kind', { kind });
+        qb.andWhere('gcr.kind = :kind', { kind });
       }
       return qb;
     };
@@ -256,7 +261,7 @@ export class GradeRequestsService {
     const value = Number(entity.requestedGrade);
 
     if (entity.kind === GradeRequestKind.ASSESSMENT) {
-      const row = await this.journal.findOne({ where: { id: entity.targetEntityId } });
+      const row = await this.journal.findOne({ where: tenantWhere<JournalEntry>(this.tenant, { id: entity.targetEntityId }, { branch: true }) });
       if (!row) throw new BadRequestException('Jurnal baho yozuvi topilmadi');
       this.assignFivePointOrBall(row, value);
       await this.journal.save(row);
@@ -264,7 +269,7 @@ export class GradeRequestsService {
     }
 
     if (entity.kind === GradeRequestKind.QUARTER) {
-      const row = await this.quarterGrades.findOne({ where: { id: entity.targetEntityId } });
+      const row = await this.quarterGrades.findOne({ where: tenantWhere<QuarterSubjectGrade>(this.tenant, { id: entity.targetEntityId }, { branch: true }) });
       if (!row) throw new BadRequestException('Choraklik baho yozuvi topilmadi');
       this.assignFivePointOrBall(row, value);
       await this.quarterGrades.save(row);
@@ -272,7 +277,7 @@ export class GradeRequestsService {
     }
 
     // COURSE → imtihon natijasi (score, 0–100 numeric).
-    const row = await this.examResults.findOne({ where: { id: entity.targetEntityId } });
+    const row = await this.examResults.findOne({ where: tenantWhere<ExamResult>(this.tenant, { id: entity.targetEntityId }, { branch: true }) });
     if (!row) throw new BadRequestException('Imtihon natijasi topilmadi');
     row.score = value;
     await this.examResults.save(row);
@@ -290,7 +295,7 @@ export class GradeRequestsService {
 
   private async findEntity(id: string): Promise<GradeChangeRequest> {
     const entity = await this.requests.findOne({
-      where: { id },
+      where: tenantWhere<GradeChangeRequest>(this.tenant, { id }, { branch: true }),
       relations: { student: true, subject: true },
     });
     if (!entity) {

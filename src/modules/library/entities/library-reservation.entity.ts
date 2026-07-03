@@ -5,6 +5,13 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Index('idx_library_reservations_book', ['bookId'])
 @Index('idx_library_reservations_student', ['studentId'])
 export class LibraryReservation extends UuidAuditEntity {
+  /** Ko'p-maktabli ajratish (tenant). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'book_id', type: 'uuid' })
   bookId: string;
 

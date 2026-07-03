@@ -16,7 +16,7 @@ import {
   Min,
 } from 'class-validator';
 import {
-  TeacherCategory,
+  QualificationCategory,
   TeacherDegree,
   TeacherEmploymentType,
   TeacherStatus,
@@ -37,6 +37,8 @@ export class CreateTeacherDto {
   @IsOptional() @Matches(/^\d{14}$/, { message: 'pinfl 14 ta raqamdan iborat bo‘lishi kerak' }) pinfl?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 20) phone?: string;
   @ApiPropertyOptional() @IsOptional() @IsEmail() email?: string;
+  @ApiPropertyOptional({ description: 'Fotosurat havolasi (FaceID davomati uchun) — xodim yozuviga saqlanadi.' })
+  @IsOptional() @IsString() @Length(1, 2000) photoUrl?: string;
 
   @ApiPropertyOptional({ format: 'uuid', description: 'Bog‘langan xodim IDsi.' })
   @IsOptional() @IsUUID() staffMemberId?: string;
@@ -49,8 +51,8 @@ export class CreateTeacherDto {
   @IsOptional() @IsEnum(TeacherEmploymentType) employmentType?: TeacherEmploymentType;
   @ApiPropertyOptional({ enum: TeacherStatus, default: TeacherStatus.ACTIVE })
   @IsOptional() @IsEnum(TeacherStatus) status?: TeacherStatus;
-  @ApiPropertyOptional({ enum: TeacherCategory })
-  @IsOptional() @IsEnum(TeacherCategory) category?: TeacherCategory;
+  @ApiPropertyOptional({ enum: QualificationCategory, description: 'Malaka toifasi — xodim (StaffMember) yozuviga saqlanadi.' })
+  @IsOptional() @IsEnum(QualificationCategory) category?: QualificationCategory;
 
   @ApiPropertyOptional({ minimum: 0, maximum: 80, description: 'Ish staji (yil).' })
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) @Max(80) experienceYears?: number;
@@ -81,8 +83,8 @@ export class TeacherQueryDto {
   @ApiPropertyOptional({ description: 'Ism/familiya/telefon bo‘yicha qidiruv.' })
   @IsOptional() @IsString() @Length(1, 120) search?: string;
 
-  @ApiPropertyOptional({ enum: TeacherCategory })
-  @IsOptional() @IsEnum(TeacherCategory) category?: TeacherCategory;
+  @ApiPropertyOptional({ enum: QualificationCategory })
+  @IsOptional() @IsEnum(QualificationCategory) category?: QualificationCategory;
 
   @ApiPropertyOptional({ enum: TeacherWorkType })
   @IsOptional() @IsEnum(TeacherWorkType) workType?: TeacherWorkType;

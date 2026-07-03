@@ -14,9 +14,22 @@ import { UserSession } from './user-session.entity';
 })
 @Index('idx_users_gender', ['gender'])
 @Index('idx_users_birth_date', ['birthDate'])
+@Index('idx_users_school', ['schoolId'])
+@Index('idx_users_branch', ['branchId'])
 export class User extends UuidAuditEntity {
   @Column({ type: 'varchar', length: 80 })
   username: string;
+
+  /**
+   * Foydalanuvchi tegishli bo'lgan maktab (qattiq tenant chegarasi). Uno va
+   * Yuton School — alohida maktablar; ular ma'lumoti hech qачон aralashmaydi.
+   */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  /** Foydalanuvchining asosiy (default) filiali — maktab ichida. */
+  @Column({ name: 'branch_id', type: 'uuid', nullable: true })
+  branchId?: string | null;
 
   @Column({ type: 'varchar', length: 254, unique: true, nullable: true })
   email?: string | null;

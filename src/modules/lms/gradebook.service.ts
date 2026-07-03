@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, In, Repository } from 'typeorm';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { AttendanceStatus } from '../../common/enums/attendance-status.enum';
 import { LessonPeriod } from '../academic/entities/lesson-period.entity';
 import { Quarter } from '../academic/entities/quarter.entity';
@@ -37,6 +39,7 @@ export class GradebookService {
     @InjectRepository(Subject) private readonly subjects: Repository<Subject>,
     @InjectRepository(LessonPeriod) private readonly periods: Repository<LessonPeriod>,
     private readonly gamification: GamificationService,
+    private readonly tenant: TenantContextService,
     @Optional() private readonly auditService?: AuditService,
   ) {}
 
@@ -45,21 +48,21 @@ export class GradebookService {
   async getGradebook(query: GradebookQueryDto): Promise<GradebookResponseDto> {
     const quarter = await this.loadQuarter(query.quarterId);
     const lessons = await this.lessons.find({
-      where: {
+      where: tenantWhere<LessonSchedule>(this.tenant, {
         classId: query.classId,
         subjectId: query.subjectId,
         lessonDate: Between(quarter.startDate, quarter.endDate),
-      },
+      }, { branch: true }),
       order: { lessonDate: 'ASC' },
     });
     const students = await this.students.find({
-      where: { currentClassId: query.classId, status: StudentStatus.ACTIVE },
+      where: tenantWhere<Student>(this.tenant, { currentClassId: query.classId, status: StudentStatus.ACTIVE }, { branch: true }),
       order: { lastName: 'ASC', firstName: 'ASC' },
     });
     const lessonIds = lessons.map((l) => l.id);
     const entries = lessonIds.length ? await this.journal.find({ where: { lessonId: In(lessonIds) } }) : [];
     const qGrades = await this.quarterGrades.find({
-      where: { subjectId: query.subjectId, quarterId: query.quarterId },
+      where: tenantWhere<QuarterSubjectGrade>(this.tenant, { subjectId: query.subjectId, quarterId: query.quarterId }, { branch: true }),
     });
     const qByStudent = new Map(qGrades.map((q) => [q.studentId, q] as const));
 
@@ -130,9 +133,9 @@ export class GradebookService {
   // ------------------------------------------------------------ Katak upsert
 
   async upsertGrade(dto: UpsertGradeDto): Promise<JournalEntry> {
-    const lesson = await this.lessons.findOne({ where: { id: dto.lessonId } });
+    const lesson = await this.lessons.findOne({ where: tenantWhere<LessonSchedule>(this.tenant, { id: dto.lessonId }, { branch: true }) });
     if (!lesson) throw new NotFoundException('Lesson not found');
-    const student = await this.students.findOne({ where: { id: dto.studentId } });
+    const student = await this.students.findOne({ where: tenantWhere<Student>(this.tenant, { id: dto.studentId }, { branch: true }) });
     if (!student) throw new NotFoundException('Student not found');
 
     let entry = await this.journal.findOne({ where: { lessonId: dto.lessonId, studentId: dto.studentId } });
@@ -151,7 +154,7 @@ export class GradebookService {
 
   async setQuarterGrade(dto: QuarterGradeDto): Promise<QuarterSubjectGrade> {
     let row = await this.quarterGrades.findOne({
-      where: { studentId: dto.studentId, subjectId: dto.subjectId, quarterId: dto.quarterId },
+      where: tenantWhere<QuarterSubjectGrade>(this.tenant, { studentId: dto.studentId, subjectId: dto.subjectId, quarterId: dto.quarterId }, { branch: true }),
     });
     if (!row) {
       row = this.quarterGrades.create({
@@ -172,11 +175,11 @@ export class GradebookService {
     const quarter = await this.loadQuarter(dto.quarterId);
     // Mavjud (haftalik) jadval vakillari: shu sinf+fan uchun distinct (weekday, period).
     const existing = await this.lessons.find({
-      where: {
+      where: tenantWhere<LessonSchedule>(this.tenant, {
         classId: dto.classId,
         subjectId: dto.subjectId,
         lessonDate: Between(quarter.startDate, quarter.endDate),
-      },
+      }, { branch: true }),
     });
     const slots = new Map<string, { weekday: number; periodId: string | null; teacherId?: string | null; roomId?: string | null }>();
     for (const l of existing) {
@@ -221,7 +224,7 @@ export class GradebookService {
   // ------------------------------------------------------------ O‘quvchi progress
 
   async getStudentProgress(studentId: string, quarterId?: string) {
-    const student = await this.students.findOne({ where: { id: studentId } });
+    const student = await this.students.findOne({ where: tenantWhere<Student>(this.tenant, { id: studentId }, { branch: true }) });
     if (!student) throw new NotFoundException('Student not found');
 
     let range: { start: string; end: string } | null = null;
@@ -232,9 +235,9 @@ export class GradebookService {
     const lessonWhere = range
       ? { lessonDate: Between(range.start, range.end) }
       : {};
-    const lessons = await this.lessons.find({ where: lessonWhere });
+    const lessons = await this.lessons.find({ where: tenantWhere<LessonSchedule>(this.tenant, lessonWhere, { branch: true }) });
     const lessonSubject = new Map(lessons.map((l) => [l.id, l.subjectId] as const));
-    const entries = await this.journal.find({ where: { studentId } });
+    const entries = await this.journal.find({ where: tenantWhere<JournalEntry>(this.tenant, { studentId }, { branch: true }) });
     const subjectIds = Array.from(new Set(lessons.map((l) => l.subjectId)));
     const subjects = subjectIds.length ? await this.subjects.find({ where: { id: In(subjectIds) } }) : [];
     const subjMap = new Map(subjects.map((s) => [s.id, s.name] as const));

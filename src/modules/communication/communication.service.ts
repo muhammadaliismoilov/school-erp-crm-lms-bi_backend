@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { CreateCampaignDto, CreateDeliveryDto, CreateMessageTemplateDto, UpdateCampaignDto, UpdateDeliveryDto, UpdateMessageTemplateDto } from './dto/communication.dto';
 import { CampaignStatus, DeliveryStatus, MessageChannel } from './enums/communication.enums';
 import { Campaign } from './entities/campaign.entity';
@@ -35,20 +37,21 @@ export class CommunicationService {
     @InjectRepository(MessageTemplate) private readonly templates: Repository<MessageTemplate>,
     @InjectRepository(Campaign) private readonly campaigns: Repository<Campaign>,
     @InjectRepository(MessageDelivery) private readonly deliveries: Repository<MessageDelivery>,
+    private readonly tenant: TenantContextService,
   ) {}
-  findTemplates() { return this.templates.find({ order: { createdAt: 'DESC' } }); }
+  findTemplates() { return this.templates.find({ where: tenantWhere<MessageTemplate>(this.tenant, {}, { branch: true }), order: { createdAt: 'DESC' } }); }
   createTemplate(dto: CreateMessageTemplateDto) { return this.templates.save(this.templates.create(dto)); }
-  async updateTemplate(id: string, dto: UpdateMessageTemplateDto) { const entity = await this.templates.preload({ id, ...dto }); if (!entity) throw new NotFoundException('Message template not found'); return this.templates.save(entity); }
-  findCampaigns() { return this.campaigns.find({ order: { createdAt: 'DESC' } }); }
+  async updateTemplate(id: string, dto: UpdateMessageTemplateDto) { const found = await this.templates.findOne({ where: tenantWhere<MessageTemplate>(this.tenant, { id }, { branch: true }) }); if (!found) throw new NotFoundException('Message template not found'); const entity = await this.templates.preload({ id, ...dto }); return this.templates.save(entity!); }
+  findCampaigns() { return this.campaigns.find({ where: tenantWhere<Campaign>(this.tenant, {}, { branch: true }), order: { createdAt: 'DESC' } }); }
   createCampaign(dto: CreateCampaignDto) { return this.campaigns.save(this.campaigns.create({ ...dto, scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined })); }
-  async updateCampaign(id: string, dto: UpdateCampaignDto) { const entity = await this.campaigns.preload({ id, ...dto, scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined }); if (!entity) throw new NotFoundException('Campaign not found'); return this.campaigns.save(entity); }
-  findDeliveries(campaignId?: string) { return this.deliveries.find({ where: campaignId ? { campaignId } : {}, order: { createdAt: 'DESC' } }); }
+  async updateCampaign(id: string, dto: UpdateCampaignDto) { const found = await this.campaigns.findOne({ where: tenantWhere<Campaign>(this.tenant, { id }, { branch: true }) }); if (!found) throw new NotFoundException('Campaign not found'); const entity = await this.campaigns.preload({ id, ...dto, scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined }); return this.campaigns.save(entity!); }
+  findDeliveries(campaignId?: string) { return this.deliveries.find({ where: tenantWhere<MessageDelivery>(this.tenant, campaignId ? { campaignId } : {}, { branch: true }), order: { createdAt: 'DESC' } }); }
   createDelivery(dto: CreateDeliveryDto) { return this.deliveries.save(this.deliveries.create(dto)); }
-  async updateDelivery(id: string, dto: UpdateDeliveryDto) { const entity = await this.deliveries.preload({ id, ...dto }); if (!entity) throw new NotFoundException('Message delivery not found'); return this.deliveries.save(entity); }
+  async updateDelivery(id: string, dto: UpdateDeliveryDto) { const found = await this.deliveries.findOne({ where: tenantWhere<MessageDelivery>(this.tenant, { id }, { branch: true }) }); if (!found) throw new NotFoundException('Message delivery not found'); const entity = await this.deliveries.preload({ id, ...dto }); return this.deliveries.save(entity!); }
 
   /** Fetch a single template by id, used when a campaign references a saved SMS template. */
   async findTemplateById(id: string): Promise<MessageTemplate> {
-    const template = await this.templates.findOne({ where: { id } });
+    const template = await this.templates.findOne({ where: tenantWhere<MessageTemplate>(this.tenant, { id }, { branch: true }) });
     if (!template) throw new NotFoundException('Message template not found');
     return template;
   }

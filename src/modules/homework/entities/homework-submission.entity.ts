@@ -5,6 +5,8 @@ import { SubmissionStatus } from '../enums/homework.enums';
 @Entity('homework_submissions')
 @Index(['assignmentId', 'studentId'], { unique: true, where: 'deleted_at IS NULL' })
 export class HomeworkSubmission extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
   @Column({ name: 'assignment_id', type: 'uuid' }) assignmentId: string;
   @Column({ name: 'student_id', type: 'uuid' }) studentId: string;
   @Column({ type: 'text', nullable: true }) answer?: string | null;

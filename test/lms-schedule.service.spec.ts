@@ -54,6 +54,7 @@ const makeRepos = (over: { lessons?: Partial<AnyRepo> } = {}) => {
     courses as unknown as Repository<Course>,
     subjects as unknown as Repository<Subject>,
     users as unknown as Repository<User>,
+    { getSchoolId: () => null, getBranchId: () => null } as unknown as import('../src/common/tenant/tenant-context.service').TenantContextService,
   );
   return { service, lessons, classes, quarters, periods, courses, subjects, users, saved };
 };

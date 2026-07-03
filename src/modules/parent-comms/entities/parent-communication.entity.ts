@@ -29,6 +29,8 @@ export enum CommunicationSentiment {
 @Index('idx_parent_comm_student', ['studentId'])
 @Index('idx_parent_comm_date', ['communicationDate'])
 export class ParentCommunication extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
   @Column({ name: 'student_id', type: 'uuid' })
   studentId: string;
 

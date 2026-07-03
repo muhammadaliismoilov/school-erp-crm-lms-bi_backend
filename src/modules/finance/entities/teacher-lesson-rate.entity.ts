@@ -12,7 +12,17 @@ import { User } from '../../identity/entities/user.entity';
 @Index('uq_teacher_lesson_rates_teacher_year', ['teacherId', 'academicYearId'], {
   unique: true,
 })
+@Index('idx_teacher_lesson_rates_school', ['schoolId'])
+@Index('idx_teacher_lesson_rates_filial', ['filialId'])
 export class TeacherLessonRate extends UuidAuditEntity {
+  /** Maktab (qattiq tenant chegarasi). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  /** Filial (branch). */
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'teacher_id', type: 'uuid' })
   teacherId: string;
 

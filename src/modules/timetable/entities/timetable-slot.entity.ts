@@ -6,6 +6,13 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Index('idx_timetable_slots_class', ['classId'])
 @Index('idx_timetable_slots_teacher', ['teacherId'])
 export class TimetableSlot extends UuidAuditEntity {
+  /** Ko'p-maktabli ajratish (tenant). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'template_id', type: 'uuid' })
   templateId: string;
 

@@ -17,7 +17,17 @@ import { TeacherSalaryStatus } from '../enums/salary-status.enum';
 @Index('uq_teacher_salaries_teacher_period', ['teacherId', 'period'], { unique: true })
 @Index('idx_teacher_salaries_period', ['period'])
 @Index('idx_teacher_salaries_status', ['status'])
+@Index('idx_teacher_salaries_school', ['schoolId'])
+@Index('idx_teacher_salaries_filial', ['filialId'])
 export class TeacherSalary extends UuidAuditEntity {
+  /** Maktab (qattiq tenant chegarasi). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  /** Filial (branch). */
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'teacher_id', type: 'uuid' })
   teacherId: string;
 

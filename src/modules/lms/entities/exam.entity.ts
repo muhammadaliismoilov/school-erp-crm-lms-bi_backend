@@ -28,6 +28,13 @@ import { ExamResult } from "./exam-result.entity";
 @Index("idx_lms_exams_status", ["status"])
 @Index("idx_lms_exams_date", ["examDate"])
 export class Exam extends UuidAuditEntity {
+  /** Ko'p-maktabli ajratish (tenant). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ type: "varchar", length: 160 }) title: string;
 
   @Column({ name: "exam_kind", type: "enum", enum: ExamKind, default: ExamKind.CLASS })

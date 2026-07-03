@@ -8,6 +8,13 @@ import { LessonSchedule } from './lesson-schedule.entity';
 @Index('idx_lms_journal_lesson', ['lessonId'])
 @Index('idx_lms_journal_student', ['studentId'])
 export class JournalEntry extends UuidAuditEntity {
+  /** Ko'p-maktabli ajratish (tenant). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'lesson_id', type: 'uuid' }) lessonId: string;
   @ManyToOne(() => LessonSchedule, (lesson) => lesson.journalEntries, { onDelete: 'CASCADE' }) @JoinColumn({ name: 'lesson_id' }) lesson: LessonSchedule;
   @Column({ name: 'student_id', type: 'uuid' }) studentId: string;

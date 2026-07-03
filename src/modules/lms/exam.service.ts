@@ -8,6 +8,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, FindOptionsWhere, ILike, LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { AuditService } from '../audit/audit.service';
 import { Course } from '../academic/entities/course.entity';
 import { Quarter } from '../academic/entities/quarter.entity';
@@ -51,6 +53,7 @@ export class ExamService {
     @InjectRepository(Quarter) private readonly quarters: Repository<Quarter>,
     @InjectRepository(User) private readonly users: Repository<User>,
     @InjectRepository(LessonSchedule) private readonly lessons: Repository<LessonSchedule>,
+    private readonly tenant: TenantContextService,
     @Optional() private readonly auditService?: AuditService,
   ) {}
 
@@ -59,10 +62,10 @@ export class ExamService {
   async getOptions() {
     const [subjects, classes, courses, quarters, teachers] = await Promise.all([
       this.subjects.find({ order: { normalizedName: 'ASC' } }),
-      this.classes.find({ order: { gradeLevel: 'ASC', section: 'ASC' } }),
+      this.classes.find({ where: tenantWhere<SchoolClass>(this.tenant, {}, { branch: true }), order: { gradeLevel: 'ASC', section: 'ASC' } }),
       this.courses.find({ relations: { subject: true, teacher: true }, order: { normalizedName: 'ASC' } }),
       this.quarters.find({ order: { quarterNumber: 'ASC' } }),
-      this.users.find({ order: { firstName: 'ASC', lastName: 'ASC' } }),
+      this.users.find({ where: tenantWhere<User>(this.tenant, {}), order: { firstName: 'ASC', lastName: 'ASC' } }),
     ]);
     return {
       subjects: subjects.map((s) => ({ id: s.id, name: s.name, color: s.color })),
@@ -86,7 +89,7 @@ export class ExamService {
   async getTeachers(classId?: string, subjectId?: string) {
     if (classId && subjectId) {
       const lessons = await this.lessons.find({
-        where: { classId, subjectId },
+        where: tenantWhere<LessonSchedule>(this.tenant, { classId, subjectId }, { branch: true }),
         relations: { teacher: true },
       });
       const byId = new Map<string, User>();
@@ -101,7 +104,7 @@ export class ExamService {
         };
       }
     }
-    const users = await this.users.find({ order: { firstName: 'ASC', lastName: 'ASC' } });
+    const users = await this.users.find({ where: tenantWhere<User>(this.tenant, {}), order: { firstName: 'ASC', lastName: 'ASC' } });
     return { items: users.map((u) => ({ id: u.id, fullName: this.fullName(u) })) };
   }
 
@@ -109,9 +112,9 @@ export class ExamService {
 
   async createClassExam(dto: CreateClassExamDto, actor?: ExamActor): Promise<ExamResponseDto> {
     const [schoolClass, subject, teacher, quarter] = await Promise.all([
-      this.classes.findOne({ where: { id: dto.classId } }),
+      this.classes.findOne({ where: tenantWhere<SchoolClass>(this.tenant, { id: dto.classId }, { branch: true }) }),
       this.subjects.findOne({ where: { id: dto.subjectId } }),
-      this.users.findOne({ where: { id: dto.teacherId } }),
+      this.users.findOne({ where: tenantWhere<User>(this.tenant, { id: dto.teacherId }) }),
       this.quarters.findOne({ where: { id: dto.quarterId } }),
     ]);
     if (!schoolClass) throw new NotFoundException(this.msg('Sinf topilmadi', 'Класс не найден', 'Class not found'));
@@ -199,7 +202,7 @@ export class ExamService {
   }
 
   async findExam(id: string): Promise<ExamResponseDto> {
-    const exam = await this.exams.findOne({ where: { id }, relations: this.relations() });
+    const exam = await this.exams.findOne({ where: tenantWhere<Exam>(this.tenant, { id }, { branch: true }), relations: this.relations() });
     if (!exam) throw new NotFoundException(this.msg('Imtihon topilmadi', 'Экзамен не найден', 'Exam not found'));
     return this.toResponse(exam);
   }
@@ -212,7 +215,7 @@ export class ExamService {
         this.msg('Kamida bitta maydon berilishi kerak', 'Нужно указать хотя бы одно поле', 'At least one field is required'),
       );
     }
-    const exam = await this.exams.findOne({ where: { id } });
+    const exam = await this.exams.findOne({ where: tenantWhere<Exam>(this.tenant, { id }, { branch: true }) });
     if (!exam) throw new NotFoundException(this.msg('Imtihon topilmadi', 'Экзамен не найден', 'Exam not found'));
 
     if (dto.classId !== undefined) await this.assertExists(this.classes, dto.classId, 'Sinf topilmadi');
@@ -246,7 +249,7 @@ export class ExamService {
   }
 
   async publishExam(id: string, actor?: ExamActor): Promise<ExamResponseDto> {
-    const exam = await this.exams.findOne({ where: { id } });
+    const exam = await this.exams.findOne({ where: tenantWhere<Exam>(this.tenant, { id }, { branch: true }) });
     if (!exam) throw new NotFoundException(this.msg('Imtihon topilmadi', 'Экзамен не найден', 'Exam not found'));
     if (exam.status !== ExamStatus.DRAFT) {
       throw new ConflictException(
@@ -264,7 +267,7 @@ export class ExamService {
   }
 
   async deleteExam(id: string, actor?: ExamActor): Promise<void> {
-    const exam = await this.exams.findOne({ where: { id }, relations: { results: true } });
+    const exam = await this.exams.findOne({ where: tenantWhere<Exam>(this.tenant, { id }, { branch: true }), relations: { results: true } });
     if (!exam) throw new NotFoundException(this.msg('Imtihon topilmadi', 'Экзамен не найден', 'Exam not found'));
     if ((exam.results ?? []).length > 0) {
       throw new ConflictException(
@@ -321,8 +324,9 @@ export class ExamService {
     };
 
     const search = query.search?.trim();
-    if (!search) return base;
-    return { ...base, title: ILike(`%${search}%`) };
+    const where = search ? { ...base, title: ILike(`%${search}%`) } : base;
+    // Ko'p-maktabli ajratish — list va stats shu where'dan foydalanadi.
+    return tenantWhere<Exam>(this.tenant, where, { branch: true });
   }
 
   private async buildStats(

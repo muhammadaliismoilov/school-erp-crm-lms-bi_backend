@@ -88,6 +88,7 @@ const makeService = (over: { exams?: Partial<AnyRepo> } = {}) => {
     quarters as unknown as Repository<Quarter>,
     users as unknown as Repository<User>,
     lessons as unknown as Repository<LessonSchedule>,
+    { getSchoolId: () => null, getBranchId: () => null } as unknown as import('../src/common/tenant/tenant-context.service').TenantContextService,
     audit as never,
   );
   return { service, exams, classes, subjects, courses, quarters, users, lessons, audit, saved };

@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, DataSource, EntityManager, In, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { createPage, PageDto } from '../../common/dto/page.dto';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { UsersService } from '../users/users.service';
 import { UserGender } from '../users/enums/user.enums';
 import { CreateDocumentDto } from './dto/create-document.dto';
@@ -45,6 +47,7 @@ export class StudentsService {
     private readonly documents: Repository<StudentDocument>,
     private readonly dataSource: DataSource,
     private readonly usersService: UsersService,
+    private readonly tenant: TenantContextService,
     private readonly auditService?: AuditService,
   ) {}
 
@@ -68,6 +71,8 @@ export class StudentsService {
           gender: dto.gender ?? null,
           studentCode,
           status: StudentStatus.ACTIVE,
+          schoolId: this.tenant.getSchoolId(),
+          filialId: this.tenant.getBranchId(),
           nationalId: dto.jshshir ?? null,
           region: dto.region ?? null,
           district: dto.district ?? null,
@@ -165,6 +170,8 @@ export class StudentsService {
           photoUrl: dto.photoUrl ?? null,
           studentCode,
           status: dto.status ?? StudentStatus.ACTIVE,
+          schoolId: this.tenant.getSchoolId(),
+          filialId: this.tenant.getBranchId(),
           nationalId: dto.nationalId ?? null,
           currentClassId: dto.currentClassId ?? null,
           contractNumber: dto.contractNumber ?? null,
@@ -210,6 +217,8 @@ export class StudentsService {
       .skip((query.page - 1) * query.limit)
       .take(query.limit);
 
+    applyTenantScope(qb, 'student', this.tenant, { branch: true });
+
     if (query.status) qb.andWhere('student.status = :status', { status: query.status });
     if (query.gender) qb.andWhere('student.gender = :gender', { gender: query.gender });
     if (query.classId) qb.andWhere('student.current_class_id = :classId', { classId: query.classId });
@@ -244,13 +253,17 @@ export class StudentsService {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
     const [total, male, female, newThisMonth] = await Promise.all([
-      this.students.count(),
-      this.students.count({ where: { gender: Gender.MALE } }),
-      this.students.count({ where: { gender: Gender.FEMALE } }),
-      this.students
-        .createQueryBuilder('student')
-        .where('student.created_at >= :monthStart', { monthStart })
-        .getCount(),
+      this.students.count({ where: tenantWhere<Student>(this.tenant, {}, { branch: true }) }),
+      this.students.count({ where: tenantWhere<Student>(this.tenant, { gender: Gender.MALE }, { branch: true }) }),
+      this.students.count({ where: tenantWhere<Student>(this.tenant, { gender: Gender.FEMALE }, { branch: true }) }),
+      applyTenantScope(
+        this.students
+          .createQueryBuilder('student')
+          .where('student.created_at >= :monthStart', { monthStart }),
+        'student',
+        this.tenant,
+        { branch: true },
+      ).getCount(),
     ]);
 
     return { total, male, female, newThisMonth };
@@ -258,7 +271,7 @@ export class StudentsService {
 
   async findStudent(id: string): Promise<Student> {
     const student = await this.students.findOne({
-      where: { id },
+      where: tenantWhere<Student>(this.tenant, { id }, { branch: true }),
       relations: { parents: { parent: true }, documents: true, currentClass: true },
     });
     if (!student) {
@@ -310,6 +323,8 @@ export class StudentsService {
       .skip((query.page - 1) * query.limit)
       .take(query.limit);
 
+    applyTenantScope(qb, 'student', this.tenant, { branch: true });
+
     if (query.gender) qb.andWhere('student.gender = :gender', { gender: query.gender });
     if (query.classId) qb.andWhere('student.current_class_id = :classId', { classId: query.classId });
 
@@ -333,10 +348,15 @@ export class StudentsService {
   /** Ketgan o‘quvchilar statistikasi (jami / erkak / ayol). */
   async getDepartedStats(): Promise<DepartedStats> {
     const base = () =>
-      this.students
-        .createQueryBuilder('student')
-        .withDeleted()
-        .where('student.deleted_at IS NOT NULL');
+      applyTenantScope(
+        this.students
+          .createQueryBuilder('student')
+          .withDeleted()
+          .where('student.deleted_at IS NOT NULL'),
+        'student',
+        this.tenant,
+        { branch: true },
+      );
 
     const [total, male, female] = await Promise.all([
       base().getCount(),
@@ -350,7 +370,7 @@ export class StudentsService {
   /** Ketgan o‘quvchini tiklaydi (soft-delete bekor qilinadi). */
   async restoreStudent(id: string): Promise<{ id: string }> {
     const student = await this.students.findOne({
-      where: { id },
+      where: tenantWhere<Student>(this.tenant, { id }, { branch: true }),
       withDeleted: true,
     });
     if (!student) {
@@ -369,7 +389,7 @@ export class StudentsService {
   /** Ketgan o‘quvchini butunlay (qaytarib bo‘lmaydigan) o‘chiradi. */
   async permanentlyRemoveStudent(id: string): Promise<{ id: string }> {
     const student = await this.students.findOne({
-      where: { id },
+      where: tenantWhere<Student>(this.tenant, { id }, { branch: true }),
       withDeleted: true,
     });
     if (!student) {

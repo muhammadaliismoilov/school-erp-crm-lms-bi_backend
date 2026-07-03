@@ -15,9 +15,19 @@ import { UserGender } from '../../users/enums/user.enums';
 @Index('uq_hr_staff_employee_code_active', ['employeeCode'], { unique: true, where: 'deleted_at IS NULL' })
 @Index('idx_hr_staff_department', ['departmentId'])
 @Index('idx_hr_staff_position', ['positionId'])
+@Index('idx_hr_staff_school', ['schoolId'])
+@Index('idx_hr_staff_filial', ['filialId'])
 export class StaffMember extends UuidAuditEntity {
   @Column({ name: 'employee_code', type: 'varchar', length: 40 })
   employeeCode: string;
+
+  /** Maktab (qattiq tenant chegarasi) — ko'p-maktabli ajratish uchun. */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  /** Filial (branch) — maktab ichida. */
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
 
   @Column({ name: 'user_id', type: 'uuid', nullable: true })
   userId?: string | null;
@@ -61,6 +71,13 @@ export class StaffMember extends UuidAuditEntity {
 
   @Column({ type: 'varchar', length: 120, nullable: true })
   email?: string | null;
+
+  /**
+   * Xodim fotosurati (havola). Barcha xodimlar uchun keldi-ketdi davomati
+   * FaceID orqali yuritilgani sabab har bir xodimga rasm biriktiriladi.
+   */
+  @Column({ name: 'photo_url', type: 'text', nullable: true })
+  photoUrl?: string | null;
 
   @Column({ name: 'department_id', type: 'uuid', nullable: true })
   departmentId?: string | null;

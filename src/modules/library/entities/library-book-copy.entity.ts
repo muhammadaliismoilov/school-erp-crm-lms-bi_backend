@@ -5,6 +5,13 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Index('uq_library_book_copies_barcode', ['barcode'], { unique: true })
 @Index('idx_library_book_copies_book', ['bookId'])
 export class LibraryBookCopy extends UuidAuditEntity {
+  /** Ko'p-maktabli ajratish (tenant). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'book_id', type: 'uuid' })
   bookId: string;
 

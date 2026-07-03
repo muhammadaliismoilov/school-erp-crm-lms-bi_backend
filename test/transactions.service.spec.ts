@@ -121,12 +121,15 @@ describe('TransactionsService', () => {
     };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
 
+    const tenant = { getSchoolId: () => null, getBranchId: () => null };
+
     service = new TransactionsService(
       transactions as never as Repository<FinanceTransaction>,
       paymentTypes as never as Repository<PaymentType>,
       categories as never as Repository<TransactionCategory>,
       users as never as Repository<User>,
       audit as never as AuditService,
+      tenant as unknown as import('../src/common/tenant/tenant-context.service').TenantContextService,
     );
   });
 

@@ -111,6 +111,8 @@ export class CreateStaffMemberDto {
 
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(5, 20) phone?: string;
   @ApiPropertyOptional() @IsOptional() @IsEmail() email?: string;
+  @ApiPropertyOptional({ description: 'Xodim fotosurati havolasi (FaceID davomati uchun).' })
+  @IsOptional() @IsString() @Length(1, 2000) photoUrl?: string;
   @ApiPropertyOptional({ enum: UserGender }) @IsOptional() @IsEnum(UserGender) gender?: UserGender;
   @ApiPropertyOptional({ example: '2000-01-15', format: 'date' }) @IsOptional() @IsISO8601({ strict: true }) birthDate?: string;
   @ApiPropertyOptional({ example: 'AB1234567' }) @IsOptional() @IsString() @Length(1, 32) passportSeries?: string;

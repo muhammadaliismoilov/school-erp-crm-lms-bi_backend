@@ -26,7 +26,17 @@ export enum StudentPaymentStatus {
 @Index('idx_student_payments_date', ['paymentDate'])
 @Index('idx_student_payments_period', ['year', 'month'])
 @Index('idx_student_payments_status', ['status'])
+@Index('idx_student_payments_school', ['schoolId'])
+@Index('idx_student_payments_filial', ['filialId'])
 export class StudentPayment extends UuidAuditEntity {
+  /** Maktab (qattiq tenant chegarasi). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  /** Filial (branch). */
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'student_id', type: 'uuid', nullable: true })
   studentId?: string | null;
 

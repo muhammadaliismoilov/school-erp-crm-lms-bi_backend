@@ -28,8 +28,11 @@ describe('StaffService', () => {
   let roles: jest.Mocked<Pick<Repository<Role>, 'findOne'>>;
   let usersService: { create: jest.Mock };
   let service: StaffService;
+  const tenantCtx: { schoolId: string | null; branchId: string | null } = { schoolId: null, branchId: null };
 
   beforeEach(() => {
+    tenantCtx.schoolId = null;
+    tenantCtx.branchId = null;
     staff = {
       createQueryBuilder: jest.fn(),
       create: jest.fn().mockImplementation((v) => v),
@@ -53,12 +56,16 @@ describe('StaffService', () => {
       create: jest.fn().mockResolvedValue({ id: 'user-1', login: 'valiyev.ali', generatedPassword: 'St0ng-pass' }),
     };
 
+    // Tenant kontekst — sozlanadigan (default: maktab/filial yo'q, scoping o'chiq).
+    const tenant = { getSchoolId: () => tenantCtx.schoolId, getBranchId: () => tenantCtx.branchId };
+
     service = new StaffService(
       staff as unknown as Repository<StaffMember>,
       history as unknown as Repository<StaffSalaryHistory>,
       users as unknown as Repository<User>,
       roles as unknown as Repository<Role>,
       usersService as unknown as UsersService,
+      tenant as unknown as import('../src/common/tenant/tenant-context.service').TenantContextService,
     );
   });
 
@@ -114,6 +121,57 @@ describe('StaffService', () => {
       await service.updateStaff('staff-1', { phone: '+998901112233' });
 
       expect(history.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('tenant scoping (ko‘p-maktabli ajratish)', () => {
+    it('getStaff — kontekstda maktab/filial bo‘lsa where‘ga qo‘shiladi', async () => {
+      tenantCtx.schoolId = 'school-A';
+      tenantCtx.branchId = 'branch-1';
+      staff.findOne.mockResolvedValue(makeStaff());
+
+      await service.getStaff('staff-1');
+
+      const where = staff.findOne.mock.calls[0][0].where;
+      expect(where).toMatchObject({ id: 'staff-1', schoolId: 'school-A', filialId: 'branch-1' });
+    });
+
+    it('getStaff — kontekst yo‘q bo‘lsa faqat id bo‘yicha (filtrsiz)', async () => {
+      staff.findOne.mockResolvedValue(makeStaff());
+
+      await service.getStaff('staff-1');
+
+      const where = staff.findOne.mock.calls[0][0].where;
+      expect(where).toEqual({ id: 'staff-1' });
+    });
+
+    it('findStaff — aktiv maktab bo‘yicha andWhere qo‘shadi', async () => {
+      tenantCtx.schoolId = 'school-A';
+      const qb: Record<string, jest.Mock> = {};
+      for (const m of ['leftJoinAndSelect', 'where', 'andWhere', 'orderBy', 'skip', 'take']) {
+        qb[m] = jest.fn().mockReturnValue(qb);
+      }
+      qb.getManyAndCount = jest.fn().mockResolvedValue([[], 0]);
+      staff.createQueryBuilder.mockReturnValue(qb as never);
+
+      await service.findStaff({ page: 1, limit: 20 } as never);
+
+      const schoolFilter = qb.andWhere.mock.calls.find((c) => String(c[0]).includes('school_id'));
+      expect(schoolFilter).toBeDefined();
+      expect(schoolFilter?.[1]).toMatchObject({ tenantSchoolId: 'school-A' });
+    });
+
+    it('createBareStaff — yangi xodimga kontekst maktab/filialini yozadi', async () => {
+      tenantCtx.schoolId = 'school-A';
+      tenantCtx.branchId = 'branch-1';
+
+      const created = await service.createBareStaff({
+        firstName: 'Aziz',
+        lastName: 'Karimov',
+        hireDate: '2026-06-01',
+      });
+
+      expect(created).toMatchObject({ schoolId: 'school-A', filialId: 'branch-1' });
     });
   });
 });

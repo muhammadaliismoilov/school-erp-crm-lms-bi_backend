@@ -136,14 +136,6 @@ export enum TeacherStatus {
   DISMISSED = 'dismissed',
 }
 
-/** O'qituvchi malaka toifasi (Oliy / 1-toifa / 2-toifa / Maxsus). */
-export enum TeacherCategory {
-  OLIY = 'oliy',
-  FIRST = 'first',
-  SECOND = 'second',
-  SPECIAL = 'special',
-}
-
 /** Vakansiya holati (Ochiq / Yopiq / Qoralama / Kutishda). */
 export enum VacancyStatus {
   OPEN = 'open',

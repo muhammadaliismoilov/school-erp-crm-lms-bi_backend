@@ -5,6 +5,13 @@ import { PersonType } from '../../../common/enums/person-type.enum';
 @Entity('turnstile_assignments')
 @Index('idx_turnstile_person', ['personType', 'personId'])
 export class TurnstileAssignment extends UuidAuditEntity {
+  /** Ko'p-maktabli ajratish (tenant). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'person_type', type: 'enum', enum: PersonType })
   personType: PersonType;
 

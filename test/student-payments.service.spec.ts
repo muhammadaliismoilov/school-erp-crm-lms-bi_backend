@@ -126,6 +126,7 @@ describe('StudentPaymentsService', () => {
       paymentTypes as never as Repository<PaymentType>,
       audit as never as AuditService,
       dataSource as never as DataSource,
+      { getSchoolId: () => null, getBranchId: () => null } as unknown as import('../src/common/tenant/tenant-context.service').TenantContextService,
     );
   });
 

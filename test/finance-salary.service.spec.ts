@@ -85,6 +85,7 @@ describe('SalaryService', () => {
       salaries as unknown as Repository<TeacherSalary>,
       transactions as unknown as Repository<FinanceTransaction>,
       audit as never,
+      { getSchoolId: () => null, getBranchId: () => null } as unknown as import('../src/common/tenant/tenant-context.service').TenantContextService,
     );
   });
 

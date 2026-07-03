@@ -14,7 +14,17 @@ import { BankAccount } from "./bank-account.entity";
 @Index("idx_transactions_date", ["date"])
 @Index("idx_transactions_person", ["personId"])
 @Index("idx_transactions_category", ["purposeCategoryId"])
+@Index("idx_transactions_school", ["schoolId"])
+@Index("idx_transactions_filial", ["filialId"])
 export class FinanceTransaction extends UuidAuditEntity {
+  /** Maktab (qattiq tenant chegarasi). */
+  @Column({ name: "school_id", type: "uuid", nullable: true })
+  schoolId?: string | null;
+
+  /** Filial (branch). */
+  @Column({ name: "filial_id", type: "uuid", nullable: true })
+  filialId?: string | null;
+
   @Column({
     name: "source_type",
     type: "varchar",

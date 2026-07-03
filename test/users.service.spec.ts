@@ -72,11 +72,13 @@ describe('UsersService', () => {
     passwords = {
       hash: jest.fn(),
     };
+    const tenant = { getSchoolId: () => null, getBranchId: () => null };
     service = new UsersService(
       users as unknown as Repository<User>,
       roles as unknown as Repository<Role>,
       staffMembers as unknown as Repository<StaffMember>,
       passwords as unknown as PasswordService,
+      tenant as unknown as import('../src/common/tenant/tenant-context.service').TenantContextService,
     );
   });
 

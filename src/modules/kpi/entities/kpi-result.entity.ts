@@ -4,6 +4,8 @@ import { KpiPeriodType, KpiTargetType } from '../enums/kpi.enums';
 @Entity('kpi_results')
 @Index(['targetType', 'targetId', 'periodStart', 'periodEnd'])
 export class KpiResult extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
   @Column({ name: 'metric_id', type: 'uuid' }) metricId: string;
   @Column({ name: 'target_type', type: 'enum', enum: KpiTargetType }) targetType: KpiTargetType;
   @Column({ name: 'target_id', type: 'uuid', nullable: true }) targetId?: string | null;

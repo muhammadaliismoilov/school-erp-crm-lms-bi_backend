@@ -6,6 +6,13 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Index('idx_finance_invoices_student', ['studentId'])
 @Index('idx_finance_invoices_contract', ['contractId'])
 export class FinanceInvoice extends UuidAuditEntity {
+  /** Ko'p-maktabli ajratish (tenant). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'invoice_no', type: 'varchar', length: 60 })
   invoiceNo: string;
 

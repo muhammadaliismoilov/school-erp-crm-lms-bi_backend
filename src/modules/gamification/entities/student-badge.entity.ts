@@ -3,6 +3,8 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Entity('student_badges')
 @Index(['studentId', 'badgeId'], { unique: true, where: 'deleted_at IS NULL' })
 export class StudentBadge extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
   @Column({ name: 'student_id', type: 'uuid' }) studentId: string;
   @Column({ name: 'badge_id', type: 'uuid' }) badgeId: string;
   @Column({ name: 'awarded_by', type: 'uuid', nullable: true }) awardedBy?: string | null;

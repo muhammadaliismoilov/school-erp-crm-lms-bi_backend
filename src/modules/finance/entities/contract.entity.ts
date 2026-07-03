@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 import { Student } from '../../students/entities/student.entity';
 import { ContractStatus } from '../enums/contract-status.enum';
@@ -7,7 +7,17 @@ import { PaymentPlan } from './payment-plan.entity';
 import { Payment } from './payment.entity';
 
 @Entity('contracts')
+@Index('idx_contracts_school', ['schoolId'])
+@Index('idx_contracts_filial', ['filialId'])
 export class Contract extends UuidAuditEntity {
+  /** Maktab (qattiq tenant chegarasi). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  /** Filial (branch). */
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'student_id', type: 'uuid' })
   studentId: string;
 

@@ -4,6 +4,13 @@ import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 @Entity('library_books')
 @Index('idx_library_books_isbn', ['isbn'])
 export class LibraryBook extends UuidAuditEntity {
+  /** Ko'p-maktabli ajratish (tenant). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: true })
+  schoolId?: string | null;
+
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true })
+  filialId?: string | null;
+
   @Column({ name: 'title', type: 'varchar', length: 180 })
   title: string;
 

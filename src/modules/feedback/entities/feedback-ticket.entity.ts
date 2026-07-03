@@ -4,6 +4,8 @@ import { FeedbackStatus, FeedbackType } from '../enums/feedback.enums';
 @Entity('feedback_tickets')
 @Index(['status', 'type'])
 export class FeedbackTicket extends UuidAuditEntity {
+  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
   @Column({ type: 'enum', enum: FeedbackType, default: FeedbackType.MESSAGE }) type: FeedbackType;
   @Column({ type: 'enum', enum: FeedbackStatus, default: FeedbackStatus.NEW }) status: FeedbackStatus;
   @Column({ name: 'sender_id', type: 'uuid', nullable: true }) senderId?: string | null;
