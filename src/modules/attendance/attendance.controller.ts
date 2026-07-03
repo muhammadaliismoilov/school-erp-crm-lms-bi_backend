@@ -31,6 +31,16 @@ export class AttendanceController {
     return this.attendanceService.findByDate(query.date);
   }
 
+  @Get("daily")
+  @Permissions([AppPermission.ATTENDANCE_RECORDS_READ])
+  @ApiOperation({
+    summary: "Kunlik turniket taxtasi (ism/sinf + kirish-chiqish + yig‘ma hisob)",
+  })
+  @ApiOkResponse({ description: "Kunlik davomat taxtasi." })
+  dailyBoard(@Query() query: AttendanceDateQueryDto) {
+    return this.attendanceService.dailyBoard(query.date);
+  }
+
   @Post("students")
   @Permissions([AppPermission.ATTENDANCE_RECORDS_CREATE])
   @ApiOperation({
