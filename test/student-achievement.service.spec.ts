@@ -7,6 +7,7 @@ import {
   AchievementRank,
 } from '../src/modules/students/enums/achievement.enum';
 import type { StudentsService } from '../src/modules/students/students.service';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 describe('StudentAchievementService', () => {
   const studentId = 'a1b2c3d4-0000-4000-8000-000000000010';
@@ -32,6 +33,7 @@ describe('StudentAchievementService', () => {
     service = new StudentAchievementService(
       repo as unknown as Repository<StudentAchievement>,
       studentsService as unknown as StudentsService,
+      new TenantContextService(),
       undefined,
     );
   });

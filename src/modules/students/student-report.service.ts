@@ -11,6 +11,8 @@ import {
 import { StudentConclusion } from "./entities/student-conclusion.entity";
 import { StudentSmartGoal, SmartGoalItem } from "./entities/student-smart-goal.entity";
 import { StudentsService } from "./students.service";
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 @Injectable()
 export class StudentReportService {
@@ -24,13 +26,14 @@ export class StudentReportService {
     @InjectRepository(AcademicYear)
     private readonly academicYears: Repository<AcademicYear>,
     private readonly studentsService: StudentsService,
+    private readonly tenant: TenantContextService,
     private readonly auditService?: AuditService,
   ) {}
 
   /** Aniq yil berilmasa joriy o‘quv yilini topadi. */
   private async resolveYearId(explicit?: string | null): Promise<string | null> {
     if (explicit) return explicit;
-    const current = await this.academicYears.findOne({ where: { isCurrent: true } });
+    const current = await this.academicYears.findOne({ where: tenantWhere<AcademicYear>(this.tenant, { isCurrent: true }, { branch: true }) });
     return current?.id ?? null;
   }
 

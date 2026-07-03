@@ -10,6 +10,8 @@ import { ExamResult } from '../lms/entities/exam-result.entity';
 import { QuarterSubjectGrade } from '../lms/entities/quarter-subject-grade.entity';
 import { Student } from '../students/entities/student.entity';
 import { StudentStatus } from '../students/enums/student-status.enum';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 import {
   AverageReportQueryDto,
   ProgressExamReportQueryDto,
@@ -37,6 +39,7 @@ export class ProgressReportsService {
     @InjectRepository(ExamResult) private readonly examResults: Repository<ExamResult>,
     @InjectRepository(Subject) private readonly subjects: Repository<Subject>,
     @InjectRepository(Quarter) private readonly quarters: Repository<Quarter>,
+    private readonly tenant: TenantContextService,
   ) {}
 
   /** Tab 1 — O'rtacha o'zlashtirish ko'rsatkichlari. */
@@ -173,10 +176,14 @@ export class ProgressReportsService {
   /** classId berilmasa — barcha aktiv o'quvchilar ("Barcha sinflar"). */
   private loadStudents(classId?: string): Promise<Student[]> {
     return this.students.find({
-      where: {
-        status: StudentStatus.ACTIVE,
-        ...(classId ? { currentClassId: classId } : {}),
-      },
+      where: tenantWhere<Student>(
+        this.tenant,
+        {
+          status: StudentStatus.ACTIVE,
+          ...(classId ? { currentClassId: classId } : {}),
+        },
+        { branch: true },
+      ),
       order: { lastName: 'ASC', firstName: 'ASC' },
     });
   }

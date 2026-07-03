@@ -4,6 +4,7 @@ import { HrPaymentService } from '../src/modules/hr/hr-payment.service';
 import { HrPayment } from '../src/modules/hr/entities/hr-payment.entity';
 import type { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
 import { HrPaymentStatus } from '../src/modules/hr/enums/hr.enums';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 function makePayment(overrides: Partial<HrPayment> = {}): HrPayment {
   return {
@@ -43,6 +44,7 @@ describe('HrPaymentService', () => {
     service = new HrPaymentService(
       payments as unknown as Repository<HrPayment>,
       staff as unknown as Repository<StaffMember>,
+      new TenantContextService(),
     );
   });
 

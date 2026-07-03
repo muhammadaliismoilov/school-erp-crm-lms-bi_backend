@@ -8,6 +8,8 @@ import { StaffMember } from './entities/staff-member.entity';
 import { StaffService } from './staff.service';
 import { QualificationCategory, TeacherStatus, TeacherWorkType } from './enums/hr.enums';
 import { UserGender } from '../users/enums/user.enums';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 export interface PageMeta {
   page: number;
@@ -69,6 +71,7 @@ export class TeacherService {
     @InjectRepository(Teacher) private readonly teachers: Repository<Teacher>,
     @InjectRepository(StaffMember) private readonly staff: Repository<StaffMember>,
     private readonly staffService: StaffService,
+    private readonly tenant: TenantContextService,
   ) {}
 
   async findTeachers(query: TeacherQueryDto): Promise<TeacherListResult> {
@@ -79,6 +82,7 @@ export class TeacherService {
       .createQueryBuilder('t')
       .leftJoinAndSelect('t.staffMember', 'sm')
       .where('t.deleted_at IS NULL');
+    applyTenantScope(qb, 't', this.tenant, { branch: true });
 
     if (query.category) qb.andWhere('sm.qualification_category = :category', { category: query.category });
     if (query.workType) qb.andWhere('t.work_type = :workType', { workType: query.workType });
@@ -112,7 +116,8 @@ export class TeacherService {
   }
 
   async stats(): Promise<TeacherStats> {
-    const base = () => this.teachers.createQueryBuilder('t').where('t.deleted_at IS NULL');
+    const base = () =>
+      applyTenantScope(this.teachers.createQueryBuilder('t').where('t.deleted_at IS NULL'), 't', this.tenant, { branch: true });
     const [total, active, fullTime, hourly, subjectTeachers] = await Promise.all([
       base().getCount(),
       base().andWhere('t.status = :s', { s: TeacherStatus.ACTIVE }).getCount(),
@@ -247,13 +252,13 @@ export class TeacherService {
   // ─── Helperlar ──────────────────────────────────────────────────────────
 
   private async findEntity(id: string): Promise<Teacher> {
-    const entity = await this.teachers.findOne({ where: { id }, relations: { staffMember: true } });
+    const entity = await this.teachers.findOne({ where: tenantWhere<Teacher>(this.tenant, { id }, { branch: true }), relations: { staffMember: true } });
     if (!entity) throw new NotFoundException('O‘qituvchi topilmadi');
     return entity;
   }
 
   private async assertStaff(staffMemberId: string): Promise<void> {
-    const exists = await this.staff.findOne({ where: { id: staffMemberId } });
+    const exists = await this.staff.findOne({ where: tenantWhere<StaffMember>(this.tenant, { id: staffMemberId }, { branch: true }) });
     if (!exists) throw new NotFoundException('Xodim topilmadi');
   }
 

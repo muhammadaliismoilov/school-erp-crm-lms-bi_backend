@@ -15,9 +15,9 @@ import { VacancyService } from './vacancy.service';
 export class VacancyController {
   constructor(private readonly vacancyService: VacancyService) {}
 
-  @Get() @Permissions([AppPermission.HR_READ]) find(@Query() query: VacancyQueryDto) { return this.vacancyService.findVacancies(query); }
-  @Get(':id') @Permissions([AppPermission.HR_READ]) get(@Param() p: UuidParamDto) { return this.vacancyService.getVacancy(p.id); }
-  @Post() @Permissions([AppPermission.HR_MANAGE]) create(@Body() dto: CreateVacancyDto) { return this.vacancyService.createVacancy(dto); }
-  @Patch(':id') @Permissions([AppPermission.HR_MANAGE]) update(@Param() p: UuidParamDto, @Body() dto: UpdateVacancyDto) { return this.vacancyService.updateVacancy(p.id, dto); }
-  @Delete(':id') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_MANAGE]) remove(@Param() p: UuidParamDto) { return this.vacancyService.removeVacancy(p.id); }
+  @Get() @Permissions([AppPermission.HR_VACANCIES_READ]) find(@Query() query: VacancyQueryDto) { return this.vacancyService.findVacancies(query); }
+  @Get(':id') @Permissions([AppPermission.HR_VACANCIES_READ]) get(@Param() p: UuidParamDto) { return this.vacancyService.getVacancy(p.id); }
+  @Post() @Permissions([AppPermission.HR_VACANCIES_CREATE]) create(@Body() dto: CreateVacancyDto) { return this.vacancyService.createVacancy(dto); }
+  @Patch(':id') @Permissions([AppPermission.HR_VACANCIES_UPDATE]) update(@Param() p: UuidParamDto, @Body() dto: UpdateVacancyDto) { return this.vacancyService.updateVacancy(p.id, dto); }
+  @Delete(':id') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_VACANCIES_DELETE]) remove(@Param() p: UuidParamDto) { return this.vacancyService.removeVacancy(p.id); }
 }

@@ -10,6 +10,8 @@ import {
 import { Timesheet } from './entities/timesheet.entity';
 import { TimesheetLine } from './entities/timesheet-line.entity';
 import { TimesheetStatus } from './enums/hr.enums';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 export interface PageMeta {
   page: number;
@@ -52,6 +54,7 @@ export class TimesheetService {
   constructor(
     @InjectRepository(Timesheet) private readonly timesheets: Repository<Timesheet>,
     @InjectRepository(TimesheetLine) private readonly lines: Repository<TimesheetLine>,
+    private readonly tenant: TenantContextService,
   ) {}
 
   async findTimesheets(query: TimesheetQueryDto): Promise<TimesheetListResult> {
@@ -62,6 +65,7 @@ export class TimesheetService {
       .createQueryBuilder('t')
       .leftJoinAndSelect('t.department', 'department')
       .where('t.deleted_at IS NULL');
+    applyTenantScope(qb, 't', this.tenant, { branch: true });
 
     if (query.year) qb.andWhere('t.year = :year', { year: query.year });
     if (query.month) qb.andWhere('t.month = :month', { month: query.month });
@@ -160,7 +164,7 @@ export class TimesheetService {
   }
 
   private async findEntity(id: string): Promise<Timesheet> {
-    const entity = await this.timesheets.findOne({ where: { id } });
+    const entity = await this.timesheets.findOne({ where: tenantWhere<Timesheet>(this.tenant, { id }, { branch: true }) });
     if (!entity) throw new NotFoundException('Taqvim topilmadi');
     return entity;
   }

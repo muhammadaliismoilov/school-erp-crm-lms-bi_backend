@@ -73,7 +73,7 @@ export class StudentsController {
   }
 
   @Post()
-  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @Permissions([AppPermission.STUDENTS_CREATE])
   @ApiOperation({ summary: "O‘quvchi yaratish" })
   @ApiCreatedResponse({ description: "O‘quvchi yaratildi." })
   create(@Body() dto: CreateStudentDto) {
@@ -89,7 +89,7 @@ export class StudentsController {
   }
 
   @Patch(":id")
-  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @Permissions([AppPermission.STUDENTS_UPDATE])
   @ApiOperation({ summary: "O‘quvchini tahrirlash" })
   @ApiOkResponse({ description: "O‘quvchi tahrirlandi." })
   update(@Param() params: UuidParamDto, @Body() dto: UpdateStudentDto) {
@@ -97,7 +97,7 @@ export class StudentsController {
   }
 
   @Delete(":id")
-  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @Permissions([AppPermission.STUDENTS_DELETE])
   @ApiOperation({ summary: "O‘quvchini o‘chirish (soft-delete, ketish sababi bilan)" })
   @ApiOkResponse({ description: "O‘quvchi o‘chirildi." })
   remove(@Param() params: UuidParamDto, @Body() dto: WithdrawStudentDto) {
@@ -105,7 +105,7 @@ export class StudentsController {
   }
 
   @Post(":id/restore")
-  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @Permissions([AppPermission.STUDENTS_UPDATE])
   @ApiOperation({ summary: "Ketgan o‘quvchini tiklash" })
   @ApiOkResponse({ description: "O‘quvchi tiklandi." })
   restore(@Param() params: UuidParamDto) {
@@ -113,7 +113,7 @@ export class StudentsController {
   }
 
   @Delete(":id/permanent")
-  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @Permissions([AppPermission.STUDENTS_DELETE])
   @ApiOperation({ summary: "Ketgan o‘quvchini butunlay o‘chirish" })
   @ApiOkResponse({ description: "O‘quvchi butunlay o‘chirildi." })
   removePermanent(@Param() params: UuidParamDto) {
@@ -121,7 +121,7 @@ export class StudentsController {
   }
 
   @Post("parents")
-  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @Permissions([AppPermission.STUDENT_PARENTS_CREATE])
   @ApiOperation({ summary: "Ota-ona yoki vasiy yozuvini yaratish" })
   @ApiCreatedResponse({ description: "Ota-ona yozuvi yaratildi." })
   createParent(@Body() dto: CreateParentDto) {
@@ -129,7 +129,7 @@ export class StudentsController {
   }
 
   @Get("parents/children-map")
-  @Permissions([AppPermission.STUDENTS_READ])
+  @Permissions([AppPermission.STUDENT_PARENTS_READ])
   @ApiOperation({ summary: "Bir nechta ota-ona uchun farzandlar (ids=a,b,c)" })
   @ApiOkResponse({ description: "Ota-ona → farzandlar xaritasi qaytarildi." })
   findChildrenMap(@Query("ids") ids?: string) {
@@ -141,7 +141,7 @@ export class StudentsController {
   }
 
   @Get("parents/:parentId/children")
-  @Permissions([AppPermission.STUDENTS_READ])
+  @Permissions([AppPermission.STUDENT_PARENTS_READ])
   @ApiOperation({ summary: "Ota-onaga biriktirilgan o‘quvchilar (farzandlar)" })
   @ApiOkResponse({ description: "Farzandlar ro‘yxati qaytarildi." })
   findChildren(@Param("parentId") parentId: string) {
@@ -149,7 +149,7 @@ export class StudentsController {
   }
 
   @Post(":id/parents")
-  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @Permissions([AppPermission.STUDENT_PARENTS_CREATE])
   @ApiOperation({ summary: "Ota-ona yoki vasiyni o‘quvchiga bog‘lash" })
   @ApiCreatedResponse({ description: "Ota-ona o‘quvchiga bog‘landi." })
   linkParent(@Param() params: UuidParamDto, @Body() dto: LinkParentDto) {
@@ -157,7 +157,7 @@ export class StudentsController {
   }
 
   @Delete(":id/parents/:parentId")
-  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @Permissions([AppPermission.STUDENT_PARENTS_DELETE])
   @ApiOperation({ summary: "O‘quvchini ota-onadan ajratish (bog‘lanishni uzish)" })
   @ApiOkResponse({ description: "Bog‘lanish uzildi." })
   unlinkParent(@Param("id") id: string, @Param("parentId") parentId: string) {
@@ -165,7 +165,7 @@ export class StudentsController {
   }
 
   @Get(":id/documents")
-  @Permissions([AppPermission.STUDENTS_READ])
+  @Permissions([AppPermission.STUDENT_DOCUMENTS_READ])
   @ApiOperation({ summary: "O‘quvchi hujjatlari ro‘yxati" })
   @ApiOkResponse({ description: "Hujjatlar qaytarildi." })
   listDocuments(@Param() params: UuidParamDto) {
@@ -173,7 +173,7 @@ export class StudentsController {
   }
 
   @Post(":id/documents")
-  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @Permissions([AppPermission.STUDENT_DOCUMENTS_CREATE])
   @ApiOperation({ summary: "O‘quvchiga hujjat qo‘shish" })
   @ApiCreatedResponse({ description: "Hujjat qo‘shildi." })
   addDocument(@Param() params: UuidParamDto, @Body() dto: CreateDocumentDto) {
@@ -181,7 +181,7 @@ export class StudentsController {
   }
 
   @Delete(":id/documents/:documentId")
-  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @Permissions([AppPermission.STUDENT_DOCUMENTS_DELETE])
   @ApiOperation({ summary: "O‘quvchi hujjatini o‘chirish" })
   @ApiOkResponse({ description: "Hujjat o‘chirildi." })
   removeDocument(

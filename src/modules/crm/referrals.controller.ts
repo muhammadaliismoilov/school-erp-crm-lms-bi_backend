@@ -48,7 +48,7 @@ export class ReferralsController {
   }
 
   @Get()
-  @Permissions([AppPermission.CRM_READ])
+  @Permissions([AppPermission.CRM_REFERRALS_READ])
   @ApiOperation({ summary: "Referallarni stat bilan olish" })
   @ApiOkResponse({ description: "Referallar { items, meta, stats } ko‘rinishida." })
   findReferrals(@Query() query: ReferralQueryDto) {
@@ -56,7 +56,7 @@ export class ReferralsController {
   }
 
   @Post()
-  @Permissions([AppPermission.CRM_MANAGE])
+  @Permissions([AppPermission.CRM_REFERRALS_CREATE])
   @ApiOperation({ summary: "Referal (ulashish havolasi) yaratish" })
   @ApiCreatedResponse({ description: "Referal yaratildi, havola qaytdi." })
   createReferral(
@@ -68,7 +68,7 @@ export class ReferralsController {
   }
 
   @Get(":id")
-  @Permissions([AppPermission.CRM_READ])
+  @Permissions([AppPermission.CRM_REFERRALS_READ])
   @ApiOperation({ summary: "Referalni ID bo‘yicha olish" })
   @ApiOkResponse({ description: "Referal qaytarildi." })
   findReferral(@Param() params: UuidParamDto) {
@@ -76,7 +76,7 @@ export class ReferralsController {
   }
 
   @Patch(":id")
-  @Permissions([AppPermission.CRM_MANAGE])
+  @Permissions([AppPermission.CRM_REFERRALS_UPDATE])
   @ApiOperation({ summary: "Referalni tahrirlash" })
   @ApiOkResponse({ description: "Referal tahrirlandi." })
   updateReferral(
@@ -90,7 +90,7 @@ export class ReferralsController {
 
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.CRM_MANAGE])
+  @Permissions([AppPermission.CRM_REFERRALS_DELETE])
   @ApiOperation({ summary: "Referalni o‘chirish (arxivlash)" })
   @ApiNoContentResponse({ description: "Referal o‘chirildi. Body qaytmaydi." })
   deleteReferral(

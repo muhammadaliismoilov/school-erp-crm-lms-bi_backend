@@ -74,7 +74,7 @@ export class RolesController {
   }
 
   @Post()
-  @Permissions([AppPermission.ROLES_MANAGE])
+  @Permissions([AppPermission.ROLES_CREATE])
   @ApiOperation({
     summary: "Rol yaratish",
     description:
@@ -129,7 +129,7 @@ export class RolesController {
   }
 
   @Patch(":id")
-  @Permissions([AppPermission.ROLES_MANAGE])
+  @Permissions([AppPermission.ROLES_UPDATE])
   @ApiOperation({
     summary: "Rolni qisman tahrirlash",
     description:
@@ -152,7 +152,7 @@ export class RolesController {
 
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.ROLES_MANAGE])
+  @Permissions([AppPermission.ROLES_DELETE])
   @ApiOperation({
     summary: "Rolni arxivlash",
     description:

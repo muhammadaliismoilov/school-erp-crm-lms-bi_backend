@@ -15,10 +15,10 @@ import { GeofenceService } from './geofence.service';
 export class GeofenceController {
   constructor(private readonly geofenceService: GeofenceService) {}
 
-  @Get('options') @Permissions([AppPermission.HR_READ]) options() { return this.geofenceService.options(); }
-  @Get() @Permissions([AppPermission.HR_READ]) find(@Query() query: GeofenceQueryDto) { return this.geofenceService.findGeofences(query); }
-  @Get(':id') @Permissions([AppPermission.HR_READ]) get(@Param() p: UuidParamDto) { return this.geofenceService.getGeofence(p.id); }
-  @Post() @Permissions([AppPermission.HR_MANAGE]) create(@Body() dto: CreateGeofenceFullDto) { return this.geofenceService.createGeofence(dto); }
-  @Patch(':id') @Permissions([AppPermission.HR_MANAGE]) update(@Param() p: UuidParamDto, @Body() dto: UpdateGeofenceFullDto) { return this.geofenceService.updateGeofence(p.id, dto); }
-  @Delete(':id') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_MANAGE]) remove(@Param() p: UuidParamDto) { return this.geofenceService.removeGeofence(p.id); }
+  @Get('options') @Permissions([AppPermission.HR_GEOFENCES_READ]) options() { return this.geofenceService.options(); }
+  @Get() @Permissions([AppPermission.HR_GEOFENCES_READ]) find(@Query() query: GeofenceQueryDto) { return this.geofenceService.findGeofences(query); }
+  @Get(':id') @Permissions([AppPermission.HR_GEOFENCES_READ]) get(@Param() p: UuidParamDto) { return this.geofenceService.getGeofence(p.id); }
+  @Post() @Permissions([AppPermission.HR_GEOFENCES_CREATE]) create(@Body() dto: CreateGeofenceFullDto) { return this.geofenceService.createGeofence(dto); }
+  @Patch(':id') @Permissions([AppPermission.HR_GEOFENCES_UPDATE]) update(@Param() p: UuidParamDto, @Body() dto: UpdateGeofenceFullDto) { return this.geofenceService.updateGeofence(p.id, dto); }
+  @Delete(':id') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_GEOFENCES_DELETE]) remove(@Param() p: UuidParamDto) { return this.geofenceService.removeGeofence(p.id); }
 }

@@ -6,6 +6,7 @@ import {
   AppPermission,
   CONFIDENTIAL_PERMISSION_CODES,
   DEFAULT_PERMISSION_CODES,
+  expandPermissionCodes,
 } from '../../common/constants/permissions';
 import type { LocalizedText } from '../../common/i18n/locale';
 import { CommonStatus } from '../../common/enums/common-status.enum';
@@ -182,8 +183,10 @@ export class IdentitySeedService implements OnApplicationBootstrap {
         where: { name: roleDefinition.name },
         relations: { permissions: true },
       });
+      // Eski keng kodlarni (`.manage`/`.read`) granular sub-resurs kodlariga
+      // yoyamiz — tor tizim rollari ham granular endpointlarga kirishni saqlaydi.
       const permissions = await this.permissions.find({
-        where: { code: In(roleDefinition.permissions) },
+        where: { code: In(expandPermissionCodes(roleDefinition.permissions)) },
       });
 
       if (existing) {

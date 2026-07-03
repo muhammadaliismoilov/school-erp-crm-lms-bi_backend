@@ -10,6 +10,8 @@ import {
 import { HrPayment } from './entities/hr-payment.entity';
 import { StaffMember } from './entities/staff-member.entity';
 import { HrPaymentStatus } from './enums/hr.enums';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 export interface PageMeta {
   page: number;
@@ -41,6 +43,7 @@ export class HrPaymentService {
   constructor(
     @InjectRepository(HrPayment) private readonly payments: Repository<HrPayment>,
     @InjectRepository(StaffMember) private readonly staff: Repository<StaffMember>,
+    private readonly tenant: TenantContextService,
   ) {}
 
   async findPayments(query: HrPaymentQueryDto): Promise<HrPaymentListResult> {
@@ -51,6 +54,7 @@ export class HrPaymentService {
       .createQueryBuilder('p')
       .leftJoinAndSelect('p.staffMember', 'staff')
       .where('p.deleted_at IS NULL');
+    applyTenantScope(qb, 'p', this.tenant, { branch: true });
 
     if (query.status) qb.andWhere('p.status = :status', { status: query.status });
     if (query.staffMemberId) qb.andWhere('p.staff_member_id = :sid', { sid: query.staffMemberId });
@@ -129,13 +133,13 @@ export class HrPaymentService {
   // ─── Helperlar ──────────────────────────────────────────────────────────
 
   private async findEntity(id: string): Promise<HrPayment> {
-    const entity = await this.payments.findOne({ where: { id }, relations: { staffMember: true } });
+    const entity = await this.payments.findOne({ where: tenantWhere<HrPayment>(this.tenant, { id }, { branch: true }), relations: { staffMember: true } });
     if (!entity) throw new NotFoundException('To‘lov topilmadi');
     return entity;
   }
 
   private async assertStaff(staffMemberId: string): Promise<void> {
-    const exists = await this.staff.findOne({ where: { id: staffMemberId } });
+    const exists = await this.staff.findOne({ where: tenantWhere<StaffMember>(this.tenant, { id: staffMemberId }, { branch: true }) });
     if (!exists) throw new NotFoundException('Xodim topilmadi');
   }
 

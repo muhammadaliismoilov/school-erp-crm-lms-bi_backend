@@ -24,7 +24,7 @@ export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @Get("templates")
-  @Permissions([AppPermission.NOTIFICATIONS_READ])
+  @Permissions([AppPermission.NOTIFICATION_TEMPLATES_READ])
   @ApiOperation({ summary: "Bildirishnoma shablonlari ro‘yxatini olish" })
   @ApiOkResponse({ description: "Bildirishnoma shablonlari qaytarildi." })
   findTemplates() {
@@ -32,7 +32,7 @@ export class NotificationsController {
   }
 
   @Post("templates")
-  @Permissions([AppPermission.NOTIFICATIONS_MANAGE])
+  @Permissions([AppPermission.NOTIFICATION_TEMPLATES_CREATE])
   @ApiOperation({ summary: "Bildirishnoma shablonini yaratish" })
   @ApiCreatedResponse({ description: "Bildirishnoma shabloni yaratildi." })
   createTemplate(@Body() dto: CreateNotificationTemplateDto) {
@@ -40,7 +40,7 @@ export class NotificationsController {
   }
 
   @Post("queue")
-  @Permissions([AppPermission.NOTIFICATIONS_MANAGE])
+  @Permissions([AppPermission.NOTIFICATION_QUEUE_CREATE])
   @ApiOperation({ summary: "Bildirishnomani yuborish navbatiga qo‘yish" })
   @ApiCreatedResponse({ description: "Bildirishnoma navbatga qo‘yildi." })
   queue(@Body() dto: QueueNotificationDto) {

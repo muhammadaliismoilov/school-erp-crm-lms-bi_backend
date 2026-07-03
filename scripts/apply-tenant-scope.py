@@ -52,21 +52,24 @@ def transform(path: Path) -> None:
 
     # 3) Constructor injection (faqat bo'sh tanali `) {}` uslubi).
     if 'this.tenant' in text and 'TenantContextService' not in text:
-        text, n = re.subn(r"\) \{\}", ", private readonly tenant: TenantContextService) {}", text, count=1)
+        # Avval ko'p qatorli uslub (`\n  ) {}`), keyin bir qatorli.
+        text, n = re.subn(r"\n(  \) \{\})", "\n    private readonly tenant: TenantContextService,\n\\1", text, count=1)
         if n == 0:
-            text = re.sub(r"\n(  \) \{\})", "\n    private readonly tenant: TenantContextService,\n\\1", text, count=1)
+            text = re.sub(r"\) \{\}", ", private readonly tenant: TenantContextService) {}", text, count=1)
 
     # 4) Importlar.
     common = rel_common(path.relative_to(ROOT))
     imports = []
     if 'TenantContextService' in text and f"from '{common}/tenant/tenant-context.service'" not in text:
         imports.append(f"import {{ TenantContextService }} from '{common}/tenant/tenant-context.service';")
-    used = [u for u in ('applyTenantScope', 'tenantWhere') if f'{u}(' in text]
+    used = [u for u in ('applyTenantScope', 'tenantWhere') if re.search(rf'\b{u}[<(]', text)]
     if used and 'tenant-scope.util' not in text:
         imports.append(f"import {{ {', '.join(used)} }} from '{common}/tenant/tenant-scope.util';")
     if imports:
         lines = text.splitlines(keepends=True)
-        last_import = max(i for i, l in enumerate(lines) if l.startswith('import '))
+        # Ko'p qatorli import bloklarini buzmaslik uchun faqat `;` bilan tugagan
+        # import qatorlaridan keyin joylashtiramiz.
+        last_import = max(i for i, l in enumerate(lines) if l.startswith('import ') and l.rstrip().endswith(';'))
         lines.insert(last_import + 1, '\n'.join(imports) + '\n')
         text = ''.join(lines)
 

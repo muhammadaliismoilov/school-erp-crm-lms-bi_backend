@@ -50,7 +50,7 @@ function buildService(students: unknown[], paidRaw: unknown[]) {
   const studentsRepo = { createQueryBuilder: jest.fn(() => qbMock(students)) };
   const paymentsRepo = { createQueryBuilder: jest.fn(() => qbMock(paidRaw, true)) };
   const plans = { getContext: jest.fn(async () => ({ config, academic })) };
-  return new DebtsService(studentsRepo as never, paymentsRepo as never, plans as never);
+  return new DebtsService(studentsRepo as never, paymentsRepo as never, plans as never, null as never);
 }
 
 describe('DebtsService', () => {

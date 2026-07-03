@@ -15,6 +15,8 @@ import {
 } from './billing.util';
 import { PaymentPlanConfig } from './entities/payment-plan-config.entity';
 import { PaymentPlanRate } from './entities/payment-plan-rate.entity';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 export interface PlanActor {
   userId?: string;
@@ -74,6 +76,7 @@ export class PaymentPlanService {
     @InjectRepository(Student)
     private readonly students: Repository<Student>,
     private readonly auditService: AuditService,
+    private readonly tenant: TenantContextService,
   ) {}
 
   /** Global config (yo'q bo'lsa standart yaratiladi). */
@@ -171,7 +174,7 @@ export class PaymentPlanService {
 
   /** Bitta o'quvchi uchun rejalar solishtiruvi (per-student override hisobga olinadi). */
   async compareForStudent(studentId: string): Promise<PlanPreviewResponse | null> {
-    const student = await this.students.findOne({ where: { id: studentId } });
+    const student = await this.students.findOne({ where: tenantWhere<Student>(this.tenant, { id: studentId }, { branch: true }) });
     if (!student) return null;
     const config = await this.resolveConfigEntity();
     const academic = await this.academicWindow();
@@ -254,7 +257,7 @@ export class PaymentPlanService {
 
   /** Joriy akademik yil oynasi; topilmasa fallbackMonths bilan oyna quriladi. */
   private async academicWindow(): Promise<AcademicWindow> {
-    const current = await this.academicYears.findOne({ where: { isCurrent: true } });
+    const current = await this.academicYears.findOne({ where: tenantWhere<AcademicYear>(this.tenant, { isCurrent: true }, { branch: true }) });
     if (current?.startDate && current?.endDate) {
       return {
         start: current.startDate,
@@ -264,7 +267,7 @@ export class PaymentPlanService {
       };
     }
     // Fallback: o'zbek maktab yili sentabrdan boshlanadi.
-    const config = await this.configs.findOne({ where: { academicYearId: IsNull() } });
+    const config = await this.configs.findOne({ where: tenantWhere<PaymentPlanConfig>(this.tenant, { academicYearId: IsNull() }, { branch: true }) });
     const months = config?.fallbackMonths ?? 10;
     const now = new Date();
     const startYear = now.getUTCMonth() + 1 >= 9 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;

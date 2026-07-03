@@ -8,6 +8,7 @@ import type { LeadTag } from '../src/modules/crm/entities/lead-tag.entity';
 import { LeadStatus } from '../src/modules/crm/enums/lead-status.enum';
 import type { AuditService } from '../src/modules/audit/audit.service';
 import type { StudentsService } from '../src/modules/students/students.service';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 const leadEntity = (over: Partial<Lead> = {}): Lead =>
   ({
@@ -70,6 +71,7 @@ describe('CrmService', () => {
       comments as unknown as Repository<LeadComment>,
       tags as unknown as Repository<LeadTag>,
       studentsService as unknown as StudentsService,
+      new TenantContextService(),
       audit as unknown as AuditService,
     );
   });

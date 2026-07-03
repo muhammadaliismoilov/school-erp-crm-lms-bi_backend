@@ -10,6 +10,7 @@ import {
   TeacherStatus,
   TeacherWorkType,
 } from '../src/modules/hr/enums/hr.enums';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 /** Shaxsiy ma'lumot manbasi — bog'langan xodim. */
 function makeStaff(overrides: Partial<StaffMember> = {}): StaffMember {
@@ -81,6 +82,7 @@ describe('TeacherService', () => {
       teachers as unknown as Repository<Teacher>,
       staff as unknown as Repository<StaffMember>,
       staffService as unknown as StaffService,
+      new TenantContextService(),
     );
   });
 

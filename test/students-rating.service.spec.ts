@@ -81,6 +81,7 @@ describe('StudentsRatingService', () => {
       journal as unknown as Repository<JournalEntry>,
       examResults as unknown as Repository<ExamResult>,
       attendanceRepo as unknown as Repository<AttendanceRecord>,
+      null as never,
     );
   });
 

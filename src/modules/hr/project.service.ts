@@ -4,6 +4,8 @@ import { Not, Repository } from 'typeorm';
 import { CreateProjectFullDto, ProjectQueryDto, UpdateProjectFullDto } from './dto/project.dto';
 import { Project } from './entities/project.entity';
 import { ProjectStatus } from './enums/hr.enums';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 export interface PageMeta {
   page: number;
@@ -29,13 +31,14 @@ export interface ProjectListResult {
 
 @Injectable()
 export class ProjectService {
-  constructor(@InjectRepository(Project) private readonly projects: Repository<Project>) {}
+  constructor(@InjectRepository(Project) private readonly projects: Repository<Project>, private readonly tenant: TenantContextService) {}
 
   async findProjects(query: ProjectQueryDto): Promise<ProjectListResult> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
     const qb = this.projects.createQueryBuilder('p').where('p.deleted_at IS NULL');
+    applyTenantScope(qb, 'p', this.tenant, { branch: true });
     if (query.status) qb.andWhere('p.status = :status', { status: query.status });
     const search = this.nullableText(query.search);
     if (search) qb.andWhere('p.name ILIKE :q', { q: `%${search}%` });
@@ -98,7 +101,7 @@ export class ProjectService {
   // ─── Helperlar ──────────────────────────────────────────────────────────
 
   private async findEntity(id: string): Promise<Project> {
-    const entity = await this.projects.findOne({ where: { id } });
+    const entity = await this.projects.findOne({ where: tenantWhere<Project>(this.tenant, { id }, { branch: true }) });
     if (!entity) throw new NotFoundException('Loyiha topilmadi');
     return entity;
   }

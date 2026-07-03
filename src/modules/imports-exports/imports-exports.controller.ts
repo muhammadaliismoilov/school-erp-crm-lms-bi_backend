@@ -12,6 +12,6 @@ import { ImportsExportsService } from './imports-exports.service';
 @ApiTags('Imports / Exports') @ApiBearerAuth() @UseGuards(JwtAuthGuard, PermissionsGuard) @Controller({ path: 'imports-exports', version: '1' })
 export class ImportsExportsController { constructor(private readonly service: ImportsExportsService) {}
   @Get('jobs') @Permissions([AppPermission.DATA_JOBS_READ]) findJobs(@Query('type') type?: DataJobType, @Query('entityType') entityType?: DataEntityType) { return this.service.findJobs(type, entityType); }
-  @Post('jobs') @Permissions([AppPermission.DATA_JOBS_MANAGE]) createJob(@Body() dto: CreateDataJobDto) { return this.service.createJob(dto); }
-  @Patch('jobs/:id') @Permissions([AppPermission.DATA_JOBS_MANAGE]) updateJob(@Param() p: UuidParamDto, @Body() dto: UpdateDataJobDto) { return this.service.updateJob(p.id, dto); }
+  @Post('jobs') @Permissions([AppPermission.DATA_JOBS_CREATE]) createJob(@Body() dto: CreateDataJobDto) { return this.service.createJob(dto); }
+  @Patch('jobs/:id') @Permissions([AppPermission.DATA_JOBS_UPDATE]) updateJob(@Param() p: UuidParamDto, @Body() dto: UpdateDataJobDto) { return this.service.updateJob(p.id, dto); }
 }

@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { GeofenceService } from '../src/modules/hr/geofence.service';
 import { Geofence } from '../src/modules/hr/entities/geofence.entity';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 function makeGeofence(overrides: Partial<Geofence> = {}): Geofence {
   return {
@@ -34,7 +35,7 @@ describe('GeofenceService', () => {
       softDelete: jest.fn(),
       find: jest.fn(),
     };
-    service = new GeofenceService(geofences as unknown as Repository<Geofence>);
+    service = new GeofenceService(geofences as unknown as Repository<Geofence>, new TenantContextService());
   });
 
   describe('createGeofence', () => {

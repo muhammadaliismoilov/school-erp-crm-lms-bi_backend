@@ -4,6 +4,7 @@ import { TimesheetService } from '../src/modules/hr/timesheet.service';
 import { Timesheet } from '../src/modules/hr/entities/timesheet.entity';
 import type { TimesheetLine } from '../src/modules/hr/entities/timesheet-line.entity';
 import { TimesheetStatus } from '../src/modules/hr/enums/hr.enums';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 function makeTimesheet(overrides: Partial<Timesheet> = {}): Timesheet {
   return {
@@ -48,6 +49,7 @@ describe('TimesheetService', () => {
     service = new TimesheetService(
       timesheets as unknown as Repository<Timesheet>,
       lines as unknown as Repository<TimesheetLine>,
+      new TenantContextService(),
     );
   });
 

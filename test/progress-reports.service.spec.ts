@@ -54,6 +54,7 @@ describe('ProgressReportsService', () => {
       examResults as unknown as Repository<ExamResult>,
       subjects as unknown as Repository<Subject>,
       quarters as unknown as Repository<Quarter>,
+      null as never,
     );
   });
 

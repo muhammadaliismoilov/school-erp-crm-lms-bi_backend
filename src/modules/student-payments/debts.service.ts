@@ -24,6 +24,8 @@ import {
 } from './debts.util';
 import { StudentPayment } from './entities/student-payment.entity';
 import { AcademicWindow, PaymentPlanService } from './payment-plan.service';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope } from '../../common/tenant/tenant-scope.util';
 
 export interface DebtsQuery {
   search?: string;
@@ -109,6 +111,7 @@ export class DebtsService {
     @InjectRepository(StudentPayment)
     private readonly payments: Repository<StudentPayment>,
     private readonly plans: PaymentPlanService,
+    private readonly tenant: TenantContextService,
   ) {}
 
   // ─── Umumiy ko'rinish (KPI + chart + oylik taqsimot) ────────────────────────
@@ -230,10 +233,12 @@ export class DebtsService {
   // ─── Helperlar ──────────────────────────────────────────────────────────────
 
   private activeStudentsQb() {
-    return this.students
+    const qb = this.students
       .createQueryBuilder('s')
       .leftJoinAndSelect('s.currentClass', 'c')
       .where('s.status = :active', { active: StudentStatus.ACTIVE });
+    applyTenantScope(qb, 's', this.tenant, { branch: true });
+    return qb;
   }
 
   /** O'quvchining billing boshlanish oyi (ordinal: year×12+month). billing_start_date ?? created_at. */
@@ -279,7 +284,7 @@ export class DebtsService {
    * keyingisi oxirgi oyga. Shu tariqa avans Sentyabrda yig'ilgan bo'lib chiqadi.
    */
   private async paidByStudentMonth(axis: MonthKey[]): Promise<Map<string, number>> {
-    const rows = await this.payments
+    const paymentsQb = this.payments
       .createQueryBuilder('p')
       .select('p.student_id', 'studentId')
       .addSelect('p.year', 'year')
@@ -288,8 +293,9 @@ export class DebtsService {
       .where('p.student_id IS NOT NULL')
       .groupBy('p.student_id')
       .addGroupBy('p.year')
-      .addGroupBy('p.month')
-      .getRawMany<{ studentId: string; year: number; month: number; paid: string }>();
+      .addGroupBy('p.month');
+    applyTenantScope(paymentsQb, 'p', this.tenant, { branch: true });
+    const rows = await paymentsQb.getRawMany<{ studentId: string; year: number; month: number; paid: string }>();
 
     const map = new Map<string, number>();
     if (axis.length === 0) return map;

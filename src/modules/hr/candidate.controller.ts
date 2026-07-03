@@ -20,10 +20,10 @@ import { CandidateService } from './candidate.service';
 export class CandidateController {
   constructor(private readonly candidateService: CandidateService) {}
 
-  @Get() @Permissions([AppPermission.HR_READ]) find(@Query() query: CandidateQueryDto) { return this.candidateService.findCandidates(query); }
-  @Get(':id') @Permissions([AppPermission.HR_READ]) get(@Param() p: UuidParamDto) { return this.candidateService.getCandidate(p.id); }
-  @Post() @Permissions([AppPermission.HR_MANAGE]) create(@Body() dto: CreateCandidateDto) { return this.candidateService.createCandidate(dto); }
-  @Patch(':id/stage') @Permissions([AppPermission.HR_MANAGE]) updateStage(@Param() p: UuidParamDto, @Body() dto: UpdateCandidateStageDto) { return this.candidateService.updateStage(p.id, dto); }
-  @Patch(':id') @Permissions([AppPermission.HR_MANAGE]) update(@Param() p: UuidParamDto, @Body() dto: UpdateCandidateDto) { return this.candidateService.updateCandidate(p.id, dto); }
-  @Delete(':id') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_MANAGE]) remove(@Param() p: UuidParamDto) { return this.candidateService.removeCandidate(p.id); }
+  @Get() @Permissions([AppPermission.HR_CANDIDATES_READ]) find(@Query() query: CandidateQueryDto) { return this.candidateService.findCandidates(query); }
+  @Get(':id') @Permissions([AppPermission.HR_CANDIDATES_READ]) get(@Param() p: UuidParamDto) { return this.candidateService.getCandidate(p.id); }
+  @Post() @Permissions([AppPermission.HR_CANDIDATES_CREATE]) create(@Body() dto: CreateCandidateDto) { return this.candidateService.createCandidate(dto); }
+  @Patch(':id/stage') @Permissions([AppPermission.HR_CANDIDATES_UPDATE]) updateStage(@Param() p: UuidParamDto, @Body() dto: UpdateCandidateStageDto) { return this.candidateService.updateStage(p.id, dto); }
+  @Patch(':id') @Permissions([AppPermission.HR_CANDIDATES_UPDATE]) update(@Param() p: UuidParamDto, @Body() dto: UpdateCandidateDto) { return this.candidateService.updateCandidate(p.id, dto); }
+  @Delete(':id') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_CANDIDATES_DELETE]) remove(@Param() p: UuidParamDto) { return this.candidateService.removeCandidate(p.id); }
 }

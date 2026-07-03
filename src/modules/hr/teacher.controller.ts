@@ -15,11 +15,11 @@ import { TeacherService } from './teacher.service';
 export class TeacherController {
   constructor(private readonly teacherService: TeacherService) {}
 
-  @Get('stats') @Permissions([AppPermission.HR_READ]) stats() { return this.teacherService.stats(); }
-  @Get() @Permissions([AppPermission.HR_READ]) find(@Query() query: TeacherQueryDto) { return this.teacherService.findTeachers(query); }
-  @Get('by-staff/:staffMemberId') @Permissions([AppPermission.HR_READ]) getByStaff(@Param('staffMemberId', ParseUUIDPipe) staffMemberId: string) { return this.teacherService.getTeacherByStaff(staffMemberId); }
-  @Get(':id') @Permissions([AppPermission.HR_READ]) get(@Param() p: UuidParamDto) { return this.teacherService.getTeacher(p.id); }
-  @Post() @Permissions([AppPermission.HR_MANAGE]) create(@Body() dto: CreateTeacherDto) { return this.teacherService.createTeacher(dto); }
-  @Patch(':id') @Permissions([AppPermission.HR_MANAGE]) update(@Param() p: UuidParamDto, @Body() dto: UpdateTeacherDto) { return this.teacherService.updateTeacher(p.id, dto); }
-  @Delete(':id') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_MANAGE]) remove(@Param() p: UuidParamDto) { return this.teacherService.removeTeacher(p.id); }
+  @Get('stats') @Permissions([AppPermission.HR_TEACHERS_READ]) stats() { return this.teacherService.stats(); }
+  @Get() @Permissions([AppPermission.HR_TEACHERS_READ]) find(@Query() query: TeacherQueryDto) { return this.teacherService.findTeachers(query); }
+  @Get('by-staff/:staffMemberId') @Permissions([AppPermission.HR_TEACHERS_READ]) getByStaff(@Param('staffMemberId', ParseUUIDPipe) staffMemberId: string) { return this.teacherService.getTeacherByStaff(staffMemberId); }
+  @Get(':id') @Permissions([AppPermission.HR_TEACHERS_READ]) get(@Param() p: UuidParamDto) { return this.teacherService.getTeacher(p.id); }
+  @Post() @Permissions([AppPermission.HR_TEACHERS_CREATE]) create(@Body() dto: CreateTeacherDto) { return this.teacherService.createTeacher(dto); }
+  @Patch(':id') @Permissions([AppPermission.HR_TEACHERS_UPDATE]) update(@Param() p: UuidParamDto, @Body() dto: UpdateTeacherDto) { return this.teacherService.updateTeacher(p.id, dto); }
+  @Delete(':id') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_TEACHERS_DELETE]) remove(@Param() p: UuidParamDto) { return this.teacherService.removeTeacher(p.id); }
 }

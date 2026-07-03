@@ -56,6 +56,8 @@ import { LeadSource } from "./entities/lead-source.entity";
 import { LeadTag } from "./entities/lead-tag.entity";
 import { LeadStatus } from "./enums/lead-status.enum";
 import { LeadTaskFilter } from "./enums/lead-task-filter.enum";
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 /** Who performed the action — used for the CRM audit trail. */
 export interface CrmActor {
@@ -77,6 +79,7 @@ export class CrmService {
     @InjectRepository(LeadTag)
     private readonly tags: Repository<LeadTag>,
     private readonly studentsService: StudentsService,
+    private readonly tenant: TenantContextService,
     @Optional()
     private readonly auditService?: AuditService,
     @Optional()
@@ -497,7 +500,7 @@ export class CrmService {
   }
 
   private async findTagEntity(id: string): Promise<LeadTag> {
-    const tag = await this.tags.findOne({ where: { id } });
+    const tag = await this.tags.findOne({ where: tenantWhere<LeadTag>(this.tenant, { id }, { branch: true }) });
     if (!tag) {
       throw new NotFoundException("Lead tag not found");
     }
@@ -506,7 +509,7 @@ export class CrmService {
   }
 
   private async ensureTagNameFree(name: string, excludeId?: string): Promise<void> {
-    const existing = await this.tags.findOne({ where: { name } });
+    const existing = await this.tags.findOne({ where: tenantWhere<LeadTag>(this.tenant, { name }, { branch: true }) });
     if (existing && existing.id !== excludeId) {
       throw new ConflictException({
         message: {
@@ -1110,7 +1113,7 @@ export class CrmService {
   }
 
   private async findSourceEntity(id: string): Promise<LeadSource> {
-    const source = await this.sources.findOne({ where: { id } });
+    const source = await this.sources.findOne({ where: tenantWhere<LeadSource>(this.tenant, { id }, { branch: true }) });
     if (!source) {
       throw new NotFoundException("Lead source not found");
     }
@@ -1119,7 +1122,7 @@ export class CrmService {
   }
 
   private async ensureSourceCodeFree(code: string, excludeId?: string): Promise<void> {
-    const existing = await this.sources.findOne({ where: { code } });
+    const existing = await this.sources.findOne({ where: tenantWhere<LeadSource>(this.tenant, { code }, { branch: true }) });
     if (existing && existing.id !== excludeId) {
       throw new ConflictException({
         message: {

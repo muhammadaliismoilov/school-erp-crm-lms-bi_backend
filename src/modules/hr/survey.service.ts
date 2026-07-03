@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { CreateSurveyDto, SurveyQueryDto, UpdateSurveyDto } from './dto/survey.dto';
 import { Survey } from './entities/survey.entity';
 import { SurveyStatus, SurveyType } from './enums/hr.enums';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 export interface PageMeta {
   page: number;
@@ -32,13 +34,14 @@ export interface SurveyListResult {
 
 @Injectable()
 export class SurveyService {
-  constructor(@InjectRepository(Survey) private readonly surveys: Repository<Survey>) {}
+  constructor(@InjectRepository(Survey) private readonly surveys: Repository<Survey>, private readonly tenant: TenantContextService) {}
 
   async findSurveys(query: SurveyQueryDto): Promise<SurveyListResult> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
     const qb = this.surveys.createQueryBuilder('s').where('s.deleted_at IS NULL');
+    applyTenantScope(qb, 's', this.tenant, { branch: true });
     if (query.status) qb.andWhere('s.status = :status', { status: query.status });
     const search = this.nullableText(query.search);
     if (search) qb.andWhere('s.title ILIKE :q', { q: `%${search}%` });
@@ -110,7 +113,7 @@ export class SurveyService {
   // ─── Helperlar ──────────────────────────────────────────────────────────
 
   private async findEntity(id: string): Promise<Survey> {
-    const entity = await this.surveys.findOne({ where: { id } });
+    const entity = await this.surveys.findOne({ where: tenantWhere<Survey>(this.tenant, { id }, { branch: true }) });
     if (!entity) throw new NotFoundException('So‘rovnoma topilmadi');
     return entity;
   }

@@ -21,6 +21,8 @@ import {
   OpenAiModel,
 } from './entities/integration.entity';
 import { IntegrationListResponseSchema, IntegrationResponseSchema } from './swagger/integration-response.schema';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 type IntegrationConfig = Record<string, unknown>;
 
@@ -69,6 +71,7 @@ export class IntegrationsService implements OnApplicationBootstrap {
     private readonly encryption: EncryptionService,
     private readonly auditService: AuditService,
     private readonly configService: ConfigService,
+    private readonly tenant: TenantContextService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -81,7 +84,7 @@ export class IntegrationsService implements OnApplicationBootstrap {
   /** Idempotently ensures the supported providers exist as (disabled) catalog rows. */
   private async seedCatalog(): Promise<void> {
     for (const entry of CATALOG) {
-      const existing = await this.integrationRepository.findOne({ where: { code: entry.code } });
+      const existing = await this.integrationRepository.findOne({ where: tenantWhere<Integration>(this.tenant, { code: entry.code }, { branch: true }) });
       if (existing) {
         continue;
       }
@@ -293,7 +296,7 @@ export class IntegrationsService implements OnApplicationBootstrap {
   }
 
   private async findIntegrationEntity(id: string): Promise<Integration> {
-    const integration = await this.integrationRepository.findOne({ where: { id } });
+    const integration = await this.integrationRepository.findOne({ where: tenantWhere<Integration>(this.tenant, { id }, { branch: true }) });
 
     if (!integration) {
       throw new NotFoundException('Integration not found');

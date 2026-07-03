@@ -97,7 +97,7 @@ export class AcademicController {
   constructor(private readonly academicService: AcademicService) {}
 
   @Get("years")
-  @Permissions([AppPermission.ACADEMIC_READ])
+  @Permissions([AppPermission.ACADEMIC_YEARS_READ])
   @ApiOperation({ summary: "O‘quv yillar ro‘yxatini olish" })
   @ApiOkResponse({ description: "O‘quv yillar qaytarildi." })
   findYears() {
@@ -105,7 +105,7 @@ export class AcademicController {
   }
 
   @Post("years")
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_YEARS_CREATE])
   @ApiOperation({ summary: "O‘quv yili yaratish" })
   @ApiCreatedResponse({ description: "O‘quv yili yaratildi." })
   createYear(@Body() dto: CreateAcademicYearDto, @CurrentUser() user: AuthenticatedUser, @Req() request: Request) {
@@ -113,7 +113,7 @@ export class AcademicController {
   }
 
   @Get("years/:id")
-  @Permissions([AppPermission.ACADEMIC_READ])
+  @Permissions([AppPermission.ACADEMIC_YEARS_READ])
   @ApiOperation({ summary: "O‘quv yilini ID bo‘yicha olish" })
   @ApiParam(uuidParamDocs)
   @ApiOkResponse({ description: "O‘quv yili qaytarildi." })
@@ -122,7 +122,7 @@ export class AcademicController {
   }
 
   @Patch("years/:id")
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_YEARS_UPDATE])
   @ApiOperation({ summary: "O‘quv yilini tahrirlash" })
   @ApiParam(uuidParamDocs)
   @ApiOkResponse({ description: "O‘quv yili tahrirlandi." })
@@ -137,7 +137,7 @@ export class AcademicController {
 
   @Post("years/:id/set-current")
   @HttpCode(HttpStatus.OK)
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_YEARS_UPDATE])
   @ApiOperation({ summary: "O‘quv yilini joriy qilish" })
   @ApiParam(uuidParamDocs)
   @ApiOkResponse({ description: "O‘quv yili joriy qilindi; qolganlari joriylikdan chiqarildi." })
@@ -151,7 +151,7 @@ export class AcademicController {
 
   @Delete("years/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_YEARS_DELETE])
   @ApiOperation({ summary: "O‘quv yilini arxivlash" })
   @ApiParam(uuidParamDocs)
   @ApiNoContentResponse({
@@ -166,7 +166,7 @@ export class AcademicController {
   }
 
   @Get("quarters")
-  @Permissions([AppPermission.ACADEMIC_READ])
+  @Permissions([AppPermission.ACADEMIC_QUARTERS_READ])
   @ApiOperation({ summary: "Choraklar ro‘yxatini olish" })
   @ApiOkResponse({ description: "Choraklar qaytarildi." })
   findQuarters(@Query() query: QuarterQueryDto) {
@@ -174,7 +174,7 @@ export class AcademicController {
   }
 
   @Post("quarters")
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_QUARTERS_CREATE])
   @ApiOperation({ summary: "Chorak yaratish" })
   @ApiCreatedResponse({ description: "Chorak yaratildi." })
   createQuarter(@Body() dto: CreateQuarterDto, @CurrentUser() user: AuthenticatedUser, @Req() request: Request) {
@@ -182,7 +182,7 @@ export class AcademicController {
   }
 
   @Get("quarters/:id")
-  @Permissions([AppPermission.ACADEMIC_READ])
+  @Permissions([AppPermission.ACADEMIC_QUARTERS_READ])
   @ApiOperation({ summary: "Chorakni ID bo‘yicha olish" })
   @ApiParam(uuidParamDocs)
   @ApiOkResponse({ description: "Chorak qaytarildi." })
@@ -191,7 +191,7 @@ export class AcademicController {
   }
 
   @Patch("quarters/:id")
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_QUARTERS_UPDATE])
   @ApiOperation({ summary: "Chorakni tahrirlash" })
   @ApiParam(uuidParamDocs)
   @ApiOkResponse({ description: "Chorak tahrirlandi." })
@@ -206,7 +206,7 @@ export class AcademicController {
 
   @Delete("quarters/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_QUARTERS_DELETE])
   @ApiOperation({ summary: "Chorakni arxivlash" })
   @ApiParam(uuidParamDocs)
   @ApiNoContentResponse({ description: "Chorak arxivlandi. Body qaytmaydi." })
@@ -215,7 +215,7 @@ export class AcademicController {
   }
 
   @Get("lesson-periods")
-  @Permissions([AppPermission.ACADEMIC_READ])
+  @Permissions([AppPermission.ACADEMIC_LESSON_PERIODS_READ])
   @ApiOperation({
     summary: "Dars vaqtlarini olish",
     description:
@@ -230,7 +230,7 @@ export class AcademicController {
   }
 
   @Post("lesson-periods")
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_LESSON_PERIODS_CREATE])
   @ApiOperation({
     summary: "Dars vaqti yaratish",
     description:
@@ -258,7 +258,7 @@ export class AcademicController {
   }
 
   @Get("lesson-periods/:id")
-  @Permissions([AppPermission.ACADEMIC_READ])
+  @Permissions([AppPermission.ACADEMIC_LESSON_PERIODS_READ])
   @ApiOperation({ summary: "Dars vaqtini ID bo‘yicha olish" })
   @ApiParam(uuidParamDocs)
   @ApiOkResponse({
@@ -270,7 +270,7 @@ export class AcademicController {
   }
 
   @Patch("lesson-periods/:id")
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_LESSON_PERIODS_UPDATE])
   @ApiOperation({ summary: "Dars vaqtini tahrirlash" })
   @ApiParam(uuidParamDocs)
   @ApiBody({ type: UpdateLessonPeriodDto })
@@ -289,7 +289,7 @@ export class AcademicController {
 
   @Delete("lesson-periods/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_LESSON_PERIODS_DELETE])
   @ApiOperation({ summary: "Dars vaqtini arxivlash" })
   @ApiParam(uuidParamDocs)
   @ApiNoContentResponse({
@@ -304,7 +304,7 @@ export class AcademicController {
   }
 
   @Get("subjects")
-  @Permissions([AppPermission.ACADEMIC_READ])
+  @Permissions([AppPermission.ACADEMIC_SUBJECTS_READ])
   @ApiOperation({
     summary: "Fanlar ro‘yxatini olish",
     description:
@@ -319,7 +319,7 @@ export class AcademicController {
   }
 
   @Post("subjects")
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_SUBJECTS_CREATE])
   @ApiOperation({
     summary: "Fan yaratish",
     description:
@@ -351,7 +351,7 @@ export class AcademicController {
   }
 
   @Get("subjects/:id")
-  @Permissions([AppPermission.ACADEMIC_READ])
+  @Permissions([AppPermission.ACADEMIC_SUBJECTS_READ])
   @ApiOperation({ summary: "Fanni ID bo‘yicha olish" })
   @ApiParam(uuidParamDocs)
   @ApiOkResponse({
@@ -363,7 +363,7 @@ export class AcademicController {
   }
 
   @Get("subjects/:id/overview")
-  @Permissions([AppPermission.ACADEMIC_READ])
+  @Permissions([AppPermission.ACADEMIC_SUBJECTS_READ])
   @ApiOperation({
     summary: "Fan detali (statistika, sinflar, o‘qituvchilar)",
     description:
@@ -379,7 +379,7 @@ export class AcademicController {
   }
 
   @Get("subjects/:id/schedule")
-  @Permissions([AppPermission.ACADEMIC_READ])
+  @Permissions([AppPermission.ACADEMIC_SUBJECTS_READ])
   @ApiOperation({
     summary: "Fan bo‘yicha dars jadvali",
     description:
@@ -395,7 +395,7 @@ export class AcademicController {
   }
 
   @Patch("subjects/:id")
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_SUBJECTS_UPDATE])
   @ApiOperation({
     summary: "Fanni tahrirlash",
     description:
@@ -431,7 +431,7 @@ export class AcademicController {
 
   @Delete("subjects/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_SUBJECTS_DELETE])
   @ApiOperation({ summary: "Fanni arxivlash" })
   @ApiParam(uuidParamDocs)
   @ApiNoContentResponse({ description: "Fan arxivlandi. Body qaytmaydi." })
@@ -444,7 +444,7 @@ export class AcademicController {
   }
 
   @Get("courses")
-  @Permissions([AppPermission.ACADEMIC_READ])
+  @Permissions([AppPermission.ACADEMIC_COURSES_READ])
   @ApiOperation({
     summary: "Kurslar ro‘yxatini olish",
     description:
@@ -459,7 +459,7 @@ export class AcademicController {
   }
 
   @Post("courses")
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_COURSES_CREATE])
   @ApiOperation({
     summary: "Kurs yaratish",
     description:
@@ -497,7 +497,7 @@ export class AcademicController {
   }
 
   @Get("courses/:id/available-students")
-  @Permissions([AppPermission.ACADEMIC_READ])
+  @Permissions([AppPermission.ACADEMIC_COURSES_READ])
   @ApiOperation({
     summary: "Kursga qo‘shish mumkin bo‘lgan o‘quvchilarni qidirish",
     description:
@@ -516,7 +516,7 @@ export class AcademicController {
   }
 
   @Post("courses/:id/students")
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_COURSES_UPDATE])
   @ApiOperation({ summary: "Kursga o‘quvchilar qo‘shish" })
   @ApiParam(uuidParamDocs)
   @ApiBody({
@@ -542,7 +542,7 @@ export class AcademicController {
   }
 
   @Delete("courses/:id/students/:studentId")
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_COURSES_UPDATE])
   @ApiOperation({ summary: "Kursdan bitta o‘quvchini olib tashlash" })
   @ApiParam(uuidParamDocs)
   @ApiParam({
@@ -567,7 +567,7 @@ export class AcademicController {
   }
 
   @Get("courses/:id")
-  @Permissions([AppPermission.ACADEMIC_READ])
+  @Permissions([AppPermission.ACADEMIC_COURSES_READ])
   @ApiOperation({
     summary: "Kurs haqida maʼlumot olish",
     description:
@@ -583,7 +583,7 @@ export class AcademicController {
   }
 
   @Patch("courses/:id")
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_COURSES_UPDATE])
   @ApiOperation({ summary: "Kursni tahrirlash" })
   @ApiParam(uuidParamDocs)
   @ApiBody({ type: UpdateCourseDto })
@@ -602,7 +602,7 @@ export class AcademicController {
 
   @Delete("courses/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_COURSES_DELETE])
   @ApiOperation({ summary: "Kursni arxivlash" })
   @ApiParam(uuidParamDocs)
   @ApiNoContentResponse({ description: "Kurs arxivlandi. Body qaytmaydi." })
@@ -615,7 +615,7 @@ export class AcademicController {
   }
 
   @Get("classes")
-  @Permissions([AppPermission.ACADEMIC_READ])
+  @Permissions([AppPermission.ACADEMIC_CLASSES_READ])
   @ApiOperation({
     summary: "Sinflar ro‘yxatini olish",
     description:
@@ -630,7 +630,7 @@ export class AcademicController {
   }
 
   @Post("classes")
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_CLASSES_CREATE])
   @ApiOperation({
     summary: "Sinf yaratish",
     description:
@@ -666,7 +666,7 @@ export class AcademicController {
   }
 
   @Get("classes/:id")
-  @Permissions([AppPermission.ACADEMIC_READ])
+  @Permissions([AppPermission.ACADEMIC_CLASSES_READ])
   @ApiOperation({
     summary: "Sinfni ko‘rish",
     description:
@@ -682,7 +682,7 @@ export class AcademicController {
   }
 
   @Patch("classes/:id")
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_CLASSES_UPDATE])
   @ApiOperation({ summary: "Sinfni tahrirlash" })
   @ApiParam(uuidParamDocs)
   @ApiBody({ type: UpdateClassDto })
@@ -701,7 +701,7 @@ export class AcademicController {
 
   @Delete("classes/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_CLASSES_DELETE])
   @ApiOperation({ summary: "Sinfni arxivlash" })
   @ApiParam(uuidParamDocs)
   @ApiNoContentResponse({ description: "Sinf arxivlandi. Body qaytmaydi." })
@@ -714,7 +714,7 @@ export class AcademicController {
   }
 
   @Post("classes/:id/transfer-students")
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_CLASSES_UPDATE])
   @ApiOperation({
     summary: "O‘quvchilarni boshqa sinfga ko‘chirish",
     description:
@@ -755,7 +755,7 @@ export class AcademicController {
   }
 
   @Post("classes/:id/send-sms")
-  @Permissions([AppPermission.ACADEMIC_MANAGE])
+  @Permissions([AppPermission.ACADEMIC_CLASSES_UPDATE])
   @ApiOperation({
     summary: "Sinf o‘quvchilariga SMS yuborish",
     description:

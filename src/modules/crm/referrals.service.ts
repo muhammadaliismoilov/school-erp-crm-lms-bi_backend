@@ -26,6 +26,8 @@ import { Lead } from "./entities/lead.entity";
 import { LeadSource } from "./entities/lead-source.entity";
 import { Referral } from "./entities/referral.entity";
 import { LeadStatus } from "./enums/lead-status.enum";
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 @Injectable()
 export class ReferralsService {
@@ -39,6 +41,7 @@ export class ReferralsService {
     @InjectRepository(LeadSource)
     private readonly sources: Repository<LeadSource>,
     private readonly configService: ConfigService,
+    private readonly tenant: TenantContextService,
     @Optional()
     private readonly auditService?: AuditService,
   ) {}
@@ -229,7 +232,7 @@ export class ReferralsService {
   }
 
   private async findEntity(id: string): Promise<Referral> {
-    const referral = await this.referrals.findOne({ where: { id }, relations: { source: true } });
+    const referral = await this.referrals.findOne({ where: tenantWhere<Referral>(this.tenant, { id }, { branch: true }), relations: { source: true } });
     if (!referral) {
       throw new NotFoundException("Referral not found");
     }
@@ -237,7 +240,7 @@ export class ReferralsService {
   }
 
   private async resolveActive(code: string): Promise<Referral> {
-    const referral = await this.referrals.findOne({ where: { code }, relations: { source: true } });
+    const referral = await this.referrals.findOne({ where: tenantWhere<Referral>(this.tenant, { code }, { branch: true }), relations: { source: true } });
     if (!referral || !referral.isActive || (referral.expiresAt && referral.expiresAt.getTime() < Date.now())) {
       throw new NotFoundException("Referral link is invalid, disabled or expired");
     }
@@ -245,7 +248,7 @@ export class ReferralsService {
   }
 
   private async ensureSourceExists(sourceId: string): Promise<void> {
-    const exists = await this.sources.findOne({ where: { id: sourceId } });
+    const exists = await this.sources.findOne({ where: tenantWhere<LeadSource>(this.tenant, { id: sourceId }, { branch: true }) });
     if (!exists) {
       throw new BadRequestException({
         message: {
@@ -261,7 +264,7 @@ export class ReferralsService {
   private async generateUniqueCode(): Promise<string> {
     for (let i = 0; i < 10; i++) {
       const code = String(randomInt(1_000_000, 10_000_000));
-      const taken = await this.referrals.findOne({ where: { code }, withDeleted: true });
+      const taken = await this.referrals.findOne({ where: tenantWhere<Referral>(this.tenant, { code }, { branch: true }), withDeleted: true });
       if (!taken) return code;
     }
     return randomBytes(8).toString("hex");

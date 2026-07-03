@@ -10,6 +10,8 @@ import {
 import { StudentAchievement } from "./entities/student-achievement.entity";
 import { AchievementRank } from "./enums/achievement.enum";
 import { StudentsService } from "./students.service";
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 export interface AchievementStats {
   total: number;
@@ -26,6 +28,7 @@ export class StudentAchievementService {
     @InjectRepository(StudentAchievement)
     private readonly achievements: Repository<StudentAchievement>,
     private readonly studentsService: StudentsService,
+    private readonly tenant: TenantContextService,
     private readonly auditService?: AuditService,
   ) {}
 
@@ -80,7 +83,7 @@ export class StudentAchievementService {
   }
 
   private async findOne(studentId: string, id: string): Promise<StudentAchievement> {
-    const achievement = await this.achievements.findOne({ where: { id, studentId } });
+    const achievement = await this.achievements.findOne({ where: tenantWhere<StudentAchievement>(this.tenant, { id, studentId }, { branch: true }) });
     if (!achievement) {
       throw new NotFoundException("Achievement not found");
     }

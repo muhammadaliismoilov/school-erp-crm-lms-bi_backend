@@ -10,6 +10,8 @@ import {
 import { StaffAchievement } from './entities/staff-achievement.entity';
 import { StaffCertificate } from './entities/staff-certificate.entity';
 import { StaffMember } from './entities/staff-member.entity';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 /**
  * Xodimning sertifikatlari va yutuqlari (portfolio) CRUD'i. Har bir amal avval
@@ -21,6 +23,7 @@ export class StaffPortfolioService {
     @InjectRepository(StaffMember) private readonly staff: Repository<StaffMember>,
     @InjectRepository(StaffCertificate) private readonly certificates: Repository<StaffCertificate>,
     @InjectRepository(StaffAchievement) private readonly achievements: Repository<StaffAchievement>,
+    private readonly tenant: TenantContextService,
   ) {}
 
   // ─── Sertifikatlar ─────────────────────────────────────────────────────────
@@ -112,7 +115,7 @@ export class StaffPortfolioService {
   // ─── Helperlar ─────────────────────────────────────────────────────────────
 
   private async ensureStaff(staffId: string): Promise<void> {
-    const exists = await this.staff.findOne({ where: { id: staffId } });
+    const exists = await this.staff.findOne({ where: tenantWhere<StaffMember>(this.tenant, { id: staffId }, { branch: true }) });
     if (!exists) throw new NotFoundException('Xodim topilmadi');
   }
 

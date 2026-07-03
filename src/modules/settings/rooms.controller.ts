@@ -53,7 +53,7 @@ export class RoomsController {
   constructor(private readonly roomsService: RoomsService) {}
 
   @Get()
-  @Permissions([AppPermission.SETTINGS_READ])
+  @Permissions([AppPermission.SETTINGS_ROOMS_READ])
   @ApiOperation({
     summary: "Xonalar ro‘yxatini olish",
     description:
@@ -82,7 +82,7 @@ export class RoomsController {
   }
 
   @Post()
-  @Permissions([AppPermission.SETTINGS_MANAGE])
+  @Permissions([AppPermission.SETTINGS_ROOMS_CREATE])
   @ApiOperation({
     summary: "Xona yaratish",
     description:
@@ -110,7 +110,7 @@ export class RoomsController {
   }
 
   @Get(":id")
-  @Permissions([AppPermission.SETTINGS_READ])
+  @Permissions([AppPermission.SETTINGS_ROOMS_READ])
   @ApiOperation({
     summary: "Xonani ID bo‘yicha olish",
     description: "Bitta faol xona va qavat labelini qaytaradi.",
@@ -125,7 +125,7 @@ export class RoomsController {
   }
 
   @Patch(":id")
-  @Permissions([AppPermission.SETTINGS_MANAGE])
+  @Permissions([AppPermission.SETTINGS_ROOMS_UPDATE])
   @ApiOperation({
     summary: "Xonani tahrirlash",
     description:
@@ -155,7 +155,7 @@ export class RoomsController {
 
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.SETTINGS_MANAGE])
+  @Permissions([AppPermission.SETTINGS_ROOMS_DELETE])
   @ApiOperation({
     summary: "Xonani arxivlash",
     description:

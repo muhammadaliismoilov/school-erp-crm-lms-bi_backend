@@ -22,7 +22,7 @@ export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 
   @Get("school")
-  @Permissions([AppPermission.SETTINGS_READ])
+  @Permissions([AppPermission.SETTINGS_SCHOOL_READ])
   @ApiOperation({ summary: "Maktab profili va filiallarini olish" })
   @ApiOkResponse({ description: "Maktab sozlamalari qaytarildi." })
   getSchool() {
@@ -30,7 +30,7 @@ export class SettingsController {
   }
 
   @Put("school")
-  @Permissions([AppPermission.SETTINGS_MANAGE])
+  @Permissions([AppPermission.SETTINGS_SCHOOL_UPDATE])
   @ApiOperation({ summary: "Maktab profilini yaratish yoki tahrirlash" })
   @ApiOkResponse({ description: "Maktab sozlamalari saqlandi." })
   upsertSchool(@Body() dto: UpsertSchoolDto) {

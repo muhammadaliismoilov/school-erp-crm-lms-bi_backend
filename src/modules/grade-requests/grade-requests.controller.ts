@@ -49,7 +49,7 @@ export class GradeRequestsController {
   constructor(private readonly service: GradeRequestsService) {}
 
   @Get()
-  @Permissions([AppPermission.LMS_READ])
+  @Permissions([AppPermission.GRADE_REQUESTS_READ])
   @ApiOperation({
     summary: 'Baho o‘zgartirish so‘rovlari ro‘yxati',
     description:
@@ -65,7 +65,7 @@ export class GradeRequestsController {
   }
 
   @Post()
-  @Permissions([AppPermission.LMS_MANAGE])
+  @Permissions([AppPermission.GRADE_REQUESTS_CREATE])
   @ApiOperation({ summary: 'Baho o‘zgartirish so‘rovi yaratish' })
   @ApiResponse({ status: HttpStatus.CREATED, type: GradeRequestResponseSchema })
   async create(
@@ -81,7 +81,7 @@ export class GradeRequestsController {
   }
 
   @Get(':id')
-  @Permissions([AppPermission.LMS_READ])
+  @Permissions([AppPermission.GRADE_REQUESTS_READ])
   @ApiOperation({ summary: 'So‘rovni ID bo‘yicha olish' })
   @ApiParam(uuidParamDocs)
   @ApiResponse({ status: HttpStatus.OK, type: GradeRequestResponseSchema })
@@ -94,7 +94,7 @@ export class GradeRequestsController {
   }
 
   @Patch(':id')
-  @Permissions([AppPermission.LMS_MANAGE])
+  @Permissions([AppPermission.GRADE_REQUESTS_UPDATE])
   @ApiOperation({ summary: 'So‘rovni qisman tahrirlash (faqat kutilmoqda)' })
   @ApiParam(uuidParamDocs)
   @ApiResponse({ status: HttpStatus.OK, type: GradeRequestResponseSchema })
@@ -112,7 +112,7 @@ export class GradeRequestsController {
   }
 
   @Patch(':id/review')
-  @Permissions([AppPermission.LMS_MANAGE])
+  @Permissions([AppPermission.GRADE_REQUESTS_UPDATE])
   @ApiOperation({
     summary: 'So‘rovni tasdiqlash yoki rad etish',
     description: 'Tasdiqlanganda tegishli baho yozuvi yangilanadi. Rad etishda izoh majburiy.',
@@ -134,7 +134,7 @@ export class GradeRequestsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.LMS_MANAGE])
+  @Permissions([AppPermission.GRADE_REQUESTS_DELETE])
   @ApiOperation({ summary: 'So‘rovni arxivlash (soft-delete)' })
   @ApiParam(uuidParamDocs)
   @ApiResponse({ status: HttpStatus.NO_CONTENT })

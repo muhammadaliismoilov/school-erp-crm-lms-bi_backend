@@ -49,7 +49,7 @@ export class TransactionChangeRequestController {
   constructor(private readonly service: TransactionChangeRequestService) {}
 
   @Get()
-  @Permissions([AppPermission.FINANCE_READ])
+  @Permissions([AppPermission.TRANSACTION_CHANGE_REQUESTS_READ])
   @ApiOperation({
     summary: 'Tranzaksiya o‘zgartirish so‘rovlari ro‘yxati',
     description: 'Qidiruv, holat va sana oralig‘i filterlari bilan sahifalab (10/20/50/100) qaytaradi.',
@@ -63,7 +63,7 @@ export class TransactionChangeRequestController {
   }
 
   @Post()
-  @Permissions([AppPermission.FINANCE_READ])
+  @Permissions([AppPermission.TRANSACTION_CHANGE_REQUESTS_CREATE])
   @ApiOperation({ summary: 'Tranzaksiyani tahrirlash/o‘chirish so‘rovini yaratish' })
   async create(
     @Body() dto: CreateChangeRequestDto,
@@ -78,7 +78,7 @@ export class TransactionChangeRequestController {
   }
 
   @Get(':id')
-  @Permissions([AppPermission.FINANCE_READ])
+  @Permissions([AppPermission.TRANSACTION_CHANGE_REQUESTS_READ])
   @ApiParam(uuidParamDocs)
   @ApiOperation({ summary: 'So‘rovni ID bo‘yicha olish' })
   async findOne(@Param() params: UuidParamDto) {
@@ -90,7 +90,7 @@ export class TransactionChangeRequestController {
   }
 
   @Patch(':id/review')
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.TRANSACTION_CHANGE_REQUESTS_UPDATE])
   @ApiParam(uuidParamDocs)
   @ApiOperation({
     summary: 'So‘rovni ko‘rib chiqish (tasdiqlash / rad etish)',
@@ -111,7 +111,7 @@ export class TransactionChangeRequestController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.TRANSACTION_CHANGE_REQUESTS_DELETE])
   @ApiParam(uuidParamDocs)
   @ApiOperation({ summary: 'So‘rovni o‘chirish (soft-delete)' })
   async remove(

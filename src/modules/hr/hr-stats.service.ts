@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ObjectLiteral, Repository, SelectQueryBuilder } from 'typeorm';
 import { AttendanceRecord } from './entities/attendance-record.entity';
 import { Candidate } from './entities/candidate.entity';
 import { Interaction } from './entities/interaction.entity';
@@ -17,6 +17,8 @@ import {
   TaskStatus,
   VacancyStatus,
 } from './enums/hr.enums';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope } from '../../common/tenant/tenant-scope.util';
 
 export interface HrStatsOverview {
   staff: { total: number; active: number; onLeaveToday: number; newThisMonth: number };
@@ -50,7 +52,13 @@ export class HrStatsService {
     @InjectRepository(Candidate) private readonly candidates: Repository<Candidate>,
     @InjectRepository(Interaction) private readonly interactions: Repository<Interaction>,
     @InjectRepository(Task) private readonly tasks: Repository<Task>,
+    private readonly tenant: TenantContextService,
   ) {}
+
+  /** deleted_at + aktiv maktab/filial filtri bilan tayyor QueryBuilder. */
+  private scopedQb<T extends ObjectLiteral>(repo: Repository<T>, alias: string): SelectQueryBuilder<T> {
+    return applyTenantScope(repo.createQueryBuilder(alias).where(`${alias}.deleted_at IS NULL`), alias, this.tenant, { branch: true });
+  }
 
   async overview(): Promise<HrStatsOverview> {
     const { today, monthStart, dayStart, dayEnd } = this.dateBounds();
@@ -69,45 +77,31 @@ export class HrStatsService {
       tasksTotal,
       tasksDone,
     ] = await Promise.all([
-      this.staff.createQueryBuilder('s').where('s.deleted_at IS NULL').getCount(),
-      this.staff
-        .createQueryBuilder('s')
-        .where('s.deleted_at IS NULL')
+      this.scopedQb(this.staff, 's').getCount(),
+      this.scopedQb(this.staff, 's')
         .andWhere('s.status = :st', { st: EmploymentStatus.ACTIVE })
         .getCount(),
       this.distinctStaffOnLeave(today),
-      this.staff
-        .createQueryBuilder('s')
-        .where('s.deleted_at IS NULL')
+      this.scopedQb(this.staff, 's')
         .andWhere('s.hire_date >= :monthStart', { monthStart })
         .getCount(),
       this.distinctPresentToday(dayStart, dayEnd),
-      this.vacancies
-        .createQueryBuilder('v')
-        .where('v.deleted_at IS NULL')
+      this.scopedQb(this.vacancies, 'v')
         .andWhere('v.status = :st', { st: VacancyStatus.OPEN })
         .getCount(),
-      this.candidates
-        .createQueryBuilder('c')
-        .where('c.deleted_at IS NULL')
+      this.scopedQb(this.candidates, 'c')
         .andWhere('c.stage IN (:...stages)', { stages: ACTIVE_CANDIDATE_STAGES })
         .getCount(),
-      this.candidates
-        .createQueryBuilder('c')
-        .where('c.deleted_at IS NULL')
+      this.scopedQb(this.candidates, 'c')
         .andWhere('c.stage = :st', { st: CandidateStage.HIRED })
         .andWhere('c.updated_at >= :monthStart', { monthStart })
         .getCount(),
-      this.interactions.createQueryBuilder('i').where('i.deleted_at IS NULL').getCount(),
-      this.interactions
-        .createQueryBuilder('i')
-        .where('i.deleted_at IS NULL')
+      this.scopedQb(this.interactions, 'i').getCount(),
+      this.scopedQb(this.interactions, 'i')
         .andWhere('i.status = :st', { st: InteractionStatus.COMPLETED })
         .getCount(),
-      this.tasks.createQueryBuilder('t').where('t.deleted_at IS NULL').getCount(),
-      this.tasks
-        .createQueryBuilder('t')
-        .where('t.deleted_at IS NULL')
+      this.scopedQb(this.tasks, 't').getCount(),
+      this.scopedQb(this.tasks, 't')
         .andWhere('t.status = :st', { st: TaskStatus.DONE })
         .getCount(),
     ]);
@@ -127,10 +121,8 @@ export class HrStatsService {
 
   /** Bugun tasdiqlangan ta'tilda bo'lgan noyob xodimlar soni. */
   private async distinctStaffOnLeave(today: string): Promise<number> {
-    const row = await this.leaves
-      .createQueryBuilder('l')
+    const row = await this.scopedQb(this.leaves, 'l')
       .select('COUNT(DISTINCT l.staff_member_id)', 'c')
-      .where('l.deleted_at IS NULL')
       .andWhere('l.status = :st', { st: LeaveStatus.APPROVED })
       .andWhere('l.start_date <= :today', { today })
       .andWhere('l.end_date >= :today', { today })
@@ -140,10 +132,8 @@ export class HrStatsService {
 
   /** Bugun kamida bir marta «kirish» qilgan noyob xodimlar soni. */
   private async distinctPresentToday(dayStart: Date, dayEnd: Date): Promise<number> {
-    const row = await this.attendance
-      .createQueryBuilder('ar')
+    const row = await this.scopedQb(this.attendance, 'ar')
       .select('COUNT(DISTINCT ar.staff_member_id)', 'c')
-      .where('ar.deleted_at IS NULL')
       .andWhere('ar.action = :act', { act: AttendanceAction.CHECK_IN })
       .andWhere('ar.recorded_at >= :dayStart', { dayStart })
       .andWhere('ar.recorded_at < :dayEnd', { dayEnd })

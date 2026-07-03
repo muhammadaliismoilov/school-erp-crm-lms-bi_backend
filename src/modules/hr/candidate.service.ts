@@ -9,6 +9,8 @@ import {
 } from './dto/candidate.dto';
 import { Candidate } from './entities/candidate.entity';
 import { CandidateStage } from './enums/hr.enums';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope } from '../../common/tenant/tenant-scope.util';
 
 export interface PageMeta {
   page: number;
@@ -42,7 +44,7 @@ export interface CandidateListResult {
 
 @Injectable()
 export class CandidateService {
-  constructor(@InjectRepository(Candidate) private readonly candidates: Repository<Candidate>) {}
+  constructor(@InjectRepository(Candidate) private readonly candidates: Repository<Candidate>, private readonly tenant: TenantContextService) {}
 
   async findCandidates(query: CandidateQueryDto): Promise<CandidateListResult> {
     const page = query.page ?? 1;
@@ -53,6 +55,7 @@ export class CandidateService {
       .leftJoinAndSelect('c.vacancy', 'vacancy')
       .leftJoinAndSelect('c.recruiter', 'recruiter')
       .where('c.deleted_at IS NULL');
+    applyTenantScope(qb, 'c', this.tenant, { branch: true });
 
     if (query.stage) qb.andWhere('c.stage = :stage', { stage: query.stage });
     if (query.vacancyId) qb.andWhere('c.vacancy_id = :vid', { vid: query.vacancyId });

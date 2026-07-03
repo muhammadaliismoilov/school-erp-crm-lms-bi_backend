@@ -3,6 +3,7 @@ import type { Repository } from 'typeorm';
 import { SurveyService } from '../src/modules/hr/survey.service';
 import { Survey } from '../src/modules/hr/entities/survey.entity';
 import { SurveyStatus, SurveyType } from '../src/modules/hr/enums/hr.enums';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 function makeSurvey(overrides: Partial<Survey> = {}): Survey {
   return {
@@ -36,7 +37,7 @@ describe('SurveyService', () => {
       findOne: jest.fn(),
       softDelete: jest.fn(),
     };
-    service = new SurveyService(surveys as unknown as Repository<Survey>);
+    service = new SurveyService(surveys as unknown as Repository<Survey>, new TenantContextService());
   });
 
   describe('createSurvey', () => {

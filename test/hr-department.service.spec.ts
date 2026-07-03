@@ -3,6 +3,7 @@ import type { Repository } from 'typeorm';
 import { DepartmentService } from '../src/modules/hr/department.service';
 import { Department, DepartmentStatus } from '../src/modules/hr/entities/department.entity';
 import type { Branch } from '../src/modules/settings/entities/branch.entity';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 function makeDept(overrides: Partial<Department> = {}): Department {
   return {
@@ -43,6 +44,7 @@ describe('DepartmentService', () => {
       departments as unknown as Repository<Department>,
       branches as unknown as Repository<Branch>,
       schools as never,
+      new TenantContextService(),
     );
   });
 

@@ -15,10 +15,10 @@ import { ProjectService } from './project.service';
 export class ProjectController {
   constructor(private readonly projectService: ProjectService) {}
 
-  @Get('options') @Permissions([AppPermission.HR_READ]) options() { return this.projectService.options(); }
-  @Get() @Permissions([AppPermission.HR_READ]) find(@Query() query: ProjectQueryDto) { return this.projectService.findProjects(query); }
-  @Get(':id') @Permissions([AppPermission.HR_READ]) get(@Param() p: UuidParamDto) { return this.projectService.getProject(p.id); }
-  @Post() @Permissions([AppPermission.HR_MANAGE]) create(@Body() dto: CreateProjectFullDto) { return this.projectService.createProject(dto); }
-  @Patch(':id') @Permissions([AppPermission.HR_MANAGE]) update(@Param() p: UuidParamDto, @Body() dto: UpdateProjectFullDto) { return this.projectService.updateProject(p.id, dto); }
-  @Delete(':id') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_MANAGE]) remove(@Param() p: UuidParamDto) { return this.projectService.removeProject(p.id); }
+  @Get('options') @Permissions([AppPermission.HR_PROJECTS_READ]) options() { return this.projectService.options(); }
+  @Get() @Permissions([AppPermission.HR_PROJECTS_READ]) find(@Query() query: ProjectQueryDto) { return this.projectService.findProjects(query); }
+  @Get(':id') @Permissions([AppPermission.HR_PROJECTS_READ]) get(@Param() p: UuidParamDto) { return this.projectService.getProject(p.id); }
+  @Post() @Permissions([AppPermission.HR_PROJECTS_CREATE]) create(@Body() dto: CreateProjectFullDto) { return this.projectService.createProject(dto); }
+  @Patch(':id') @Permissions([AppPermission.HR_PROJECTS_UPDATE]) update(@Param() p: UuidParamDto, @Body() dto: UpdateProjectFullDto) { return this.projectService.updateProject(p.id, dto); }
+  @Delete(':id') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_PROJECTS_DELETE]) remove(@Param() p: UuidParamDto) { return this.projectService.removeProject(p.id); }
 }

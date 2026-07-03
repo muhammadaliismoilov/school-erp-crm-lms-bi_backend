@@ -16,38 +16,38 @@ export class AssetsController {
   constructor(private readonly service: AssetsService) {}
 
   @Get('items')
-  @Permissions([AppPermission.ASSETS_READ])
+  @Permissions([AppPermission.ASSETS_ITEMS_READ])
   findItems() { return this.service.findItems(); }
 
   @Post('items')
-  @Permissions([AppPermission.ASSETS_MANAGE])
+  @Permissions([AppPermission.ASSETS_ITEMS_CREATE])
   createItems(@Body() dto: CreateFixedAssetDto) { return this.service.createItems(dto); }
 
   @Patch('items/:id')
-  @Permissions([AppPermission.ASSETS_MANAGE])
+  @Permissions([AppPermission.ASSETS_ITEMS_UPDATE])
   updateItems(@Param() params: UuidParamDto, @Body() dto: UpdateFixedAssetDto) { return this.service.updateItems(params.id, dto); }
 
   @Get('maintenance')
-  @Permissions([AppPermission.ASSETS_READ])
+  @Permissions([AppPermission.ASSETS_MAINTENANCE_READ])
   findMaintenance() { return this.service.findMaintenance(); }
 
   @Post('maintenance')
-  @Permissions([AppPermission.ASSETS_MANAGE])
+  @Permissions([AppPermission.ASSETS_MAINTENANCE_CREATE])
   createMaintenance(@Body() dto: CreateAssetMaintenanceTicketDto) { return this.service.createMaintenance(dto); }
 
   @Patch('maintenance/:id')
-  @Permissions([AppPermission.ASSETS_MANAGE])
+  @Permissions([AppPermission.ASSETS_MAINTENANCE_UPDATE])
   updateMaintenance(@Param() params: UuidParamDto, @Body() dto: UpdateAssetMaintenanceTicketDto) { return this.service.updateMaintenance(params.id, dto); }
 
   @Get('depreciations')
-  @Permissions([AppPermission.ASSETS_READ])
+  @Permissions([AppPermission.ASSETS_DEPRECIATIONS_READ])
   findDepreciations() { return this.service.findDepreciations(); }
 
   @Post('depreciations')
-  @Permissions([AppPermission.ASSETS_MANAGE])
+  @Permissions([AppPermission.ASSETS_DEPRECIATIONS_CREATE])
   createDepreciations(@Body() dto: CreateAssetDepreciationDto) { return this.service.createDepreciations(dto); }
 
   @Patch('depreciations/:id')
-  @Permissions([AppPermission.ASSETS_MANAGE])
+  @Permissions([AppPermission.ASSETS_DEPRECIATIONS_UPDATE])
   updateDepreciations(@Param() params: UuidParamDto, @Body() dto: UpdateAssetDepreciationDto) { return this.service.updateDepreciations(params.id, dto); }
 }

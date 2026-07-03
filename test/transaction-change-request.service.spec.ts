@@ -8,6 +8,7 @@ import {
 } from '../src/modules/transactions/entities/transaction-change-request.entity';
 import type { FinanceTransaction } from '../src/modules/finance/entities/transaction.entity';
 import type { User } from '../src/modules/identity/entities/user.entity';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 function makeRequest(overrides: Partial<TransactionChangeRequest> = {}): TransactionChangeRequest {
   return {
@@ -74,6 +75,7 @@ describe('TransactionChangeRequestService', () => {
       transactions as unknown as Repository<FinanceTransaction>,
       users as unknown as Repository<User>,
       audit as never,
+      new TenantContextService(),
     );
   });
 

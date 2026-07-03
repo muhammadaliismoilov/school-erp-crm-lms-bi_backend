@@ -83,7 +83,7 @@ export class IntegrationsController {
   }
 
   @Post()
-  @Permissions([AppPermission.INTEGRATIONS_MANAGE])
+  @Permissions([AppPermission.INTEGRATIONS_CREATE])
   @ApiOperation({
     summary: "Integratsiya yaratish",
     description:
@@ -168,7 +168,7 @@ export class IntegrationsController {
   }
 
   @Patch(":id")
-  @Permissions([AppPermission.INTEGRATIONS_MANAGE])
+  @Permissions([AppPermission.INTEGRATIONS_UPDATE])
   @ApiOperation({
     summary: "Integratsiyani qisman tahrirlash",
     description:
@@ -217,7 +217,7 @@ export class IntegrationsController {
 
   @Post(":id/test")
   @HttpCode(HttpStatus.OK)
-  @Permissions([AppPermission.INTEGRATIONS_MANAGE])
+  @Permissions([AppPermission.INTEGRATIONS_UPDATE])
   @ApiOperation({
     summary: "Integratsiya ulanishini tekshirish",
     description:
@@ -249,7 +249,7 @@ export class IntegrationsController {
 
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.INTEGRATIONS_MANAGE])
+  @Permissions([AppPermission.INTEGRATIONS_DELETE])
   @ApiOperation({
     summary: "Integratsiyani arxivlash",
     description:

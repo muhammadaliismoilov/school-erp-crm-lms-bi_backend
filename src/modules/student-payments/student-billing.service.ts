@@ -18,6 +18,8 @@ import {
 } from './billing.util';
 import { StudentPayment } from './entities/student-payment.entity';
 import { AcademicWindow, PaymentPlanService } from './payment-plan.service';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 export interface StudentBalanceQuery {
   search?: string;
@@ -69,6 +71,7 @@ export class StudentBillingService {
     @InjectRepository(StudentPayment)
     private readonly payments: Repository<StudentPayment>,
     private readonly plans: PaymentPlanService,
+    private readonly tenant: TenantContextService,
   ) {}
 
   /**
@@ -264,7 +267,7 @@ export class StudentBillingService {
    * (qachon, qancha). To'lov kiritish formasi shu panelni ko'rsatadi.
    */
   async getAgreement(studentId: string): Promise<StudentAgreement | null> {
-    const student = await this.students.findOne({ where: { id: studentId }, relations: { currentClass: true } });
+    const student = await this.students.findOne({ where: tenantWhere<Student>(this.tenant, { id: studentId }, { branch: true }), relations: { currentClass: true } });
     if (!student) return null;
 
     const ctx = await this.plans.getContext();

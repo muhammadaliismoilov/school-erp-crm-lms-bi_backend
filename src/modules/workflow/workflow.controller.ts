@@ -11,7 +11,7 @@ import { WorkflowService } from './workflow.service';
 
 @ApiTags('Workflow') @ApiBearerAuth() @UseGuards(JwtAuthGuard, PermissionsGuard) @Controller({ path: 'workflow', version: '1' })
 export class WorkflowController { constructor(private readonly service: WorkflowService) {}
-  @Get('approvals') @Permissions([AppPermission.WORKFLOW_READ]) findApprovals(@Query('status') status?: ApprovalStatus) { return this.service.findApprovals(status); }
-  @Post('approvals') @Permissions([AppPermission.WORKFLOW_MANAGE]) createApproval(@Body() dto: CreateApprovalRequestDto) { return this.service.createApproval(dto); }
-  @Patch('approvals/:id/decision') @Permissions([AppPermission.WORKFLOW_MANAGE]) decide(@Param() p: UuidParamDto, @Body() dto: DecideApprovalRequestDto) { return this.service.decide(p.id, dto); }
+  @Get('approvals') @Permissions([AppPermission.WORKFLOW_APPROVALS_READ]) findApprovals(@Query('status') status?: ApprovalStatus) { return this.service.findApprovals(status); }
+  @Post('approvals') @Permissions([AppPermission.WORKFLOW_APPROVALS_CREATE]) createApproval(@Body() dto: CreateApprovalRequestDto) { return this.service.createApproval(dto); }
+  @Patch('approvals/:id/decision') @Permissions([AppPermission.WORKFLOW_APPROVALS_UPDATE]) decide(@Param() p: UuidParamDto, @Body() dto: DecideApprovalRequestDto) { return this.service.decide(p.id, dto); }
 }

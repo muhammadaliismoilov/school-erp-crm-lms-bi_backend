@@ -14,6 +14,7 @@ import {
   OpenAiModel,
 } from "../src/modules/integrations/entities/integration.entity";
 import { IntegrationsService } from "../src/modules/integrations/integrations.service";
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 /** Reversible stand-in for AES-GCM that keeps the real `v1.<iv>.<tag>.<ct>` shape. */
 const fakeEncryption = {
@@ -68,6 +69,7 @@ describe("IntegrationsService", () => {
       fakeEncryption as unknown as EncryptionService,
       audit as unknown as AuditService,
       { get: jest.fn() } as unknown as ConfigService,
+      new TenantContextService(),
     );
   });
 

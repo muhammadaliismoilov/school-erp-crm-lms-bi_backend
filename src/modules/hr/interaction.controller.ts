@@ -15,9 +15,9 @@ import { InteractionService } from './interaction.service';
 export class InteractionController {
   constructor(private readonly interactionService: InteractionService) {}
 
-  @Get() @Permissions([AppPermission.HR_READ]) find(@Query() query: InteractionQueryDto) { return this.interactionService.findInteractions(query); }
-  @Get(':id') @Permissions([AppPermission.HR_READ]) get(@Param() p: UuidParamDto) { return this.interactionService.getInteraction(p.id); }
-  @Post() @Permissions([AppPermission.HR_MANAGE]) create(@Body() dto: CreateInteractionDto) { return this.interactionService.createInteraction(dto); }
-  @Patch(':id') @Permissions([AppPermission.HR_MANAGE]) update(@Param() p: UuidParamDto, @Body() dto: UpdateInteractionDto) { return this.interactionService.updateInteraction(p.id, dto); }
-  @Delete(':id') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_MANAGE]) remove(@Param() p: UuidParamDto) { return this.interactionService.removeInteraction(p.id); }
+  @Get() @Permissions([AppPermission.HR_INTERACTIONS_READ]) find(@Query() query: InteractionQueryDto) { return this.interactionService.findInteractions(query); }
+  @Get(':id') @Permissions([AppPermission.HR_INTERACTIONS_READ]) get(@Param() p: UuidParamDto) { return this.interactionService.getInteraction(p.id); }
+  @Post() @Permissions([AppPermission.HR_INTERACTIONS_CREATE]) create(@Body() dto: CreateInteractionDto) { return this.interactionService.createInteraction(dto); }
+  @Patch(':id') @Permissions([AppPermission.HR_INTERACTIONS_UPDATE]) update(@Param() p: UuidParamDto, @Body() dto: UpdateInteractionDto) { return this.interactionService.updateInteraction(p.id, dto); }
+  @Delete(':id') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_INTERACTIONS_DELETE]) remove(@Param() p: UuidParamDto) { return this.interactionService.removeInteraction(p.id); }
 }

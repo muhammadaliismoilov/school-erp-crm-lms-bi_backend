@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, FindOptionsWhere, Repository } from 'typeorm';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
-import { applyTenantScope } from '../../common/tenant/tenant-scope.util';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { Role } from '../identity/entities/role.entity';
 import { User } from '../identity/entities/user.entity';
 import { CreateUserDto } from '../users/dto/create-user.dto';
@@ -77,6 +77,7 @@ export class StaffService {
       .leftJoinAndSelect('s.position', 'position')
       .leftJoinAndSelect('s.user', 'user')
       .where('s.deleted_at IS NULL');
+    applyTenantScope(qb, 's', this.tenant, { branch: true });
 
     // Ko'p-maktabli ajratish: aktiv maktab/filial bo'yicha avtomatik filtr.
     applyTenantScope(qb, 's', this.tenant, { branch: true });
@@ -295,7 +296,7 @@ export class StaffService {
   }
 
   private async syncUser(userId: string, dto: UpdateStaffMemberDto): Promise<void> {
-    const user = await this.users.findOne({ where: { id: userId }, relations: { roles: true } });
+    const user = await this.users.findOne({ where: tenantWhere<User>(this.tenant, { id: userId }, { branch: true }), relations: { roles: true } });
     if (!user) return;
 
     if (dto.firstName !== undefined) user.firstName = dto.firstName;
@@ -309,7 +310,7 @@ export class StaffService {
     if (dto.birthDate !== undefined) user.birthDate = dto.birthDate ?? null;
 
     if (dto.roleName) {
-      const role = await this.roles.findOne({ where: { name: dto.roleName.trim() } });
+      const role = await this.roles.findOne({ where: tenantWhere<Role>(this.tenant, { name: dto.roleName.trim() }, { branch: true }) });
       if (role) user.roles = [role];
     }
 
@@ -324,7 +325,7 @@ export class StaffService {
     // eslint-disable-next-line no-constant-condition
     while (true) {
       const code = `EMP-${String(n).padStart(4, '0')}`;
-      const exists = await this.staff.findOne({ where: { employeeCode: code }, withDeleted: true });
+      const exists = await this.staff.findOne({ where: tenantWhere<StaffMember>(this.tenant, { employeeCode: code }, { branch: true }), withDeleted: true });
       if (!exists) return code;
       n += 1;
     }

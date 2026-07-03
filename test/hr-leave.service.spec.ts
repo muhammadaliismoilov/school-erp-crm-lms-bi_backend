@@ -4,6 +4,7 @@ import { LeaveService } from '../src/modules/hr/leave.service';
 import { StaffLeave } from '../src/modules/hr/entities/staff-leave.entity';
 import type { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
 import { LeaveStatus, LeaveType } from '../src/modules/hr/enums/hr.enums';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 function makeLeave(overrides: Partial<StaffLeave> = {}): StaffLeave {
   return {
@@ -41,6 +42,7 @@ describe('LeaveService', () => {
     service = new LeaveService(
       leaves as unknown as Repository<StaffLeave>,
       staff as unknown as Repository<StaffMember>,
+      new TenantContextService(),
     );
   });
 

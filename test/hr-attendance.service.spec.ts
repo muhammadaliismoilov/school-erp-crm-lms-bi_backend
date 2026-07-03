@@ -5,6 +5,7 @@ import { AttendanceRecord } from '../src/modules/hr/entities/attendance-record.e
 import type { Geofence } from '../src/modules/hr/entities/geofence.entity';
 import type { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
 import { AttendanceAction, AttendanceReviewStatus } from '../src/modules/hr/enums/hr.enums';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 function makeRecord(overrides: Partial<AttendanceRecord> = {}): AttendanceRecord {
   return {
@@ -46,6 +47,7 @@ describe('AttendanceHrService', () => {
       records as unknown as Repository<AttendanceRecord>,
       geofences as unknown as Repository<Geofence>,
       staff as unknown as Repository<StaffMember>,
+      new TenantContextService(),
     );
   });
 

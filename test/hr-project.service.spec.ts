@@ -3,6 +3,7 @@ import type { Repository } from 'typeorm';
 import { ProjectService } from '../src/modules/hr/project.service';
 import { Project } from '../src/modules/hr/entities/project.entity';
 import { ProjectStatus } from '../src/modules/hr/enums/hr.enums';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 function makeProject(overrides: Partial<Project> = {}): Project {
   return {
@@ -35,7 +36,7 @@ describe('ProjectService', () => {
       softDelete: jest.fn(),
       find: jest.fn(),
     };
-    service = new ProjectService(projects as unknown as Repository<Project>);
+    service = new ProjectService(projects as unknown as Repository<Project>, new TenantContextService());
   });
 
   describe('createProject', () => {

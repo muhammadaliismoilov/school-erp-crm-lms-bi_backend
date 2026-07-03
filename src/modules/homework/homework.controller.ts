@@ -11,10 +11,10 @@ import { HomeworkService } from './homework.service';
 @ApiTags('Homework') @ApiBearerAuth() @UseGuards(JwtAuthGuard, PermissionsGuard) @Controller({ path: 'homework', version: '1' })
 export class HomeworkController {
   constructor(private readonly service: HomeworkService) {}
-  @Get('assignments') @Permissions([AppPermission.LMS_READ]) findAssignments() { return this.service.findAssignments(); }
-  @Post('assignments') @Permissions([AppPermission.LMS_MANAGE]) createAssignment(@Body() dto: CreateHomeworkAssignmentDto) { return this.service.createAssignment(dto); }
-  @Patch('assignments/:id') @Permissions([AppPermission.LMS_MANAGE]) updateAssignment(@Param() p: UuidParamDto, @Body() dto: UpdateHomeworkAssignmentDto) { return this.service.updateAssignment(p.id, dto); }
-  @Get('submissions') @Permissions([AppPermission.LMS_READ]) findSubmissions(@Query('assignmentId') assignmentId?: string) { return this.service.findSubmissions(assignmentId); }
-  @Post('submissions') @Permissions([AppPermission.LMS_MANAGE]) submit(@Body() dto: SubmitHomeworkDto) { return this.service.submit(dto); }
-  @Patch('submissions/:id/check') @Permissions([AppPermission.LMS_MANAGE]) check(@Param() p: UuidParamDto, @Body() dto: CheckHomeworkDto) { return this.service.check(p.id, dto); }
+  @Get('assignments') @Permissions([AppPermission.HOMEWORK_ASSIGNMENTS_READ]) findAssignments() { return this.service.findAssignments(); }
+  @Post('assignments') @Permissions([AppPermission.HOMEWORK_ASSIGNMENTS_CREATE]) createAssignment(@Body() dto: CreateHomeworkAssignmentDto) { return this.service.createAssignment(dto); }
+  @Patch('assignments/:id') @Permissions([AppPermission.HOMEWORK_ASSIGNMENTS_UPDATE]) updateAssignment(@Param() p: UuidParamDto, @Body() dto: UpdateHomeworkAssignmentDto) { return this.service.updateAssignment(p.id, dto); }
+  @Get('submissions') @Permissions([AppPermission.HOMEWORK_SUBMISSIONS_READ]) findSubmissions(@Query('assignmentId') assignmentId?: string) { return this.service.findSubmissions(assignmentId); }
+  @Post('submissions') @Permissions([AppPermission.HOMEWORK_SUBMISSIONS_CREATE]) submit(@Body() dto: SubmitHomeworkDto) { return this.service.submit(dto); }
+  @Patch('submissions/:id/check') @Permissions([AppPermission.HOMEWORK_SUBMISSIONS_UPDATE]) check(@Param() p: UuidParamDto, @Body() dto: CheckHomeworkDto) { return this.service.check(p.id, dto); }
 }

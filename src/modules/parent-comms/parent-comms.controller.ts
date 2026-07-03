@@ -48,7 +48,7 @@ export class ParentCommsController {
   constructor(private readonly service: ParentCommsService) {}
 
   @Get()
-  @Permissions([AppPermission.STUDENTS_READ])
+  @Permissions([AppPermission.PARENT_COMMUNICATIONS_READ])
   @ApiOperation({
     summary: 'Ota-ona muloqotlari ro‘yxati',
     description: 'Sentiment, sinf, yil va oy filterlari bilan sahifalab qaytaradi. Stat kartalar uchun statistika ham bor.',
@@ -63,7 +63,7 @@ export class ParentCommsController {
   }
 
   @Post()
-  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @Permissions([AppPermission.PARENT_COMMUNICATIONS_CREATE])
   @ApiOperation({ summary: 'Muloqot qo‘shish' })
   @ApiResponse({ status: HttpStatus.CREATED, type: ParentCommResponseSchema })
   async create(
@@ -79,7 +79,7 @@ export class ParentCommsController {
   }
 
   @Get(':id')
-  @Permissions([AppPermission.STUDENTS_READ])
+  @Permissions([AppPermission.PARENT_COMMUNICATIONS_READ])
   @ApiOperation({ summary: 'Muloqotni ID bo‘yicha olish' })
   @ApiParam(uuidParamDocs)
   @ApiResponse({ status: HttpStatus.OK, type: ParentCommResponseSchema })
@@ -92,7 +92,7 @@ export class ParentCommsController {
   }
 
   @Patch(':id')
-  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @Permissions([AppPermission.PARENT_COMMUNICATIONS_UPDATE])
   @ApiOperation({ summary: 'Muloqotni tahrirlash' })
   @ApiParam(uuidParamDocs)
   @ApiResponse({ status: HttpStatus.OK, type: ParentCommResponseSchema })
@@ -111,7 +111,7 @@ export class ParentCommsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @Permissions([AppPermission.PARENT_COMMUNICATIONS_DELETE])
   @ApiOperation({ summary: 'Muloqotni arxivlash (soft-delete)' })
   @ApiParam(uuidParamDocs)
   @ApiResponse({ status: HttpStatus.NO_CONTENT })

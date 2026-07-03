@@ -10,9 +10,9 @@ import { FeedbackStatus } from './enums/feedback.enums';
 import { FeedbackService } from './feedback.service';
 @ApiTags('Feedback') @ApiBearerAuth() @UseGuards(JwtAuthGuard, PermissionsGuard) @Controller({ path: 'feedback', version: '1' })
 export class FeedbackController { constructor(private readonly service: FeedbackService) {}
-  @Get('tickets') @Permissions([AppPermission.FEEDBACK_READ]) findTickets(@Query('status') status?: FeedbackStatus) { return this.service.findTickets(status); }
-  @Post('tickets') @Permissions([AppPermission.FEEDBACK_MANAGE]) createTicket(@Body() dto: CreateFeedbackTicketDto) { return this.service.createTicket(dto); }
-  @Patch('tickets/:id') @Permissions([AppPermission.FEEDBACK_MANAGE]) updateTicket(@Param() p: UuidParamDto, @Body() dto: UpdateFeedbackTicketDto) { return this.service.updateTicket(p.id, dto); }
-  @Get('tickets/:id/comments') @Permissions([AppPermission.FEEDBACK_READ]) findComments(@Param('id') id: string) { return this.service.findComments(id); }
-  @Post('comments') @Permissions([AppPermission.FEEDBACK_MANAGE]) createComment(@Body() dto: CreateFeedbackCommentDto) { return this.service.createComment(dto); }
+  @Get('tickets') @Permissions([AppPermission.FEEDBACK_TICKETS_READ]) findTickets(@Query('status') status?: FeedbackStatus) { return this.service.findTickets(status); }
+  @Post('tickets') @Permissions([AppPermission.FEEDBACK_TICKETS_CREATE]) createTicket(@Body() dto: CreateFeedbackTicketDto) { return this.service.createTicket(dto); }
+  @Patch('tickets/:id') @Permissions([AppPermission.FEEDBACK_TICKETS_UPDATE]) updateTicket(@Param() p: UuidParamDto, @Body() dto: UpdateFeedbackTicketDto) { return this.service.updateTicket(p.id, dto); }
+  @Get('tickets/:id/comments') @Permissions([AppPermission.FEEDBACK_COMMENTS_READ]) findComments(@Param('id') id: string) { return this.service.findComments(id); }
+  @Post('comments') @Permissions([AppPermission.FEEDBACK_COMMENTS_CREATE]) createComment(@Body() dto: CreateFeedbackCommentDto) { return this.service.createComment(dto); }
 }

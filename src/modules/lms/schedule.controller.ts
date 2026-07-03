@@ -44,56 +44,56 @@ export class ScheduleController {
   }
 
   @Get('lessons/classes')
-  @Permissions([AppPermission.LMS_READ])
+  @Permissions([AppPermission.LMS_LESSONS_READ])
   @ApiOperation({ summary: 'Chorak uchun sinflar (boshlang‘ich/yuqori) — selektor uchun' })
   getClasses(@Query() query: ScheduleClassesQueryDto) {
     return this.service.getClasses(query.quarterId);
   }
 
   @Get('lessons/teachers')
-  @Permissions([AppPermission.LMS_READ])
+  @Permissions([AppPermission.LMS_LESSONS_READ])
   @ApiOperation({ summary: 'Jadval selektorlari uchun o‘qituvchilar ro‘yxati' })
   getTeachers() {
     return this.service.getTeachers();
   }
 
   @Get('lessons/grid')
-  @Permissions([AppPermission.LMS_READ])
+  @Permissions([AppPermission.LMS_LESSONS_READ])
   @ApiOperation({ summary: 'Sinf bo‘yicha haftalik dars jadvali gridi' })
   getGrid(@Query() query: ScheduleGridQueryDto) {
     return this.service.getGrid(query.quarterId, query.classId);
   }
 
   @Get('lessons/grid/by-teacher')
-  @Permissions([AppPermission.LMS_READ])
+  @Permissions([AppPermission.LMS_LESSONS_READ])
   @ApiOperation({ summary: 'O‘qituvchi bo‘yicha haftalik dars jadvali gridi' })
   getTeacherGrid(@Query() query: ScheduleTeacherGridQueryDto) {
     return this.service.getTeacherGrid(query.quarterId, query.teacherId);
   }
 
   @Get('lessons/conflicts')
-  @Permissions([AppPermission.LMS_READ])
+  @Permissions([AppPermission.LMS_LESSONS_READ])
   @ApiOperation({ summary: 'Jadval ziddiyatlari (o‘qituvchi/xona/sinf bandligi)' })
   getConflicts(@Query() query: ScheduleConflictsQueryDto) {
     return this.service.getConflicts(query.quarterId);
   }
 
   @Get('lessons/history')
-  @Permissions([AppPermission.LMS_READ])
+  @Permissions([AppPermission.LMS_LESSONS_READ])
   @ApiOperation({ summary: 'Dars jadvali o‘zgarishlar tarixi' })
   getHistory(@Query() query: ScheduleHistoryQueryDto) {
     return this.service.getHistory(query.quarterId, query.classId);
   }
 
   @Post('lessons/generate/preview')
-  @Permissions([AppPermission.LMS_READ])
+  @Permissions([AppPermission.LMS_LESSONS_READ])
   @ApiOperation({ summary: 'Avtogeneratsiya oldidan validatsiya va xulosa' })
   preview(@Body() dto: GenerateScheduleDto) {
     return this.service.preview(dto);
   }
 
   @Post('lessons/generate')
-  @Permissions([AppPermission.LMS_MANAGE])
+  @Permissions([AppPermission.LMS_LESSONS_CREATE])
   @ApiOperation({ summary: 'Dars jadvalini avtogeneratsiya qilish' })
   generate(
     @Body() dto: GenerateScheduleDto,
@@ -104,7 +104,7 @@ export class ScheduleController {
   }
 
   @Post('lessons/substitute')
-  @Permissions([AppPermission.LMS_MANAGE])
+  @Permissions([AppPermission.LMS_LESSONS_UPDATE])
   @ApiOperation({ summary: 'Kelgusi darslarda o‘qituvchini almashtirish' })
   substitute(
     @Body() dto: SubstituteTeacherDto,
@@ -115,7 +115,7 @@ export class ScheduleController {
   }
 
   @Post('lessons')
-  @Permissions([AppPermission.LMS_MANAGE])
+  @Permissions([AppPermission.LMS_LESSONS_CREATE])
   @ApiOperation({ summary: 'Jadval katagiga dars qo‘shish (chorak bo‘ylab sanali darslar)' })
   createCell(
     @Body() dto: CreateScheduleCellDto,
@@ -126,7 +126,7 @@ export class ScheduleController {
   }
 
   @Patch('lessons/:id')
-  @Permissions([AppPermission.LMS_MANAGE])
+  @Permissions([AppPermission.LMS_LESSONS_UPDATE])
   @ApiOperation({ summary: 'Jadval katagini yangilash (bugun va kelgusi darslar)' })
   @ApiOkResponse({ description: 'Yangilangan darslar soni' })
   updateCell(
@@ -139,7 +139,7 @@ export class ScheduleController {
   }
 
   @Delete('lessons/:id')
-  @Permissions([AppPermission.LMS_MANAGE])
+  @Permissions([AppPermission.LMS_LESSONS_DELETE])
   @ApiOperation({ summary: 'Jadval katagini o‘chirish (bugun va kelgusi darslar)' })
   deleteCell(
     @Param('id', ParseUUIDPipe) id: string,

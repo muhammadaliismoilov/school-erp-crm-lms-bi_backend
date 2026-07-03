@@ -59,7 +59,7 @@ export class CrmController {
   // ------------------------------------------------------------ Statistics
 
   @Get("stats")
-  @Permissions([AppPermission.CRM_READ])
+  @Permissions([AppPermission.CRM_LEADS_READ])
   @ApiOperation({ summary: "CRM lid statistikasi (umumiy, voronka, manba, menejer, segment)" })
   @ApiOkResponse({ type: LeadStatisticsDto, description: "Statistika seksiyalari qaytarildi." })
   getStats(@Query() query: StatsQueryDto): Promise<LeadStatisticsDto> {
@@ -69,7 +69,7 @@ export class CrmController {
   // ------------------------------------------------------------------ Leads
 
   @Get("leads")
-  @Permissions([AppPermission.CRM_READ])
+  @Permissions([AppPermission.CRM_LEADS_READ])
   @ApiOperation({ summary: "CRM lidlarini stat va kanban hisoblari bilan olish" })
   @ApiOkResponse({ description: "Lidlar { items, meta, stats } ko‘rinishida qaytarildi." })
   findLeads(@Query() query: LeadQueryDto) {
@@ -77,7 +77,7 @@ export class CrmController {
   }
 
   @Post("leads")
-  @Permissions([AppPermission.CRM_MANAGE])
+  @Permissions([AppPermission.CRM_LEADS_CREATE])
   @ApiOperation({ summary: "CRM lid yaratish" })
   @ApiCreatedResponse({ description: "Lid yaratildi." })
   createLead(
@@ -89,7 +89,7 @@ export class CrmController {
   }
 
   @Get("leads/:id")
-  @Permissions([AppPermission.CRM_READ])
+  @Permissions([AppPermission.CRM_LEADS_READ])
   @ApiOperation({ summary: "Lidni ID bo‘yicha olish" })
   @ApiOkResponse({ description: "Lid qaytarildi." })
   findLead(@Param() params: UuidParamDto) {
@@ -97,7 +97,7 @@ export class CrmController {
   }
 
   @Get("leads/:id/history")
-  @Permissions([AppPermission.CRM_READ])
+  @Permissions([AppPermission.CRM_LEADS_READ])
   @ApiOperation({ summary: "Lid tarixi (kim/qachon yaratgan/o‘zgartirgan)" })
   @ApiOkResponse({ description: "Lid audit timeline'i qaytarildi." })
   findLeadHistory(@Param() params: UuidParamDto) {
@@ -105,7 +105,7 @@ export class CrmController {
   }
 
   @Patch("leads/:id")
-  @Permissions([AppPermission.CRM_MANAGE])
+  @Permissions([AppPermission.CRM_LEADS_UPDATE])
   @ApiOperation({ summary: "CRM lidni tahrirlash" })
   @ApiOkResponse({ description: "Lid tahrirlandi." })
   updateLead(
@@ -118,7 +118,7 @@ export class CrmController {
   }
 
   @Patch("leads/:id/status")
-  @Permissions([AppPermission.CRM_MANAGE])
+  @Permissions([AppPermission.CRM_LEADS_UPDATE])
   @ApiOperation({ summary: "Lid holatini o‘zgartirish (kanban ko‘chirish)" })
   @ApiOkResponse({ description: "Lid holati yangilandi." })
   moveLead(
@@ -132,7 +132,7 @@ export class CrmController {
 
   @Delete("leads/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.CRM_MANAGE])
+  @Permissions([AppPermission.CRM_LEADS_DELETE])
   @ApiOperation({ summary: "Lidni arxivlash" })
   @ApiNoContentResponse({ description: "Lid arxivlandi. Body qaytmaydi." })
   deleteLead(
@@ -144,7 +144,7 @@ export class CrmController {
   }
 
   @Put("leads/:id/tags")
-  @Permissions([AppPermission.CRM_MANAGE])
+  @Permissions([AppPermission.CRM_LEADS_UPDATE])
   @ApiOperation({ summary: "Lid teglarini to‘liq almashtirish" })
   @ApiOkResponse({ description: "Lid teglari yangilandi." })
   setLeadTags(
@@ -157,7 +157,7 @@ export class CrmController {
   }
 
   @Post("leads/:id/enroll")
-  @Permissions([AppPermission.CRM_MANAGE])
+  @Permissions([AppPermission.CRM_LEADS_UPDATE])
   @ApiOperation({ summary: "Muvaffaqiyatli (shartnoma) lidni o‘quvchiga aylantirish" })
   @ApiCreatedResponse({ description: "O‘quvchi yaratildi va lidga bog‘landi." })
   enrollLead(
@@ -172,7 +172,7 @@ export class CrmController {
   // --------------------------------------------------------- Lead comments
 
   @Get("leads/:id/comments")
-  @Permissions([AppPermission.CRM_READ])
+  @Permissions([AppPermission.CRM_LEAD_COMMENTS_READ])
   @ApiOperation({ summary: "Lid izohlari (qadalganlar tepada, keyin eng yangisi)" })
   @ApiOkResponse({ description: "Lid izohlari ro‘yxati qaytarildi." })
   findLeadComments(@Param() params: UuidParamDto) {
@@ -180,7 +180,7 @@ export class CrmController {
   }
 
   @Post("leads/:id/comments")
-  @Permissions([AppPermission.CRM_MANAGE])
+  @Permissions([AppPermission.CRM_LEAD_COMMENTS_CREATE])
   @ApiOperation({ summary: "Lidga izoh (va ixtiyoriy eslatma) qo‘shish" })
   @ApiCreatedResponse({ description: "Izoh qo‘shildi." })
   addLeadComment(
@@ -193,7 +193,7 @@ export class CrmController {
   }
 
   @Patch("leads/:id/comments/:commentId")
-  @Permissions([AppPermission.CRM_MANAGE])
+  @Permissions([AppPermission.CRM_LEAD_COMMENTS_UPDATE])
   @ApiOperation({ summary: "Izohni tahrirlash yoki eslatmani bajarildi deb belgilash" })
   @ApiOkResponse({ description: "Izoh tahrirlandi." })
   updateLeadComment(
@@ -208,7 +208,7 @@ export class CrmController {
 
   @Delete("leads/:id/comments/:commentId")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.CRM_MANAGE])
+  @Permissions([AppPermission.CRM_LEAD_COMMENTS_DELETE])
   @ApiOperation({ summary: "Izohni o‘chirish (faqat muallifi)" })
   @ApiNoContentResponse({ description: "Izoh o‘chirildi. Body qaytmaydi." })
   deleteLeadComment(
@@ -223,7 +223,7 @@ export class CrmController {
   // ------------------------------------------------------------------- Tags
 
   @Get("tags")
-  @Permissions([AppPermission.CRM_READ])
+  @Permissions([AppPermission.CRM_TAGS_READ])
   @ApiOperation({ summary: "Lid teglarini olish (lidlar soni bilan)" })
   @ApiOkResponse({ description: "Teglar ro‘yxati qaytarildi." })
   findTags() {
@@ -231,7 +231,7 @@ export class CrmController {
   }
 
   @Post("tags")
-  @Permissions([AppPermission.CRM_MANAGE])
+  @Permissions([AppPermission.CRM_TAGS_CREATE])
   @ApiOperation({ summary: "Lid tegi yaratish" })
   @ApiCreatedResponse({ description: "Teg yaratildi." })
   createTag(
@@ -243,7 +243,7 @@ export class CrmController {
   }
 
   @Patch("tags/:id")
-  @Permissions([AppPermission.CRM_MANAGE])
+  @Permissions([AppPermission.CRM_TAGS_UPDATE])
   @ApiOperation({ summary: "Lid tegini tahrirlash" })
   @ApiOkResponse({ description: "Teg tahrirlandi." })
   updateTag(
@@ -257,7 +257,7 @@ export class CrmController {
 
   @Delete("tags/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.CRM_MANAGE])
+  @Permissions([AppPermission.CRM_TAGS_DELETE])
   @ApiOperation({ summary: "Lid tegini o‘chirish" })
   @ApiNoContentResponse({ description: "Teg o‘chirildi. Body qaytmaydi." })
   deleteTag(
@@ -271,7 +271,7 @@ export class CrmController {
   // ---------------------------------------------------------------- Sources
 
   @Get("sources")
-  @Permissions([AppPermission.CRM_READ])
+  @Permissions([AppPermission.CRM_SOURCES_READ])
   @ApiOperation({ summary: "Lid manbalarini olish" })
   @ApiOkResponse({ description: "Manbalar ro‘yxati qaytarildi." })
   findSources(@Query("search") search?: string) {
@@ -279,7 +279,7 @@ export class CrmController {
   }
 
   @Post("sources")
-  @Permissions([AppPermission.CRM_MANAGE])
+  @Permissions([AppPermission.CRM_SOURCES_CREATE])
   @ApiOperation({ summary: "Lid manbasi yaratish" })
   @ApiCreatedResponse({ description: "Manba yaratildi." })
   createSource(
@@ -291,7 +291,7 @@ export class CrmController {
   }
 
   @Patch("sources/:id")
-  @Permissions([AppPermission.CRM_MANAGE])
+  @Permissions([AppPermission.CRM_SOURCES_UPDATE])
   @ApiOperation({ summary: "Lid manbasini tahrirlash" })
   @ApiOkResponse({ description: "Manba tahrirlandi." })
   updateSource(
@@ -305,7 +305,7 @@ export class CrmController {
 
   @Delete("sources/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.CRM_MANAGE])
+  @Permissions([AppPermission.CRM_SOURCES_DELETE])
   @ApiOperation({ summary: "Lid manbasini o‘chirish" })
   @ApiNoContentResponse({ description: "Manba o‘chirildi. Body qaytmaydi." })
   deleteSource(

@@ -25,7 +25,7 @@ export class FinanceController {
   constructor(private readonly financeService: FinanceService) {}
 
   @Get("contracts")
-  @Permissions([AppPermission.FINANCE_READ])
+  @Permissions([AppPermission.FINANCE_CONTRACTS_READ])
   @ApiOperation({ summary: "Shartnomalar ro‘yxatini olish" })
   @ApiOkResponse({ description: "Shartnomalar qaytarildi." })
   findContracts() {
@@ -33,7 +33,7 @@ export class FinanceController {
   }
 
   @Post("contracts")
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.FINANCE_CONTRACTS_CREATE])
   @ApiOperation({ summary: "O‘quvchi shartnomasini yaratish" })
   @ApiCreatedResponse({ description: "Shartnoma yaratildi." })
   createContract(@Body() dto: CreateContractDto) {
@@ -41,7 +41,7 @@ export class FinanceController {
   }
 
   @Post("contracts/:id/payments")
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.FINANCE_PAYMENTS_CREATE])
   @ApiOperation({ summary: "Shartnoma bo‘yicha to‘lov kiritish" })
   @ApiCreatedResponse({ description: "To‘lov yozildi." })
   recordPayment(@Param() params: UuidParamDto, @Body() dto: RecordPaymentDto) {
@@ -49,7 +49,7 @@ export class FinanceController {
   }
 
   @Get("contracts/:id/debt")
-  @Permissions([AppPermission.FINANCE_READ])
+  @Permissions([AppPermission.FINANCE_CONTRACTS_READ])
   @ApiOperation({ summary: "Shartnoma qarzdorligini hisoblash" })
   @ApiOkResponse({ description: "Qarzdorlik xulosasi qaytarildi." })
   getDebt(@Param() params: UuidParamDto) {

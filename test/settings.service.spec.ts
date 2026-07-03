@@ -1,6 +1,7 @@
 import type { Repository } from 'typeorm';
 import type { School } from '../src/modules/settings/entities/school.entity';
 import { SettingsService } from '../src/modules/settings/settings.service';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 describe('SettingsService', () => {
   let schools: jest.Mocked<Pick<Repository<School>, 'findOne' | 'create' | 'save'>>;
@@ -14,7 +15,7 @@ describe('SettingsService', () => {
     };
     schools.create.mockReturnValue({} as School);
     schools.save.mockImplementation(async (value) => value as School);
-    service = new SettingsService(schools as unknown as Repository<School>);
+    service = new SettingsService(schools as unknown as Repository<School>, new TenantContextService());
   });
 
   it('fills missing ru/en school name locales from uz', async () => {

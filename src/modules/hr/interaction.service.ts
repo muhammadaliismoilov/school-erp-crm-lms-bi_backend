@@ -8,6 +8,8 @@ import {
 } from './dto/interaction.dto';
 import { Interaction } from './entities/interaction.entity';
 import { InteractionStatus, InteractionType } from './enums/hr.enums';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 export interface PageMeta {
   page: number;
@@ -42,7 +44,7 @@ export interface InteractionListResult {
 
 @Injectable()
 export class InteractionService {
-  constructor(@InjectRepository(Interaction) private readonly interactions: Repository<Interaction>) {}
+  constructor(@InjectRepository(Interaction) private readonly interactions: Repository<Interaction>, private readonly tenant: TenantContextService) {}
 
   async findInteractions(query: InteractionQueryDto): Promise<InteractionListResult> {
     const page = query.page ?? 1;
@@ -52,6 +54,7 @@ export class InteractionService {
       .createQueryBuilder('i')
       .leftJoinAndSelect('i.candidate', 'candidate')
       .where('i.deleted_at IS NULL');
+    applyTenantScope(qb, 'i', this.tenant, { branch: true });
 
     if (query.type) qb.andWhere('i.type = :type', { type: query.type });
     if (query.status) qb.andWhere('i.status = :status', { status: query.status });
@@ -124,7 +127,7 @@ export class InteractionService {
   // ─── Helperlar ──────────────────────────────────────────────────────────
 
   private async findEntity(id: string): Promise<Interaction> {
-    const entity = await this.interactions.findOne({ where: { id }, relations: { candidate: true } });
+    const entity = await this.interactions.findOne({ where: tenantWhere<Interaction>(this.tenant, { id }, { branch: true }), relations: { candidate: true } });
     if (!entity) throw new NotFoundException('Muloqot topilmadi');
     return entity;
   }

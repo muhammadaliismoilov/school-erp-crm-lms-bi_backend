@@ -12,6 +12,8 @@ import { JournalEntry } from '../lms/entities/journal-entry.entity';
 import { QuarterSubjectGrade } from '../lms/entities/quarter-subject-grade.entity';
 import { Student } from '../students/entities/student.entity';
 import { StudentStatus } from '../students/enums/student-status.enum';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope } from '../../common/tenant/tenant-scope.util';
 import { LeadersQueryDto } from './dto/leaders-query.dto';
 import { RatingQueryDto } from './dto/rating-query.dto';
 import {
@@ -69,6 +71,7 @@ export class StudentsRatingService {
     @InjectRepository(JournalEntry) private readonly journal: Repository<JournalEntry>,
     @InjectRepository(ExamResult) private readonly examResults: Repository<ExamResult>,
     @InjectRepository(AttendanceRecord) private readonly attendance: Repository<AttendanceRecord>,
+    private readonly tenant: TenantContextService,
   ) {}
 
   /** Reyting jadvali: filtr + pagination + stat kartalar. */
@@ -212,6 +215,7 @@ export class StudentsRatingService {
       .createQueryBuilder('student')
       .leftJoinAndSelect('student.currentClass', 'class')
       .where('student.status = :status', { status: StudentStatus.ACTIVE });
+    applyTenantScope(qb, 'student', this.tenant, { branch: true });
 
     if (year) {
       qb.andWhere('class.academic_year_id = :yearId', { yearId: year.id });

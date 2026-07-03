@@ -14,7 +14,7 @@ export class HrStatsController {
   constructor(private readonly hrStatsService: HrStatsService) {}
 
   @Get('overview')
-  @Permissions([AppPermission.HR_READ])
+  @Permissions([AppPermission.HR_STATISTICS_READ])
   overview() {
     return this.hrStatsService.overview();
   }

@@ -9,15 +9,15 @@ import { AddCoinTransactionDto, AwardBadgeDto, CreateBadgeDto, CreateCoinPresetD
 import { GamificationService } from './gamification.service';
 @ApiTags('Gamification') @ApiBearerAuth() @UseGuards(JwtAuthGuard, PermissionsGuard) @Controller({ path: 'gamification', version: '1' })
 export class GamificationController { constructor(private readonly service: GamificationService) {}
-  @Get('badges') @Permissions([AppPermission.GAMIFICATION_READ]) findBadges() { return this.service.findBadges(); }
-  @Post('badges') @Permissions([AppPermission.GAMIFICATION_MANAGE]) createBadge(@Body() dto: CreateBadgeDto) { return this.service.createBadge(dto); }
-  @Patch('badges/:id') @Permissions([AppPermission.GAMIFICATION_MANAGE]) updateBadge(@Param() p: UuidParamDto, @Body() dto: UpdateBadgeDto) { return this.service.updateBadge(p.id, dto); }
-  @Post('badges/award') @Permissions([AppPermission.GAMIFICATION_MANAGE]) awardBadge(@Body() dto: AwardBadgeDto) { return this.service.awardBadge(dto); }
-  @Get('wallets/:id') @Permissions([AppPermission.GAMIFICATION_READ]) getWallet(@Param('id') studentId: string) { return this.service.getWallet(studentId); }
-  @Post('coins') @Permissions([AppPermission.GAMIFICATION_MANAGE]) addTransaction(@Body() dto: AddCoinTransactionDto) { return this.service.addTransaction(dto); }
-  @Get('coins') @Permissions([AppPermission.GAMIFICATION_READ]) findTransactions(@Query('studentId') studentId?: string) { return this.service.findTransactions(studentId); }
-  @Get('coin-presets') @Permissions([AppPermission.GAMIFICATION_READ]) findCoinPresets() { return this.service.findCoinPresets(); }
-  @Post('coin-presets') @Permissions([AppPermission.GAMIFICATION_MANAGE]) createCoinPreset(@Body() dto: CreateCoinPresetDto) { return this.service.createCoinPreset(dto); }
-  @Patch('coin-presets/:id') @Permissions([AppPermission.GAMIFICATION_MANAGE]) updateCoinPreset(@Param() p: UuidParamDto, @Body() dto: UpdateCoinPresetDto) { return this.service.updateCoinPreset(p.id, dto); }
-  @Delete('coin-presets/:id') @Permissions([AppPermission.GAMIFICATION_MANAGE]) deleteCoinPreset(@Param() p: UuidParamDto) { return this.service.deleteCoinPreset(p.id); }
+  @Get('badges') @Permissions([AppPermission.GAMIFICATION_BADGES_READ]) findBadges() { return this.service.findBadges(); }
+  @Post('badges') @Permissions([AppPermission.GAMIFICATION_BADGES_CREATE]) createBadge(@Body() dto: CreateBadgeDto) { return this.service.createBadge(dto); }
+  @Patch('badges/:id') @Permissions([AppPermission.GAMIFICATION_BADGES_UPDATE]) updateBadge(@Param() p: UuidParamDto, @Body() dto: UpdateBadgeDto) { return this.service.updateBadge(p.id, dto); }
+  @Post('badges/award') @Permissions([AppPermission.GAMIFICATION_BADGES_UPDATE]) awardBadge(@Body() dto: AwardBadgeDto) { return this.service.awardBadge(dto); }
+  @Get('wallets/:id') @Permissions([AppPermission.GAMIFICATION_WALLETS_READ]) getWallet(@Param('id') studentId: string) { return this.service.getWallet(studentId); }
+  @Post('coins') @Permissions([AppPermission.GAMIFICATION_COINS_CREATE]) addTransaction(@Body() dto: AddCoinTransactionDto) { return this.service.addTransaction(dto); }
+  @Get('coins') @Permissions([AppPermission.GAMIFICATION_COINS_READ]) findTransactions(@Query('studentId') studentId?: string) { return this.service.findTransactions(studentId); }
+  @Get('coin-presets') @Permissions([AppPermission.GAMIFICATION_COIN_PRESETS_READ]) findCoinPresets() { return this.service.findCoinPresets(); }
+  @Post('coin-presets') @Permissions([AppPermission.GAMIFICATION_COIN_PRESETS_CREATE]) createCoinPreset(@Body() dto: CreateCoinPresetDto) { return this.service.createCoinPreset(dto); }
+  @Patch('coin-presets/:id') @Permissions([AppPermission.GAMIFICATION_COIN_PRESETS_UPDATE]) updateCoinPreset(@Param() p: UuidParamDto, @Body() dto: UpdateCoinPresetDto) { return this.service.updateCoinPreset(p.id, dto); }
+  @Delete('coin-presets/:id') @Permissions([AppPermission.GAMIFICATION_COIN_PRESETS_DELETE]) deleteCoinPreset(@Param() p: UuidParamDto) { return this.service.deleteCoinPreset(p.id); }
 }

@@ -9,6 +9,8 @@ import {
 } from './dto/work-schedule.dto';
 import { WorkSchedule } from './entities/work-schedule.entity';
 import { Weekday, WorkScheduleDay } from './entities/work-schedule-day.entity';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 export interface PageMeta {
   page: number;
@@ -55,6 +57,7 @@ export class WorkScheduleService {
   constructor(
     @InjectRepository(WorkSchedule) private readonly schedules: Repository<WorkSchedule>,
     @InjectRepository(WorkScheduleDay) private readonly days: Repository<WorkScheduleDay>,
+    private readonly tenant: TenantContextService,
   ) {}
 
   async findSchedules(query: WorkScheduleQueryDto): Promise<WorkScheduleListResult> {
@@ -62,6 +65,7 @@ export class WorkScheduleService {
     const limit = query.limit ?? 20;
 
     const qb = this.schedules.createQueryBuilder('s').where('s.deleted_at IS NULL');
+    applyTenantScope(qb, 's', this.tenant, { branch: true });
     const search = this.nullableText(query.search);
     if (search) qb.andWhere('s.name ILIKE :q', { q: `%${search}%` });
 
@@ -129,13 +133,13 @@ export class WorkScheduleService {
   }
 
   private async findEntity(id: string): Promise<WorkSchedule> {
-    const entity = await this.schedules.findOne({ where: { id } });
+    const entity = await this.schedules.findOne({ where: tenantWhere<WorkSchedule>(this.tenant, { id }, { branch: true }) });
     if (!entity) throw new NotFoundException('Jadval topilmadi');
     return entity;
   }
 
   private async loadResponse(id: string): Promise<WorkScheduleResponse> {
-    const entity = await this.schedules.findOne({ where: { id }, relations: { days: true } });
+    const entity = await this.schedules.findOne({ where: tenantWhere<WorkSchedule>(this.tenant, { id }, { branch: true }), relations: { days: true } });
     if (!entity) throw new NotFoundException('Jadval topilmadi');
     const days = [...(entity.days ?? [])]
       .sort((a, b) => WEEKDAY_ORDER[a.weekday] - WEEKDAY_ORDER[b.weekday])

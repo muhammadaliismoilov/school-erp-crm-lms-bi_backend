@@ -5,6 +5,7 @@ import { Task } from '../src/modules/hr/entities/task.entity';
 import type { Project } from '../src/modules/hr/entities/project.entity';
 import type { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
 import { TaskPriority, TaskStatus } from '../src/modules/hr/enums/hr.enums';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -45,6 +46,7 @@ describe('TaskService', () => {
       tasks as unknown as Repository<Task>,
       projects as unknown as Repository<Project>,
       staff as unknown as Repository<StaffMember>,
+      new TenantContextService(),
     );
   });
 

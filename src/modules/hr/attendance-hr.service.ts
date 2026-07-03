@@ -6,6 +6,8 @@ import { AttendanceRecord } from './entities/attendance-record.entity';
 import { Geofence } from './entities/geofence.entity';
 import { StaffMember } from './entities/staff-member.entity';
 import { AttendanceAction, AttendanceReviewStatus } from './enums/hr.enums';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 export interface PageMeta {
   page: number;
@@ -48,6 +50,7 @@ export class AttendanceHrService {
     @InjectRepository(AttendanceRecord) private readonly records: Repository<AttendanceRecord>,
     @InjectRepository(Geofence) private readonly geofences: Repository<Geofence>,
     @InjectRepository(StaffMember) private readonly staff: Repository<StaffMember>,
+    private readonly tenant: TenantContextService,
   ) {}
 
   async findRecords(query: AttendanceQueryDto): Promise<AttendanceListResult> {
@@ -59,6 +62,7 @@ export class AttendanceHrService {
       .leftJoinAndSelect('a.staffMember', 'staff')
       .leftJoinAndSelect('a.geofence', 'geofence')
       .where('a.deleted_at IS NULL');
+    applyTenantScope(qb, 'a', this.tenant, { branch: true });
 
     if (query.status) qb.andWhere('a.status = :status', { status: query.status });
     if (query.action) qb.andWhere('a.action = :action', { action: query.action });
@@ -159,19 +163,19 @@ export class AttendanceHrService {
   // ─── Helperlar ──────────────────────────────────────────────────────────
 
   private async findEntity(id: string): Promise<AttendanceRecord> {
-    const entity = await this.records.findOne({ where: { id }, relations: { staffMember: true, geofence: true } });
+    const entity = await this.records.findOne({ where: tenantWhere<AttendanceRecord>(this.tenant, { id }, { branch: true }), relations: { staffMember: true, geofence: true } });
     if (!entity) throw new NotFoundException('Davomat yozuvi topilmadi');
     return entity;
   }
 
   private async assertStaff(staffMemberId: string): Promise<void> {
-    const exists = await this.staff.findOne({ where: { id: staffMemberId } });
+    const exists = await this.staff.findOne({ where: tenantWhere<StaffMember>(this.tenant, { id: staffMemberId }, { branch: true }) });
     if (!exists) throw new NotFoundException('Xodim topilmadi');
   }
 
   private async assertGeofence(geofenceId?: string): Promise<void> {
     if (!geofenceId) return;
-    const exists = await this.geofences.findOne({ where: { id: geofenceId } });
+    const exists = await this.geofences.findOne({ where: tenantWhere<Geofence>(this.tenant, { id: geofenceId }, { branch: true }) });
     if (!exists) throw new NotFoundException('Geofence topilmadi');
   }
 

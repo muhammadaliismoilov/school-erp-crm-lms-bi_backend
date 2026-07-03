@@ -4,6 +4,7 @@ import type { AcademicYear } from '../src/modules/academic/entities/academic-yea
 import type { StudentConclusion } from '../src/modules/students/entities/student-conclusion.entity';
 import type { StudentSmartGoal } from '../src/modules/students/entities/student-smart-goal.entity';
 import type { StudentsService } from '../src/modules/students/students.service';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 describe('StudentReportService', () => {
   const studentId = 'c0ffee00-0000-4000-8000-000000000020';
@@ -26,6 +27,7 @@ describe('StudentReportService', () => {
       smartGoals as unknown as Repository<StudentSmartGoal>,
       academicYears as unknown as Repository<AcademicYear>,
       studentsService as unknown as StudentsService,
+      new TenantContextService(),
       undefined,
     );
   });

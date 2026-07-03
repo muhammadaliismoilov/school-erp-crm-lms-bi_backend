@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import type { Repository } from 'typeorm';
 import { RoomsService } from '../src/modules/settings/rooms.service';
 import type { Room } from '../src/modules/settings/entities/room.entity';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 function makeRoom(overrides: Partial<Room> = {}): Room {
   return {
@@ -34,7 +35,7 @@ describe('RoomsService CRUD', () => {
       softDelete: jest.fn(),
     };
 
-    service = new RoomsService(rooms as unknown as Repository<Room>);
+    service = new RoomsService(rooms as unknown as Repository<Room>, new TenantContextService());
   });
 
   it('creates a room with a normalized unique number and floor label', async () => {

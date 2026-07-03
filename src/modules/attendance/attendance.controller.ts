@@ -24,7 +24,7 @@ export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}
 
   @Get("students")
-  @Permissions([AppPermission.ATTENDANCE_READ])
+  @Permissions([AppPermission.ATTENDANCE_RECORDS_READ])
   @ApiOperation({ summary: "O‘quvchi davomat yozuvlarini sana bo‘yicha olish" })
   @ApiOkResponse({ description: "Davomat yozuvlari qaytarildi." })
   findByDate(@Query() query: AttendanceDateQueryDto) {
@@ -32,7 +32,7 @@ export class AttendanceController {
   }
 
   @Post("students")
-  @Permissions([AppPermission.ATTENDANCE_MANAGE])
+  @Permissions([AppPermission.ATTENDANCE_RECORDS_CREATE])
   @ApiOperation({
     summary: "O‘quvchi davomat yozuvini yaratish yoki tahrirlash",
   })

@@ -7,6 +7,7 @@ import { Vacancy } from '../src/modules/hr/entities/vacancy.entity';
 import { Candidate } from '../src/modules/hr/entities/candidate.entity';
 import { Interaction } from '../src/modules/hr/entities/interaction.entity';
 import { Task } from '../src/modules/hr/entities/task.entity';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 /**
  * `getCount` uchun ketma-ket qiymatlar qaytaruvchi query-builder mock. Har chaqiruv
@@ -50,6 +51,7 @@ describe('HrStatsService', () => {
       candidates as Repository<Candidate>,
       interactions as Repository<Interaction>,
       tasks as Repository<Task>,
+      new TenantContextService(),
     );
 
     const res = await service.overview();
@@ -71,6 +73,7 @@ describe('HrStatsService', () => {
       repoWithCounts([0, 0]) as Repository<Candidate>,
       repoWithCounts([0, 0]) as Repository<Interaction>,
       repoWithCounts([0, 0]) as Repository<Task>,
+      new TenantContextService(),
     );
 
     const res = await service.overview();

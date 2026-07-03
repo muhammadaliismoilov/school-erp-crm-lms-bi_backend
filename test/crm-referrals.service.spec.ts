@@ -8,6 +8,7 @@ import type { LeadSource } from "../src/modules/crm/entities/lead-source.entity"
 import type { AuditService } from "../src/modules/audit/audit.service";
 import { ReferralTemplate } from "../src/modules/crm/enums/referral-template.enum";
 import { LeadStatus } from "../src/modules/crm/enums/lead-status.enum";
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 const referralEntity = (over: Partial<Referral> = {}): Referral =>
   ({
@@ -53,6 +54,7 @@ describe("ReferralsService", () => {
       leads as unknown as Repository<Lead>,
       sources as unknown as Repository<LeadSource>,
       config as unknown as ConfigService,
+      new TenantContextService(),
       audit as unknown as AuditService,
     );
   });

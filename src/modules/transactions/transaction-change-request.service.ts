@@ -4,6 +4,8 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
 import { AuditService } from '../audit/audit.service';
@@ -94,10 +96,11 @@ export class TransactionChangeRequestService {
     @InjectRepository(User)
     private readonly users: Repository<User>,
     private readonly auditService: AuditService,
+    private readonly tenant: TenantContextService,
   ) {}
 
   async create(dto: CreateChangeRequestDto, actor?: ChangeRequestActor): Promise<ChangeRequestResponse> {
-    const tx = await this.transactions.findOne({ where: { id: dto.transactionId } });
+    const tx = await this.transactions.findOne({ where: tenantWhere<FinanceTransaction>(this.tenant, { id: dto.transactionId }, { branch: true }) });
     if (!tx) throw new NotFoundException('Tranzaksiya topilmadi');
 
     if (dto.requestType === TransactionChangeRequestType.UPDATE) {
@@ -211,7 +214,7 @@ export class TransactionChangeRequestService {
    */
   private async applyChange(entity: TransactionChangeRequest): Promise<boolean> {
     if (!entity.transactionId) return false;
-    const tx = await this.transactions.findOne({ where: { id: entity.transactionId } });
+    const tx = await this.transactions.findOne({ where: tenantWhere<FinanceTransaction>(this.tenant, { id: entity.transactionId }, { branch: true }) });
     if (!tx) return false;
 
     if (entity.requestType === TransactionChangeRequestType.DELETE) {
@@ -290,7 +293,7 @@ export class TransactionChangeRequestService {
   }
 
   private async findEntity(id: string): Promise<TransactionChangeRequest> {
-    const entity = await this.requests.findOne({ where: { id } });
+    const entity = await this.requests.findOne({ where: tenantWhere<TransactionChangeRequest>(this.tenant, { id }, { branch: true }) });
     if (!entity) throw new NotFoundException('O‘zgartirish so‘rovi topilmadi');
     return entity;
   }
@@ -310,7 +313,7 @@ export class TransactionChangeRequestService {
 
   private async resolveActorName(actor?: ChangeRequestActor): Promise<string | null> {
     if (!actor?.userId) return actor?.username ?? null;
-    const user = await this.users.findOne({ where: { id: actor.userId } });
+    const user = await this.users.findOne({ where: tenantWhere<User>(this.tenant, { id: actor.userId }, { branch: true }) });
     if (!user) return actor.username ?? null;
     return `${user.lastName ?? ''} ${user.firstName ?? ''}`.trim() || user.username || actor.username || null;
   }
@@ -319,7 +322,7 @@ export class TransactionChangeRequestService {
     personId: string | null,
   ): Promise<{ id: string; name: string; role: string | null } | null> {
     if (!personId) return null;
-    const user = await this.users.findOne({ where: { id: personId }, relations: { roles: true } });
+    const user = await this.users.findOne({ where: tenantWhere<User>(this.tenant, { id: personId }, { branch: true }), relations: { roles: true } });
     if (!user) throw new NotFoundException('Shaxs (foydalanuvchi) topilmadi');
     const name = `${user.lastName ?? ''} ${user.firstName ?? ''}`.trim() || user.username || personId;
     return { id: user.id, name, role: user.roles?.[0]?.name ?? null };

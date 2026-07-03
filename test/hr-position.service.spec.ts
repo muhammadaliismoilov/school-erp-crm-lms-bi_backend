@@ -4,6 +4,7 @@ import { PositionService } from '../src/modules/hr/position.service';
 import { Position, PositionStatus } from '../src/modules/hr/entities/position.entity';
 import type { Department } from '../src/modules/hr/entities/department.entity';
 import type { Branch } from '../src/modules/settings/entities/branch.entity';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 function makePosition(overrides: Partial<Position> = {}): Position {
   return {
@@ -45,6 +46,7 @@ describe('PositionService', () => {
       departments as unknown as Repository<Department>,
       branches as unknown as Repository<Branch>,
       schools as never,
+      new TenantContextService(),
     );
   });
 

@@ -42,21 +42,21 @@ export class ExamController {
   }
 
   @Get('options')
-  @Permissions([AppPermission.LMS_READ])
+  @Permissions([AppPermission.LMS_EXAMS_READ])
   @ApiOperation({ summary: 'Imtihon tayinlash selektorlari (fanlar, sinflar, kurslar, choraklar)' })
   getOptions() {
     return this.service.getOptions();
   }
 
   @Get('teachers')
-  @Permissions([AppPermission.LMS_READ])
+  @Permissions([AppPermission.LMS_EXAMS_READ])
   @ApiOperation({ summary: 'Imtihon uchun o‘qituvchilar (sinf + fan bo‘yicha filtrlangan)' })
   getTeachers(@Query() query: ExamTeacherQueryDto) {
     return this.service.getTeachers(query.classId, query.subjectId);
   }
 
   @Get()
-  @Permissions([AppPermission.LMS_READ])
+  @Permissions([AppPermission.LMS_EXAMS_READ])
   @ApiOperation({ summary: 'Imtihonlar ro‘yxati (filtr + statistika + pagination)' })
   @ApiOkResponse({ type: ExamListResponseDto })
   findExams(@Query() query: ExamQueryDto) {
@@ -64,7 +64,7 @@ export class ExamController {
   }
 
   @Get(':id')
-  @Permissions([AppPermission.LMS_READ])
+  @Permissions([AppPermission.LMS_EXAMS_READ])
   @ApiOperation({ summary: 'Bitta imtihon tafsiloti' })
   @ApiOkResponse({ type: ExamResponseDto })
   findExam(@Param('id', ParseUUIDPipe) id: string) {
@@ -72,7 +72,7 @@ export class ExamController {
   }
 
   @Post('class')
-  @Permissions([AppPermission.LMS_MANAGE])
+  @Permissions([AppPermission.LMS_EXAMS_CREATE])
   @ApiOperation({ summary: 'Sinf imtihonini tayinlash' })
   createClassExam(
     @Body() dto: CreateClassExamDto,
@@ -83,7 +83,7 @@ export class ExamController {
   }
 
   @Post('course')
-  @Permissions([AppPermission.LMS_MANAGE])
+  @Permissions([AppPermission.LMS_EXAMS_CREATE])
   @ApiOperation({ summary: 'Kurs imtihonini tayinlash' })
   createCourseExam(
     @Body() dto: CreateCourseExamDto,
@@ -94,7 +94,7 @@ export class ExamController {
   }
 
   @Patch(':id')
-  @Permissions([AppPermission.LMS_MANAGE])
+  @Permissions([AppPermission.LMS_EXAMS_UPDATE])
   @ApiOperation({ summary: 'Imtihonni yangilash' })
   updateExam(
     @Param('id', ParseUUIDPipe) id: string,
@@ -106,7 +106,7 @@ export class ExamController {
   }
 
   @Post(':id/publish')
-  @Permissions([AppPermission.LMS_MANAGE])
+  @Permissions([AppPermission.LMS_EXAMS_UPDATE])
   @ApiOperation({ summary: 'Imtihonni tayyor (e’lon qilingan) holatga keltirish' })
   publishExam(
     @Param('id', ParseUUIDPipe) id: string,
@@ -117,7 +117,7 @@ export class ExamController {
   }
 
   @Delete(':id')
-  @Permissions([AppPermission.LMS_MANAGE])
+  @Permissions([AppPermission.LMS_EXAMS_DELETE])
   @ApiOperation({ summary: 'Imtihonni o‘chirish (natija/yakun yo‘q bo‘lsa)' })
   deleteExam(
     @Param('id', ParseUUIDPipe) id: string,

@@ -7,6 +7,8 @@ import { School } from '../settings/entities/school.entity';
 import { CreatePositionDto, PositionQueryDto, UpdatePositionDto } from './dto/hr.dto';
 import { Department } from './entities/department.entity';
 import { Position, PositionStatus } from './entities/position.entity';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 export interface PageMeta {
   page: number;
@@ -46,6 +48,7 @@ export class PositionService {
     @InjectRepository(Department) private readonly departments: Repository<Department>,
     @InjectRepository(Branch) private readonly branches: Repository<Branch>,
     @InjectRepository(School) private readonly schools: Repository<School>,
+    private readonly tenant: TenantContextService,
   ) {}
 
   async findPositions(query: PositionQueryDto): Promise<PositionListResult> {
@@ -59,6 +62,7 @@ export class PositionService {
       .leftJoinAndSelect('filial.school', 'fschool')
       .leftJoinAndSelect('p.school', 'school')
       .where('p.deleted_at IS NULL');
+    applyTenantScope(qb, 'p', this.tenant, { branch: true });
 
     if (query.status) qb.andWhere('p.status = :status', { status: query.status });
     if (query.departmentId) qb.andWhere('p.department_id = :dep', { dep: query.departmentId });
@@ -155,19 +159,19 @@ export class PositionService {
 
   private async assertDepartment(departmentId?: string): Promise<void> {
     if (!departmentId) return;
-    const exists = await this.departments.findOne({ where: { id: departmentId } });
+    const exists = await this.departments.findOne({ where: tenantWhere<Department>(this.tenant, { id: departmentId }, { branch: true }) });
     if (!exists) throw new NotFoundException('Bo‘lim topilmadi');
   }
 
   private async assertSchool(schoolId?: string): Promise<void> {
     if (!schoolId) return;
-    const exists = await this.schools.findOne({ where: { id: schoolId } });
+    const exists = await this.schools.findOne({ where: tenantWhere<School>(this.tenant, { id: schoolId }, { branch: true }) });
     if (!exists) throw new NotFoundException('Maktab topilmadi');
   }
 
   private async assertFilial(filialId?: string): Promise<void> {
     if (!filialId) return;
-    const exists = await this.branches.findOne({ where: { id: filialId } });
+    const exists = await this.branches.findOne({ where: tenantWhere<Branch>(this.tenant, { id: filialId }, { branch: true }) });
     if (!exists) throw new NotFoundException('Filial topilmadi');
   }
 
@@ -175,7 +179,7 @@ export class PositionService {
     const base = (code?.trim() || this.slug(title)) || 'position';
     let candidate = base;
     let n = 1;
-    while (await this.positions.findOne({ where: { code: candidate }, withDeleted: true })) {
+    while (await this.positions.findOne({ where: tenantWhere<Position>(this.tenant, { code: candidate }, { branch: true }), withDeleted: true })) {
       n += 1;
       candidate = `${base}-${n}`;
     }

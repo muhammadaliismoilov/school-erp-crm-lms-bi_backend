@@ -5,6 +5,8 @@ import { CreateLeaveDto, LeaveQueryDto, ReviewLeaveDto, UpdateLeaveDto } from '.
 import { StaffLeave } from './entities/staff-leave.entity';
 import { StaffMember } from './entities/staff-member.entity';
 import { LeaveStatus, LeaveType } from './enums/hr.enums';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 export interface PageMeta {
   page: number;
@@ -39,6 +41,7 @@ export class LeaveService {
   constructor(
     @InjectRepository(StaffLeave) private readonly leaves: Repository<StaffLeave>,
     @InjectRepository(StaffMember) private readonly staff: Repository<StaffMember>,
+    private readonly tenant: TenantContextService,
   ) {}
 
   async findLeaves(query: LeaveQueryDto): Promise<LeaveListResult> {
@@ -49,6 +52,7 @@ export class LeaveService {
       .createQueryBuilder('l')
       .leftJoinAndSelect('l.staffMember', 'staff')
       .where('l.deleted_at IS NULL');
+    applyTenantScope(qb, 'l', this.tenant, { branch: true });
 
     if (query.status) qb.andWhere('l.status = :status', { status: query.status });
     if (query.type) qb.andWhere('l.type = :type', { type: query.type });
@@ -140,13 +144,13 @@ export class LeaveService {
   // ─── Helperlar ──────────────────────────────────────────────────────────
 
   private async findEntity(id: string): Promise<StaffLeave> {
-    const entity = await this.leaves.findOne({ where: { id }, relations: { staffMember: true } });
+    const entity = await this.leaves.findOne({ where: tenantWhere<StaffLeave>(this.tenant, { id }, { branch: true }), relations: { staffMember: true } });
     if (!entity) throw new NotFoundException('Ta‘til topilmadi');
     return entity;
   }
 
   private async assertStaff(staffMemberId: string): Promise<void> {
-    const exists = await this.staff.findOne({ where: { id: staffMemberId } });
+    const exists = await this.staff.findOne({ where: tenantWhere<StaffMember>(this.tenant, { id: staffMemberId }, { branch: true }) });
     if (!exists) throw new NotFoundException('Xodim topilmadi');
   }
 

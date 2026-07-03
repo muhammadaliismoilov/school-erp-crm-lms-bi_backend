@@ -4,6 +4,7 @@ import { VacancyService } from '../src/modules/hr/vacancy.service';
 import { Vacancy } from '../src/modules/hr/entities/vacancy.entity';
 import { VacancyStatus } from '../src/modules/hr/enums/hr.enums';
 import type { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 function makeVacancy(overrides: Partial<Vacancy> = {}): Vacancy {
   return {
@@ -42,7 +43,7 @@ describe('VacancyService', () => {
       findOne: jest.fn(),
       softDelete: jest.fn(),
     };
-    service = new VacancyService(vacancies as unknown as Repository<Vacancy>);
+    service = new VacancyService(vacancies as unknown as Repository<Vacancy>, new TenantContextService());
   });
 
   describe('createVacancy', () => {

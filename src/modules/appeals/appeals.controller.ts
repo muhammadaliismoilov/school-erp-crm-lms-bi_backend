@@ -86,7 +86,7 @@ export class AppealsController {
   }
 
   @Post()
-  @Permissions([AppPermission.APPEALS_MANAGE])
+  @Permissions([AppPermission.APPEALS_CREATE])
   @ApiOperation({
     summary: "Murojaat yaratish",
     description:
@@ -136,7 +136,7 @@ export class AppealsController {
   }
 
   @Get("public-link")
-  @Permissions([AppPermission.APPEALS_READ])
+  @Permissions([AppPermission.APPEALS_PUBLIC_LINK_READ])
   @ApiOperation({
     summary: "Faol public havolani olish",
     description: "Maktab uchun faol public murojaat havolasi (token + URL) yoki bo‘sh holatni qaytaradi.",
@@ -151,7 +151,7 @@ export class AppealsController {
   }
 
   @Post("public-link")
-  @Permissions([AppPermission.APPEALS_MANAGE])
+  @Permissions([AppPermission.APPEALS_PUBLIC_LINK_CREATE])
   @ApiOperation({
     summary: "Public havola yaratish / yangilash",
     description:
@@ -188,7 +188,7 @@ export class AppealsController {
   }
 
   @Patch(":id")
-  @Permissions([AppPermission.APPEALS_MANAGE])
+  @Permissions([AppPermission.APPEALS_UPDATE])
   @ApiOperation({
     summary: "Murojaatni qisman tahrirlash",
     description:
@@ -229,7 +229,7 @@ export class AppealsController {
   }
 
   @Patch(":id/assign")
-  @Permissions([AppPermission.APPEALS_MANAGE])
+  @Permissions([AppPermission.APPEALS_UPDATE])
   @ApiOperation({
     summary: "Murojaatni xodimga biriktirish",
     description:
@@ -269,7 +269,7 @@ export class AppealsController {
 
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.APPEALS_MANAGE])
+  @Permissions([AppPermission.APPEALS_DELETE])
   @ApiOperation({
     summary: "Murojaatni arxivlash",
     description:

@@ -57,7 +57,7 @@ export class TransactionsController {
   constructor(private readonly service: TransactionsService) {}
 
   @Get()
-  @Permissions([AppPermission.FINANCE_READ])
+  @Permissions([AppPermission.TRANSACTIONS_READ])
   @ApiOperation({
     summary: 'Tranzaksiyalar ro‘yxati',
     description:
@@ -73,7 +73,7 @@ export class TransactionsController {
   }
 
   @Get('statistics')
-  @Permissions([AppPermission.FINANCE_READ])
+  @Permissions([AppPermission.TRANSACTIONS_READ])
   @ApiOperation({ summary: 'Statistika (oylik kirim/chiqim, kategoriya va to‘lov turi taqsimoti)' })
   @ApiResponse({ status: HttpStatus.OK, type: TransactionStatisticsSchema })
   async statistics(@Query() query: TransactionQueryDto) {
@@ -85,7 +85,7 @@ export class TransactionsController {
   }
 
   @Get('options')
-  @Permissions([AppPermission.FINANCE_READ])
+  @Permissions([AppPermission.TRANSACTIONS_READ])
   @ApiOperation({ summary: 'Dropdownlar uchun to‘lov turlari va kategoriyalar' })
   @ApiResponse({ status: HttpStatus.OK, type: TransactionOptionsSchema })
   async options() {
@@ -97,7 +97,7 @@ export class TransactionsController {
   }
 
   @Get('export')
-  @Permissions([AppPermission.FINANCE_READ])
+  @Permissions([AppPermission.TRANSACTIONS_READ])
   @ApiOperation({ summary: 'Filtrlangan tranzaksiyalarni eksport uchun olish (Excel/CSV)' })
   @ApiResponse({ status: HttpStatus.OK, type: [TransactionResponseSchema] })
   async export(@Query() query: TransactionQueryDto) {
@@ -111,7 +111,7 @@ export class TransactionsController {
   // ─── To'lov turlari (dropdown boshqaruvi) ───────────────────────────────
 
   @Get('payment-types')
-  @Permissions([AppPermission.FINANCE_READ])
+  @Permissions([AppPermission.TRANSACTION_PAYMENT_TYPES_READ])
   @ApiOperation({
     summary: 'To‘lov turlari ro‘yxati',
     description: 'Qidiruv va sahifalash (10/20/50/100) bilan, stat kartalar uchun statistika qaytaradi.',
@@ -126,7 +126,7 @@ export class TransactionsController {
   }
 
   @Post('payment-types')
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.TRANSACTION_PAYMENT_TYPES_CREATE])
   @ApiOperation({ summary: 'Yangi to‘lov turi qo‘shish' })
   async createPaymentType(
     @Body() dto: CreatePaymentTypeDto,
@@ -141,7 +141,7 @@ export class TransactionsController {
   }
 
   @Patch('payment-types/:id')
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.TRANSACTION_PAYMENT_TYPES_UPDATE])
   @ApiParam(uuidParamDocs)
   @ApiOperation({ summary: 'To‘lov turini tahrirlash' })
   async updatePaymentType(
@@ -159,7 +159,7 @@ export class TransactionsController {
 
   @Delete('payment-types/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.TRANSACTION_PAYMENT_TYPES_DELETE])
   @ApiParam(uuidParamDocs)
   @ApiOperation({ summary: 'To‘lov turini o‘chirish (soft-delete)' })
   async removePaymentType(
@@ -177,7 +177,7 @@ export class TransactionsController {
   // ─── Kategoriyalar (dropdown boshqaruvi) ────────────────────────────────
 
   @Get('categories')
-  @Permissions([AppPermission.FINANCE_READ])
+  @Permissions([AppPermission.TRANSACTION_CATEGORIES_READ])
   @ApiOperation({ summary: 'To‘lov maqsadi (kategoriyalar) ro‘yxati' })
   async listCategories() {
     try {
@@ -188,7 +188,7 @@ export class TransactionsController {
   }
 
   @Post('categories')
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.TRANSACTION_CATEGORIES_CREATE])
   @ApiOperation({ summary: 'Yangi kategoriya qo‘shish' })
   async createCategory(
     @Body() dto: CreateTransactionCategoryDto,
@@ -203,7 +203,7 @@ export class TransactionsController {
   }
 
   @Patch('categories/:id')
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.TRANSACTION_CATEGORIES_UPDATE])
   @ApiParam(uuidParamDocs)
   @ApiOperation({ summary: 'Kategoriyani tahrirlash' })
   async updateCategory(
@@ -221,7 +221,7 @@ export class TransactionsController {
 
   @Delete('categories/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.TRANSACTION_CATEGORIES_DELETE])
   @ApiParam(uuidParamDocs)
   @ApiOperation({ summary: 'Kategoriyani o‘chirish (soft-delete)' })
   async removeCategory(
@@ -239,7 +239,7 @@ export class TransactionsController {
   // ─── Tranzaksiya CRUD ───────────────────────────────────────────────────
 
   @Post()
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.TRANSACTIONS_CREATE])
   @ApiOperation({ summary: 'Tranzaksiya (kirim/chiqim) yaratish' })
   @ApiResponse({ status: HttpStatus.CREATED, type: TransactionResponseSchema })
   async create(
@@ -255,7 +255,7 @@ export class TransactionsController {
   }
 
   @Get(':id')
-  @Permissions([AppPermission.FINANCE_READ])
+  @Permissions([AppPermission.TRANSACTIONS_READ])
   @ApiParam(uuidParamDocs)
   @ApiOperation({ summary: 'Tranzaksiyani ID bo‘yicha olish' })
   @ApiResponse({ status: HttpStatus.OK, type: TransactionResponseSchema })
@@ -268,7 +268,7 @@ export class TransactionsController {
   }
 
   @Patch(':id')
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.TRANSACTIONS_UPDATE])
   @ApiParam(uuidParamDocs)
   @ApiOperation({ summary: 'Tranzaksiyani qisman tahrirlash' })
   @ApiResponse({ status: HttpStatus.OK, type: TransactionResponseSchema })
@@ -287,7 +287,7 @@ export class TransactionsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.TRANSACTIONS_DELETE])
   @ApiParam(uuidParamDocs)
   @ApiOperation({ summary: 'Tranzaksiyani o‘chirish (soft-delete)' })
   @ApiResponse({ status: HttpStatus.NO_CONTENT })

@@ -6,6 +6,8 @@ import type { LocalizedText } from '../../common/i18n/locale';
 import { Branch } from '../settings/entities/branch.entity';
 import { School } from '../settings/entities/school.entity';
 import { BranchQueryDto, CreateBranchDto, UpdateBranchDto } from './dto/hr.dto';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 export interface PageMeta {
   page: number;
@@ -42,6 +44,7 @@ export class BranchService {
   constructor(
     @InjectRepository(Branch) private readonly branches: Repository<Branch>,
     @InjectRepository(School) private readonly schools: Repository<School>,
+    private readonly tenant: TenantContextService,
   ) {}
 
   /** Sahifalangan daraxt: qidiruvsiz — ildizlar + ichki bolalar; qidiruvda — yassi. */
@@ -114,7 +117,7 @@ export class BranchService {
   }
 
   async getBranch(id: string): Promise<Branch> {
-    const entity = await this.branches.findOne({ where: { id }, relations: { school: true, parent: true } });
+    const entity = await this.branches.findOne({ where: tenantWhere<Branch>(this.tenant, { id }, { branch: true }), relations: { school: true, parent: true } });
     if (!entity) throw new NotFoundException('Filial topilmadi');
     return entity;
   }
@@ -196,13 +199,13 @@ export class BranchService {
 
   private async assertParent(parentId?: string): Promise<void> {
     if (!parentId) return;
-    const exists = await this.branches.findOne({ where: { id: parentId } });
+    const exists = await this.branches.findOne({ where: tenantWhere<Branch>(this.tenant, { id: parentId }, { branch: true }) });
     if (!exists) throw new NotFoundException('Ota filial topilmadi');
   }
 
   private async assertSchool(schoolId?: string): Promise<void> {
     if (!schoolId) return;
-    const exists = await this.schools.findOne({ where: { id: schoolId } });
+    const exists = await this.schools.findOne({ where: tenantWhere<School>(this.tenant, { id: schoolId }, { branch: true }) });
     if (!exists) throw new NotFoundException('Maktab topilmadi');
   }
 

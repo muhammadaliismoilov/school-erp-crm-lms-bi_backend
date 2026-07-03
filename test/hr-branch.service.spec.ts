@@ -3,6 +3,7 @@ import type { Repository } from 'typeorm';
 import { BranchService } from '../src/modules/hr/branch.service';
 import type { Branch } from '../src/modules/settings/entities/branch.entity';
 import type { School } from '../src/modules/settings/entities/school.entity';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 function makeBranch(overrides: Partial<Branch> = {}): Branch {
   return {
@@ -37,6 +38,7 @@ describe('BranchService', () => {
     service = new BranchService(
       branches as unknown as Repository<Branch>,
       schools as unknown as Repository<School>,
+      new TenantContextService(),
     );
   });
 

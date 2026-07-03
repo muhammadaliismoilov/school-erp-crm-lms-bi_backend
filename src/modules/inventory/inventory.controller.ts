@@ -11,13 +11,13 @@ import { InventoryService } from './inventory.service';
 @ApiTags('Inventory') @ApiBearerAuth() @UseGuards(JwtAuthGuard, PermissionsGuard) @Controller({ path: 'inventory', version: '1' })
 export class InventoryController {
   constructor(private readonly service: InventoryService) {}
-  @Get('categories') @Permissions([AppPermission.INVENTORY_READ]) findCategories() { return this.service.findCategories(); }
-  @Post('categories') @Permissions([AppPermission.INVENTORY_MANAGE]) createCategory(@Body() dto: CreateInventoryCategoryDto) { return this.service.createCategory(dto); }
-  @Patch('categories/:id') @Permissions([AppPermission.INVENTORY_MANAGE]) updateCategory(@Param() p: UuidParamDto, @Body() dto: UpdateInventoryCategoryDto) { return this.service.updateCategory(p.id, dto); }
-  @Get('items') @Permissions([AppPermission.INVENTORY_READ]) findItems() { return this.service.findItems(); }
-  @Get('items/:id') @Permissions([AppPermission.INVENTORY_READ]) getItem(@Param() p: UuidParamDto) { return this.service.getItem(p.id); }
-  @Post('items') @Permissions([AppPermission.INVENTORY_MANAGE]) createItem(@Body() dto: CreateInventoryItemDto) { return this.service.createItem(dto); }
-  @Patch('items/:id') @Permissions([AppPermission.INVENTORY_MANAGE]) updateItem(@Param() p: UuidParamDto, @Body() dto: UpdateInventoryItemDto) { return this.service.updateItem(p.id, dto); }
-  @Get('transactions') @Permissions([AppPermission.INVENTORY_READ]) findTransactions() { return this.service.findTransactions(); }
-  @Post('transactions') @Permissions([AppPermission.INVENTORY_MANAGE]) createTransaction(@Body() dto: CreateInventoryTransactionDto) { return this.service.createTransaction(dto); }
+  @Get('categories') @Permissions([AppPermission.INVENTORY_CATEGORIES_READ]) findCategories() { return this.service.findCategories(); }
+  @Post('categories') @Permissions([AppPermission.INVENTORY_CATEGORIES_CREATE]) createCategory(@Body() dto: CreateInventoryCategoryDto) { return this.service.createCategory(dto); }
+  @Patch('categories/:id') @Permissions([AppPermission.INVENTORY_CATEGORIES_UPDATE]) updateCategory(@Param() p: UuidParamDto, @Body() dto: UpdateInventoryCategoryDto) { return this.service.updateCategory(p.id, dto); }
+  @Get('items') @Permissions([AppPermission.INVENTORY_ITEMS_READ]) findItems() { return this.service.findItems(); }
+  @Get('items/:id') @Permissions([AppPermission.INVENTORY_ITEMS_READ]) getItem(@Param() p: UuidParamDto) { return this.service.getItem(p.id); }
+  @Post('items') @Permissions([AppPermission.INVENTORY_ITEMS_CREATE]) createItem(@Body() dto: CreateInventoryItemDto) { return this.service.createItem(dto); }
+  @Patch('items/:id') @Permissions([AppPermission.INVENTORY_ITEMS_UPDATE]) updateItem(@Param() p: UuidParamDto, @Body() dto: UpdateInventoryItemDto) { return this.service.updateItem(p.id, dto); }
+  @Get('transactions') @Permissions([AppPermission.INVENTORY_TRANSACTIONS_READ]) findTransactions() { return this.service.findTransactions(); }
+  @Post('transactions') @Permissions([AppPermission.INVENTORY_TRANSACTIONS_CREATE]) createTransaction(@Body() dto: CreateInventoryTransactionDto) { return this.service.createTransaction(dto); }
 }

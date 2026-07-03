@@ -44,7 +44,7 @@ export class SalaryController {
   // ─── O'qituvchilar uchun dars stavkalari ────────────────────────────────
 
   @Get('teacher-rates')
-  @Permissions([AppPermission.FINANCE_READ])
+  @Permissions([AppPermission.FINANCE_TEACHER_RATES_READ])
   @ApiOperation({
     summary: 'O‘qituvchilar uchun dars stavkalari ro‘yxati',
     description: 'Akademik yil bo‘yicha har bir o‘qituvchining dars boshiga stavkasi. Qidiruv va sahifalash (10/20/50/100).',
@@ -58,7 +58,7 @@ export class SalaryController {
   }
 
   @Put('teacher-rates/:id')
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.FINANCE_TEACHER_RATES_UPDATE])
   @ApiOperation({ summary: 'O‘qituvchi dars stavkasini belgilash/yangilash' })
   async upsertTeacherRate(
     @Param() params: TeacherIdParamDto,
@@ -76,7 +76,7 @@ export class SalaryController {
   // ─── Oylik maoshni hisoblash va tasdiqlash ──────────────────────────────
 
   @Get('salaries')
-  @Permissions([AppPermission.FINANCE_READ])
+  @Permissions([AppPermission.FINANCE_SALARIES_READ])
   @ApiOperation({
     summary: 'Oylik maoshlar ro‘yxati (davr bo‘yicha)',
     description: 'Tanlangan oy uchun o‘qituvchilarning yakunlangan darslari, hisoblangan va yakuniy summasi, holati. Sahifalash (10/20/50/100).',
@@ -90,7 +90,7 @@ export class SalaryController {
   }
 
   @Post('salaries/recalculate')
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.FINANCE_SALARIES_UPDATE])
   @ApiOperation({
     summary: 'Maoshlarni qayta hisoblash',
     description: 'Tanlangan davrdagi yakunlangan darslarni qayta sanab, tasdiqlanmagan maoshlarni qayta hisoblaydi.',
@@ -108,7 +108,7 @@ export class SalaryController {
   }
 
   @Patch('salaries/:id/adjust')
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.FINANCE_SALARIES_UPDATE])
   @ApiOperation({ summary: 'O‘qituvchi maoshini qo‘lda tuzatish' })
   async adjust(
     @Param() params: UuidParamDto,
@@ -124,7 +124,7 @@ export class SalaryController {
   }
 
   @Post('salaries/:id/approve')
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.FINANCE_SALARIES_UPDATE])
   @ApiOperation({
     summary: 'O‘qituvchi maoshini tasdiqlash',
     description: 'Maoshni tasdiqlaydi va yakuniy summa musbat bo‘lsa moliyaviy chiqim (transaction) yozadi.',

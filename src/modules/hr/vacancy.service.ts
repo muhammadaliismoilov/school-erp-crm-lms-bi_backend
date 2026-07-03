@@ -4,6 +4,8 @@ import { Brackets, Repository } from 'typeorm';
 import { CreateVacancyDto, UpdateVacancyDto, VacancyQueryDto } from './dto/vacancy.dto';
 import { Vacancy } from './entities/vacancy.entity';
 import { VacancyStatus } from './enums/hr.enums';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope } from '../../common/tenant/tenant-scope.util';
 
 export interface PageMeta {
   page: number;
@@ -37,7 +39,7 @@ export interface VacancyListResult {
 
 @Injectable()
 export class VacancyService {
-  constructor(@InjectRepository(Vacancy) private readonly vacancies: Repository<Vacancy>) {}
+  constructor(@InjectRepository(Vacancy) private readonly vacancies: Repository<Vacancy>, private readonly tenant: TenantContextService) {}
 
   async findVacancies(query: VacancyQueryDto): Promise<VacancyListResult> {
     const page = query.page ?? 1;
@@ -49,6 +51,7 @@ export class VacancyService {
       .leftJoinAndSelect('v.position', 'position')
       .leftJoinAndSelect('v.recruiter', 'recruiter')
       .where('v.deleted_at IS NULL');
+    applyTenantScope(qb, 'v', this.tenant, { branch: true });
 
     if (query.status) qb.andWhere('v.status = :status', { status: query.status });
     if (query.departmentId) qb.andWhere('v.department_id = :did', { did: query.departmentId });

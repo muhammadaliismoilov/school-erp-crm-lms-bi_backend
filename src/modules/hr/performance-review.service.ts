@@ -9,6 +9,8 @@ import {
 import { PerformanceReview } from './entities/performance-review.entity';
 import { StaffMember } from './entities/staff-member.entity';
 import { PerformanceReviewStatus } from './enums/hr.enums';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 export interface PageMeta {
   page: number;
@@ -45,6 +47,7 @@ export class PerformanceReviewService {
   constructor(
     @InjectRepository(PerformanceReview) private readonly reviews: Repository<PerformanceReview>,
     @InjectRepository(StaffMember) private readonly staff: Repository<StaffMember>,
+    private readonly tenant: TenantContextService,
   ) {}
 
   async findReviews(query: PerformanceReviewQueryDto): Promise<PerformanceReviewListResult> {
@@ -56,6 +59,7 @@ export class PerformanceReviewService {
       .leftJoinAndSelect('r.staffMember', 'staff')
       .leftJoinAndSelect('r.reviewer', 'reviewer')
       .where('r.deleted_at IS NULL');
+    applyTenantScope(qb, 'r', this.tenant, { branch: true });
 
     if (query.staffMemberId) qb.andWhere('r.staff_member_id = :sid', { sid: query.staffMemberId });
     if (query.status) qb.andWhere('r.status = :status', { status: query.status });
@@ -151,7 +155,7 @@ export class PerformanceReviewService {
   }
 
   private async assertStaff(staffMemberId: string): Promise<void> {
-    const exists = await this.staff.findOne({ where: { id: staffMemberId } });
+    const exists = await this.staff.findOne({ where: tenantWhere<StaffMember>(this.tenant, { id: staffMemberId }, { branch: true }) });
     if (!exists) throw new NotFoundException('Xodim topilmadi');
   }
 

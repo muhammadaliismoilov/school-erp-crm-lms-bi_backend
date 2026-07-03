@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository } from 'typeorm';
 import { CreateGeofenceFullDto, GeofenceQueryDto, UpdateGeofenceFullDto } from './dto/geofence.dto';
 import { Geofence } from './entities/geofence.entity';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 export interface PageMeta {
   page: number;
@@ -29,13 +31,14 @@ export interface GeofenceListResult {
 
 @Injectable()
 export class GeofenceService {
-  constructor(@InjectRepository(Geofence) private readonly geofences: Repository<Geofence>) {}
+  constructor(@InjectRepository(Geofence) private readonly geofences: Repository<Geofence>, private readonly tenant: TenantContextService) {}
 
   async findGeofences(query: GeofenceQueryDto): Promise<GeofenceListResult> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
     const qb = this.geofences.createQueryBuilder('g').where('g.deleted_at IS NULL');
+    applyTenantScope(qb, 'g', this.tenant, { branch: true });
     const search = this.nullableText(query.search);
     if (search) qb.andWhere('g.name ILIKE :q', { q: `%${search}%` });
 
@@ -96,7 +99,7 @@ export class GeofenceService {
   // ─── Helperlar ──────────────────────────────────────────────────────────
 
   private async findEntity(id: string): Promise<Geofence> {
-    const entity = await this.geofences.findOne({ where: { id } });
+    const entity = await this.geofences.findOne({ where: tenantWhere<Geofence>(this.tenant, { id }, { branch: true }) });
     if (!entity) throw new NotFoundException('Geozona topilmadi');
     return entity;
   }

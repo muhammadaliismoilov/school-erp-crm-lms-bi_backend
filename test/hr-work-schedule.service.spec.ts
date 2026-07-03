@@ -3,6 +3,7 @@ import type { Repository } from 'typeorm';
 import { WorkScheduleService } from '../src/modules/hr/work-schedule.service';
 import { WorkSchedule } from '../src/modules/hr/entities/work-schedule.entity';
 import { Weekday, WorkScheduleDay } from '../src/modules/hr/entities/work-schedule-day.entity';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 function makeSchedule(overrides: Partial<WorkSchedule> = {}): WorkSchedule {
   return {
@@ -43,6 +44,7 @@ describe('WorkScheduleService', () => {
     service = new WorkScheduleService(
       schedules as unknown as Repository<WorkSchedule>,
       days as unknown as Repository<WorkScheduleDay>,
+      new TenantContextService(),
     );
   });
 

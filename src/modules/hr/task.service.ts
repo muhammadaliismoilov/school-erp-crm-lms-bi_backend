@@ -6,6 +6,8 @@ import { Project } from './entities/project.entity';
 import { StaffMember } from './entities/staff-member.entity';
 import { Task } from './entities/task.entity';
 import { TaskPriority, TaskStatus } from './enums/hr.enums';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 export interface PageMeta {
   page: number;
@@ -46,6 +48,7 @@ export class TaskService {
     @InjectRepository(Task) private readonly tasks: Repository<Task>,
     @InjectRepository(Project) private readonly projects: Repository<Project>,
     @InjectRepository(StaffMember) private readonly staff: Repository<StaffMember>,
+    private readonly tenant: TenantContextService,
   ) {}
 
   async findTasks(query: TaskQueryDto): Promise<TaskListResult> {
@@ -57,6 +60,7 @@ export class TaskService {
       .leftJoinAndSelect('t.project', 'project')
       .leftJoinAndSelect('t.assignee', 'assignee')
       .where('t.deleted_at IS NULL');
+    applyTenantScope(qb, 't', this.tenant, { branch: true });
 
     if (query.status) qb.andWhere('t.status = :status', { status: query.status });
     if (query.priority) qb.andWhere('t.priority = :priority', { priority: query.priority });
@@ -147,20 +151,20 @@ export class TaskService {
   // ─── Helperlar ──────────────────────────────────────────────────────────
 
   private async findEntity(id: string): Promise<Task> {
-    const entity = await this.tasks.findOne({ where: { id }, relations: { project: true, assignee: true } });
+    const entity = await this.tasks.findOne({ where: tenantWhere<Task>(this.tenant, { id }, { branch: true }), relations: { project: true, assignee: true } });
     if (!entity) throw new NotFoundException('Vazifa topilmadi');
     return entity;
   }
 
   private async assertProject(projectId?: string): Promise<void> {
     if (!projectId) return;
-    const exists = await this.projects.findOne({ where: { id: projectId } });
+    const exists = await this.projects.findOne({ where: tenantWhere<Project>(this.tenant, { id: projectId }, { branch: true }) });
     if (!exists) throw new NotFoundException('Loyiha topilmadi');
   }
 
   private async assertAssignee(assigneeId?: string): Promise<void> {
     if (!assigneeId) return;
-    const exists = await this.staff.findOne({ where: { id: assigneeId } });
+    const exists = await this.staff.findOne({ where: tenantWhere<StaffMember>(this.tenant, { id: assigneeId }, { branch: true }) });
     if (!exists) throw new NotFoundException('Ijrochi (xodim) topilmadi');
   }
 

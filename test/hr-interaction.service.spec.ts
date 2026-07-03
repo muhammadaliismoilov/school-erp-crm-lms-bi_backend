@@ -3,6 +3,7 @@ import type { Repository } from 'typeorm';
 import { InteractionService } from '../src/modules/hr/interaction.service';
 import { Interaction } from '../src/modules/hr/entities/interaction.entity';
 import { InteractionStatus, InteractionType } from '../src/modules/hr/enums/hr.enums';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 function makeInteraction(overrides: Partial<Interaction> = {}): Interaction {
   return {
@@ -42,7 +43,7 @@ describe('InteractionService', () => {
       findOne: jest.fn(),
       softDelete: jest.fn(),
     };
-    service = new InteractionService(interactions as unknown as Repository<Interaction>);
+    service = new InteractionService(interactions as unknown as Repository<Interaction>, new TenantContextService());
   });
 
   describe('createInteraction', () => {

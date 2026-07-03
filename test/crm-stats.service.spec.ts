@@ -7,6 +7,7 @@ import type { LeadTag } from '../src/modules/crm/entities/lead-tag.entity';
 import type { AuditLog } from '../src/modules/audit/entities/audit-log.entity';
 import { LeadStatus } from '../src/modules/crm/enums/lead-status.enum';
 import type { StudentsService } from '../src/modules/students/students.service';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 // Joriy vaqtga nisbatan "yaqin" sana (1 soat oldin) — test sanaga bog'liq
 // bo'lmasligi uchun: "stuck leads" chegarasi (7 kun) doimo o'tilmaydi.
@@ -66,6 +67,7 @@ describe('CrmService.getStatistics', () => {
       {} as unknown as Repository<LeadComment>,
       {} as unknown as Repository<LeadTag>,
       {} as unknown as StudentsService,
+      new TenantContextService(),
       undefined,
       undefined as unknown as Repository<AuditLog>,
     );
@@ -140,6 +142,7 @@ describe('CrmService.getStatistics', () => {
       {} as unknown as Repository<LeadComment>,
       {} as unknown as Repository<LeadTag>,
       {} as unknown as StudentsService,
+      new TenantContextService(),
       undefined,
       undefined as unknown as Repository<AuditLog>,
     );

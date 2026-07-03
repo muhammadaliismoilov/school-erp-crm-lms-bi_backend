@@ -4,6 +4,7 @@ import { PerformanceReviewService } from '../src/modules/hr/performance-review.s
 import { PerformanceReview } from '../src/modules/hr/entities/performance-review.entity';
 import type { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
 import { PerformanceReviewStatus } from '../src/modules/hr/enums/hr.enums';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 function makeReview(overrides: Partial<PerformanceReview> = {}): PerformanceReview {
   return {
@@ -47,6 +48,7 @@ describe('PerformanceReviewService', () => {
     service = new PerformanceReviewService(
       reviews as unknown as Repository<PerformanceReview>,
       staff as unknown as Repository<StaffMember>,
+      new TenantContextService(),
     );
   });
 
