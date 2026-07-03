@@ -8,6 +8,8 @@ import { NotificationsDeliveryModule } from '../notifications-delivery/notificat
 import { Student } from '../students/entities/student.entity';
 import { TimetableSlot } from '../timetable/entities/timetable-slot.entity';
 import { AttendanceAgendaService } from './attendance-agenda.service';
+import { AttendanceSettingsController } from './attendance-settings.controller';
+import { AttendanceSettingsService } from './attendance-settings.service';
 import { AttendanceController } from './attendance.controller';
 import { AttendanceService } from './attendance.service';
 import { AttendanceLog } from './entities/attendance-log.entity';
@@ -53,6 +55,7 @@ import { TurnstileDeviceService } from './turnstile-device.service';
     IngestionController,
     TurnstileDeviceController,
     SessionAttendanceController,
+    AttendanceSettingsController,
   ],
   providers: [
     AttendanceService,
@@ -61,6 +64,7 @@ import { TurnstileDeviceService } from './turnstile-device.service';
     TurnstileDeviceService,
     SessionAttendanceService,
     AttendanceAgendaService,
+    AttendanceSettingsService,
   ],
 })
 export class AttendanceModule {}

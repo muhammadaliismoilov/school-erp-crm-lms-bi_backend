@@ -350,6 +350,9 @@ export const AppPermission = {
   // Resurs: sessiya davomati (o'qituvchi)
   SESSION_ATTENDANCE_READ: 'session-attendance.read',
   SESSION_ATTENDANCE_UPDATE: 'session-attendance.update',
+  // Resurs: davomat sozlamalari
+  ATTENDANCE_SETTINGS_READ: 'attendance-settings.read',
+  ATTENDANCE_SETTINGS_UPDATE: 'attendance-settings.update',
   FINANCE_READ: 'finance.read',
   FINANCE_MANAGE: 'finance.manage',
   // Resurs: shartnomalar
@@ -858,6 +861,7 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.TURNSTILE_DEVICES_DELETE,
     AppPermission.CLASS_SESSIONS_CREATE,
     AppPermission.SESSION_ATTENDANCE_UPDATE,
+    AppPermission.ATTENDANCE_SETTINGS_UPDATE,
   ],
   [AppPermission.TIMETABLE_MANAGE]: [
     AppPermission.TIMETABLE_TEMPLATES_CREATE,
@@ -1084,6 +1088,7 @@ export const READ_EXPANSION: Record<string, string[]> = {
     AppPermission.TURNSTILE_DEVICES_READ,
     AppPermission.CLASS_SESSIONS_READ,
     AppPermission.SESSION_ATTENDANCE_READ,
+    AppPermission.ATTENDANCE_SETTINGS_READ,
   ],
   [AppPermission.TIMETABLE_READ]: [
     AppPermission.TIMETABLE_TEMPLATES_READ,
