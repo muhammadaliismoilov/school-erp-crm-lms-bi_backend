@@ -344,6 +344,12 @@ export const AppPermission = {
   TURNSTILE_DEVICES_CREATE: 'turnstile-devices.create',
   TURNSTILE_DEVICES_UPDATE: 'turnstile-devices.update',
   TURNSTILE_DEVICES_DELETE: 'turnstile-devices.delete',
+  // Resurs: dars/kurs sessiyalari
+  CLASS_SESSIONS_READ: 'class-sessions.read',
+  CLASS_SESSIONS_CREATE: 'class-sessions.create',
+  // Resurs: sessiya davomati (o'qituvchi)
+  SESSION_ATTENDANCE_READ: 'session-attendance.read',
+  SESSION_ATTENDANCE_UPDATE: 'session-attendance.update',
   FINANCE_READ: 'finance.read',
   FINANCE_MANAGE: 'finance.manage',
   // Resurs: shartnomalar
@@ -850,6 +856,8 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.TURNSTILE_DEVICES_CREATE,
     AppPermission.TURNSTILE_DEVICES_UPDATE,
     AppPermission.TURNSTILE_DEVICES_DELETE,
+    AppPermission.CLASS_SESSIONS_CREATE,
+    AppPermission.SESSION_ATTENDANCE_UPDATE,
   ],
   [AppPermission.TIMETABLE_MANAGE]: [
     AppPermission.TIMETABLE_TEMPLATES_CREATE,
@@ -1074,6 +1082,8 @@ export const READ_EXPANSION: Record<string, string[]> = {
   [AppPermission.ATTENDANCE_READ]: [
     AppPermission.ATTENDANCE_RECORDS_READ,
     AppPermission.TURNSTILE_DEVICES_READ,
+    AppPermission.CLASS_SESSIONS_READ,
+    AppPermission.SESSION_ATTENDANCE_READ,
   ],
   [AppPermission.TIMETABLE_READ]: [
     AppPermission.TIMETABLE_TEMPLATES_READ,
