@@ -42,6 +42,16 @@ export class AgendaQueryDto {
   teacherId?: string;
 }
 
+export class HistoryQueryDto {
+  @ApiProperty({ example: '2026-06-01', format: 'date' })
+  @IsISO8601({ strict: true })
+  from: string;
+
+  @ApiProperty({ example: '2026-06-30', format: 'date' })
+  @IsISO8601({ strict: true })
+  to: string;
+}
+
 export class OpenSessionDto {
   @ApiProperty({ format: 'uuid', description: 'Jadval sloti (dars/kurs).' })
   @IsUUID()

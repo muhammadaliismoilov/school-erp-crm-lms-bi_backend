@@ -14,9 +14,11 @@ import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import type { AuthenticatedUser } from '../../common/security/authenticated-user.interface';
 import { ApiLocalizedErrorResponses } from '../../common/swagger/api-localized-error-responses.decorator';
 import { AttendanceAgendaService } from './attendance-agenda.service';
+import { AttendanceHistoryService } from './attendance-history.service';
 import {
   AgendaQueryDto,
   ConfirmSessionDto,
+  HistoryQueryDto,
   OpenSessionDto,
   SessionListQueryDto,
   UpdateAttendanceEntryDto,
@@ -32,7 +34,18 @@ export class SessionAttendanceController {
   constructor(
     private readonly service: SessionAttendanceService,
     private readonly agenda: AttendanceAgendaService,
+    private readonly history: AttendanceHistoryService,
   ) {}
+
+  @Get('student/:studentId/history')
+  @Permissions([AppPermission.SESSION_ATTENDANCE_READ])
+  @ApiOperation({
+    summary: 'O‘quvchi davomat tarixi (kunlik kirdi/chiqdi + har dars holati)',
+  })
+  @ApiOkResponse({ description: 'Sana bo‘yicha guruhlangan tarix.' })
+  studentHistory(@Param('studentId') studentId: string, @Query() query: HistoryQueryDto) {
+    return this.history.studentHistory(studentId, query.from, query.to);
+  }
 
   @Get('agenda')
   @Permissions([AppPermission.CLASS_SESSIONS_READ])
