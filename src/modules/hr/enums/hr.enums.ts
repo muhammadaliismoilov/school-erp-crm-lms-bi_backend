@@ -68,8 +68,34 @@ export enum LeaveType {
 
 export enum PayrollStatus {
   DRAFT = 'draft',
+  PENDING_APPROVAL = 'pending_approval',
   APPROVED = 'approved',
   PAID = 'paid',
+  LOCKED = 'locked',
+}
+
+/** Oylik komponenti turi — payslip'dagi har bir qator (itemized). */
+export enum PayrollItemType {
+  BASE_SALARY = 'base_salary',
+  LESSON_PAY = 'lesson_pay',
+  CLASS_LEADER = 'class_leader',
+  KPI_BONUS = 'kpi_bonus',
+  MANUAL_BONUS = 'manual_bonus',
+  PENALTY = 'penalty',
+  ABSENCE_DEDUCTION = 'absence_deduction',
+  RETRO_ADJUSTMENT = 'retro_adjustment',
+}
+
+/** Qo'lda tuzatish turi: bonus (+) yoki jarima (−). */
+export enum PayrollAdjustmentType {
+  BONUS = 'bonus',
+  PENALTY = 'penalty',
+}
+
+/** Xodim KPI bonusi turi: baza foizi yoki qat'iy summa (har xodimga alohida). */
+export enum StaffKpiMode {
+  PERCENT = 'percent',
+  FIXED = 'fixed',
 }
 
 /** Vazifa holati (Kutilmoqda, Jarayonda, Ko'rib chiqilmoqda, Bajarildi, Bekor qilindi). */

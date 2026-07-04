@@ -8,7 +8,7 @@ import { Payroll } from './payroll.entity';
 import { StaffSalaryHistory } from './staff-salary-history.entity';
 import { StaffCertificate } from './staff-certificate.entity';
 import { StaffAchievement } from './staff-achievement.entity';
-import { EmploymentStatus, QualificationCategory } from '../enums/hr.enums';
+import { EmploymentStatus, QualificationCategory, StaffKpiMode } from '../enums/hr.enums';
 import { UserGender } from '../../users/enums/user.enums';
 
 @Entity('hr_staff_members')
@@ -109,6 +109,17 @@ export class StaffMember extends UuidAuditEntity {
   /** Toifa berilgan sana (attestatsiya). */
   @Column({ name: 'qualification_date', type: 'date', nullable: true })
   qualificationDate?: string | null;
+
+  /**
+   * KPI bonusi turi (null — KPI berilmaydi). Faqat maxsus ruxsat
+   * (hr-staff-kpi.update) egalari o'zgartiradi: HR/direktor/egasi/superadmin.
+   */
+  @Column({ name: 'kpi_mode', type: 'enum', enum: StaffKpiMode, nullable: true })
+  kpiMode?: StaffKpiMode | null;
+
+  /** KPI qiymati: percent rejimida foiz (0-100), fixed rejimida so'm. */
+  @Column({ name: 'kpi_value', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  kpiValue: number;
 
   @OneToMany(() => StaffLeave, (leave) => leave.staffMember)
   leaves: StaffLeave[];

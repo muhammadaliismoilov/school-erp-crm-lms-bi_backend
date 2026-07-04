@@ -1,7 +1,8 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
 import { PayrollStatus } from '../enums/hr.enums';
 import { StaffMember } from './staff-member.entity';
+import { PayrollItem } from './payroll-item.entity';
 
 @Entity('hr_payrolls')
 @Index('idx_hr_payrolls_staff', ['staffMemberId'])
@@ -34,4 +35,8 @@ export class Payroll extends UuidAuditEntity {
 
   @Column({ type: 'enum', enum: PayrollStatus, default: PayrollStatus.DRAFT })
   status: PayrollStatus;
+
+  /** Itemized komponent qatorlari (payslip) — dvigatel to'ldiradi. */
+  @OneToMany(() => PayrollItem, (item) => item.payroll)
+  items?: PayrollItem[];
 }

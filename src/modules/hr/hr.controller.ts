@@ -7,7 +7,7 @@ import { UuidParamDto } from '../../common/dto/uuid-param.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import type { AuthenticatedUser } from '../../common/security/authenticated-user.interface';
-import { BranchQueryDto, CreateBranchDto, CreateDepartmentDto, CreateLeaveDto, CreatePayrollDto, CreatePositionDto, CreateStaffAchievementDto, CreateStaffCertificateDto, CreateStaffMemberDto, DepartmentQueryDto, LeaveQueryDto, PositionQueryDto, ReviewLeaveDto, StaffQueryDto, UpdateBranchDto, UpdateDepartmentDto, UpdateLeaveDto, UpdatePayrollDto, UpdatePositionDto, UpdateStaffAchievementDto, UpdateStaffCertificateDto, UpdateStaffMemberDto } from './dto/hr.dto';
+import { BranchQueryDto, CreateBranchDto, CreateDepartmentDto, CreateLeaveDto, CreatePayrollDto, CreatePositionDto, CreateStaffAchievementDto, CreateStaffCertificateDto, CreateStaffMemberDto, DepartmentQueryDto, LeaveQueryDto, PositionQueryDto, ReviewLeaveDto, StaffQueryDto, UpdateBranchDto, UpdateDepartmentDto, UpdateLeaveDto, UpdatePayrollDto, UpdatePositionDto, UpdateStaffAchievementDto, UpdateStaffCertificateDto, UpdateStaffKpiDto, UpdateStaffMemberDto } from './dto/hr.dto';
 import { CreateTaskDto, TaskQueryDto, UpdateTaskDto } from './dto/task.dto';
 import { AttendanceQueryDto, CreateAttendanceDto, ReviewAttendanceDto, UpdateAttendanceDto } from './dto/attendance.dto';
 import { AttendanceHrService } from './attendance-hr.service';
@@ -65,6 +65,8 @@ export class HrController {
   @Get('staff/:id/salary-history') @Permissions([AppPermission.HR_STAFF_READ]) getStaffSalaryHistory(@Param() p: UuidParamDto) { return this.staffService.getSalaryHistory(p.id); }
   @Post('staff') @Permissions([AppPermission.HR_STAFF_CREATE]) createStaffMember(@Body() dto: CreateStaffMemberDto, @CurrentUser() user: AuthenticatedUser) { return this.staffService.createStaff(dto, this.actor(user)); }
   @Patch('staff/:id') @Permissions([AppPermission.HR_STAFF_UPDATE]) updateStaffMember(@Param() p: UuidParamDto, @Body() dto: UpdateStaffMemberDto, @CurrentUser() user: AuthenticatedUser) { return this.staffService.updateStaff(p.id, dto, this.actor(user)); }
+  /** KPI sozlamasi — alohida ruxsat (HR/direktor/egasi/superadmin). */
+  @Patch('staff/:id/kpi') @Permissions([AppPermission.HR_STAFF_KPI_UPDATE]) updateStaffKpi(@Param() p: UuidParamDto, @Body() dto: UpdateStaffKpiDto) { return this.staffService.updateKpi(p.id, dto); }
   @Delete('staff/:id') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_STAFF_DELETE]) removeStaffMember(@Param() p: UuidParamDto) { return this.staffService.removeStaff(p.id); }
 
   @Get('staff/:id/certificates') @Permissions([AppPermission.HR_STAFF_CERTIFICATES_READ]) listStaffCertificates(@Param() p: UuidParamDto) { return this.portfolioService.listCertificates(p.id); }

@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsEmail, IsEnum, IsISO8601, IsInt, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Length, Matches, Max, Min } from 'class-validator';
-import { EmploymentStatus, LeaveStatus, LeaveType, PayrollStatus, QualificationCategory, StaffAchievementCategory, StaffAchievementIcon, StaffAchievementRank } from '../enums/hr.enums';
+import { IsBoolean, IsEmail, IsEnum, IsISO8601, IsInt, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Length, Matches, Max, Min, ValidateIf } from 'class-validator';
+import { EmploymentStatus, LeaveStatus, LeaveType, PayrollStatus, QualificationCategory, StaffAchievementCategory, StaffAchievementIcon, StaffAchievementRank, StaffKpiMode } from '../enums/hr.enums';
 import { DepartmentStatus } from '../entities/department.entity';
 import { PositionStatus } from '../entities/position.entity';
 import { UserGender } from '../../users/enums/user.enums';
@@ -220,3 +220,16 @@ export class CreatePayrollDto {
   @ApiPropertyOptional({ enum: PayrollStatus }) @IsOptional() @IsEnum(PayrollStatus) status?: PayrollStatus;
 }
 export class UpdatePayrollDto extends PartialType(CreatePayrollDto) {}
+
+/** Har-xodim KPI sozlamasi — faqat `hr-staff-kpi.update` ruxsati bilan (HR/direktor/egasi). */
+export class UpdateStaffKpiDto {
+  @ApiPropertyOptional({ enum: StaffKpiMode, nullable: true, description: 'null — KPI o\'chiriladi.' })
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsEnum(StaffKpiMode)
+  kpiMode?: StaffKpiMode | null;
+
+  @ApiPropertyOptional({ example: 10, description: 'percent rejimida foiz (0-100), fixed rejimida so\'m.' })
+  @IsOptional() @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0)
+  kpiValue?: number;
+}

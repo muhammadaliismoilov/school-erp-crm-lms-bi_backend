@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, FindOptionsWhere, Repository } from 'typeorm';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
@@ -8,11 +8,11 @@ import { User } from '../identity/entities/user.entity';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { UserGender } from '../users/enums/user.enums';
 import { UsersService } from '../users/users.service';
-import { CreateStaffMemberDto, StaffQueryDto, UpdateStaffMemberDto } from './dto/hr.dto';
+import { CreateStaffMemberDto, StaffQueryDto, UpdateStaffKpiDto, UpdateStaffMemberDto } from './dto/hr.dto';
 import { StaffMember } from './entities/staff-member.entity';
 import { StaffSalaryHistory } from './entities/staff-salary-history.entity';
 import { Teacher } from './entities/teacher.entity';
-import { EmploymentStatus, QualificationCategory } from './enums/hr.enums';
+import { EmploymentStatus, QualificationCategory, StaffKpiMode } from './enums/hr.enums';
 
 /** Login akkauntsiz xodim yaratish uchun kirish ma'lumoti (`createBareStaff`). */
 export interface BareStaffInput {
@@ -270,6 +270,22 @@ export class StaffService {
     }
 
     return this.getStaff(saved.id);
+  }
+
+  /**
+   * KPI sozlamasi (foiz yoki qat'iy summa) — alohida ruxsat bilan. `kpiMode:
+   * null` KPI'ni butunlay o'chiradi (qiymat ham 0 lanadi).
+   */
+  async updateKpi(id: string, dto: UpdateStaffKpiDto): Promise<StaffMember> {
+    const staff = await this.getStaff(id);
+    if (dto.kpiMode !== undefined) staff.kpiMode = dto.kpiMode;
+    if (dto.kpiValue !== undefined) staff.kpiValue = dto.kpiValue;
+    if (staff.kpiMode === null) staff.kpiValue = 0;
+    if (staff.kpiMode === StaffKpiMode.PERCENT && Number(staff.kpiValue) > 100) {
+      throw new BadRequestException("Foiz rejimida KPI qiymati 0-100 oralig'ida bo'lishi kerak");
+    }
+    await this.staff.save(staff);
+    return this.getStaff(id);
   }
 
   async removeStaff(id: string): Promise<void> {
