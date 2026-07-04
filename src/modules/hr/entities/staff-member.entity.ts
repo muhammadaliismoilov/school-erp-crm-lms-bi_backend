@@ -124,4 +124,10 @@ export class StaffMember extends UuidAuditEntity {
 
   @OneToMany(() => StaffAchievement, (achievement) => achievement.staffMember)
   achievements: StaffAchievement[];
+
+  /**
+   * Bog'langan o'qituvchilik yozuvi — ustun EMAS, faqat findStaff'dagi
+   * leftJoinAndMapOne natijasi (ro'yxatda 🎓 belgisi uchun).
+   */
+  teacher?: import('./teacher.entity').Teacher | null;
 }

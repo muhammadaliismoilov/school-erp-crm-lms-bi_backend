@@ -26,6 +26,7 @@ describe('StaffService', () => {
   let history: jest.Mocked<Pick<Repository<StaffSalaryHistory>, 'create' | 'save' | 'find'>>;
   let users: jest.Mocked<Pick<Repository<User>, 'findOne' | 'save' | 'softDelete'>>;
   let roles: jest.Mocked<Pick<Repository<Role>, 'findOne'>>;
+  let teachers: { softDelete: jest.Mock };
   let usersService: { create: jest.Mock };
   let service: StaffService;
   const tenantCtx: { schoolId: string | null; branchId: string | null } = { schoolId: null, branchId: null };
@@ -59,9 +60,12 @@ describe('StaffService', () => {
     // Tenant kontekst — sozlanadigan (default: maktab/filial yo'q, scoping o'chiq).
     const tenant = { getSchoolId: () => tenantCtx.schoolId, getBranchId: () => tenantCtx.branchId };
 
+    teachers = { softDelete: jest.fn().mockResolvedValue(undefined) };
+
     service = new StaffService(
       staff as unknown as Repository<StaffMember>,
       history as unknown as Repository<StaffSalaryHistory>,
+      teachers as unknown as Repository<import('../src/modules/hr/entities/teacher.entity').Teacher>,
       users as unknown as Repository<User>,
       roles as unknown as Repository<Role>,
       usersService as unknown as UsersService,
@@ -148,7 +152,7 @@ describe('StaffService', () => {
     it('findStaff — aktiv maktab bo‘yicha andWhere qo‘shadi', async () => {
       tenantCtx.schoolId = 'school-A';
       const qb: Record<string, jest.Mock> = {};
-      for (const m of ['leftJoinAndSelect', 'where', 'andWhere', 'orderBy', 'skip', 'take']) {
+      for (const m of ['leftJoinAndSelect', 'leftJoinAndMapOne', 'where', 'andWhere', 'orderBy', 'skip', 'take']) {
         qb[m] = jest.fn().mockReturnValue(qb);
       }
       qb.getManyAndCount = jest.fn().mockResolvedValue([[], 0]);

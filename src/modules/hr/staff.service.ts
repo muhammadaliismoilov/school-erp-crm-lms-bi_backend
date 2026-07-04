@@ -11,6 +11,7 @@ import { UsersService } from '../users/users.service';
 import { CreateStaffMemberDto, StaffQueryDto, UpdateStaffMemberDto } from './dto/hr.dto';
 import { StaffMember } from './entities/staff-member.entity';
 import { StaffSalaryHistory } from './entities/staff-salary-history.entity';
+import { Teacher } from './entities/teacher.entity';
 import { EmploymentStatus, QualificationCategory } from './enums/hr.enums';
 
 /** Login akkauntsiz xodim yaratish uchun kirish ma'lumoti (`createBareStaff`). */
@@ -61,6 +62,7 @@ export class StaffService {
   constructor(
     @InjectRepository(StaffMember) private readonly staff: Repository<StaffMember>,
     @InjectRepository(StaffSalaryHistory) private readonly history: Repository<StaffSalaryHistory>,
+    @InjectRepository(Teacher) private readonly teachers: Repository<Teacher>,
     @InjectRepository(User) private readonly users: Repository<User>,
     @InjectRepository(Role) private readonly roles: Repository<Role>,
     private readonly usersService: UsersService,
@@ -76,6 +78,8 @@ export class StaffService {
       .leftJoinAndSelect('s.department', 'department')
       .leftJoinAndSelect('s.position', 'position')
       .leftJoinAndSelect('s.user', 'user')
+      // Ro'yxatda o'qituvchini belgilash (🎓) uchun bog'langan Teacher yozuvi.
+      .leftJoinAndMapOne('s.teacher', Teacher, 't', 't.staff_member_id = s.id AND t.deleted_at IS NULL')
       .where('s.deleted_at IS NULL');
     applyTenantScope(qb, 's', this.tenant, { branch: true });
 
@@ -271,6 +275,8 @@ export class StaffService {
   async removeStaff(id: string): Promise<void> {
     const staff = await this.getStaff(id);
     await this.staff.softDelete(staff.id);
+    // Bog'langan o'qituvchilik yozuvi yetim qolmasligi uchun birga o'chiriladi.
+    await this.teachers.softDelete({ staffMemberId: staff.id });
   }
 
   async getSalaryHistory(id: string): Promise<StaffSalaryHistory[]> {
