@@ -77,6 +77,10 @@ import { PayrollItem } from './entities/payroll-item.entity';
 import { PayrollAdjustment } from './entities/payroll-adjustment.entity';
 import { PayrollAdjustmentController } from './payroll-adjustment.controller';
 import { PayrollAdjustmentService } from './payroll-adjustment.service';
+import { ClassSession } from '../attendance/entities/class-session.entity';
+import { StaffAttendanceRecord } from '../attendance/entities/staff-attendance-record.entity';
+import { PayrollEngineController } from './payroll-engine.controller';
+import { PayrollEngineService } from './payroll-engine.service';
 
 @Module({
   imports: [
@@ -115,11 +119,13 @@ import { PayrollAdjustmentService } from './payroll-adjustment.service';
       Holiday,
       PayrollItem,
       PayrollAdjustment,
+      ClassSession,
+      StaffAttendanceRecord,
     ]),
     UsersModule,
   ],
-  controllers: [HrController, TeacherController, VacancyController, CandidateController, InteractionController, SurveyController, PerformanceReviewController, WorkScheduleController, TimesheetController, HrPaymentController, ProjectController, GeofenceController, HrStatsController, PayrollConfigController, ClassLeaderController, HolidayController, PayrollAdjustmentController],
-  providers: [HrService, StaffService, StaffPortfolioService, DepartmentService, BranchService, PositionService, LeaveService, TaskService, AttendanceHrService, TeacherService, VacancyService, CandidateService, InteractionService, SurveyService, PerformanceReviewService, WorkScheduleService, TimesheetService, HrPaymentService, ProjectService, GeofenceService, HrStatsService, PayrollConfigService, ClassLeaderService, HolidayService, PayrollAdjustmentService],
+  controllers: [HrController, TeacherController, VacancyController, CandidateController, InteractionController, SurveyController, PerformanceReviewController, WorkScheduleController, TimesheetController, HrPaymentController, ProjectController, GeofenceController, HrStatsController, PayrollConfigController, ClassLeaderController, HolidayController, PayrollAdjustmentController, PayrollEngineController],
+  providers: [HrService, StaffService, StaffPortfolioService, DepartmentService, BranchService, PositionService, LeaveService, TaskService, AttendanceHrService, TeacherService, VacancyService, CandidateService, InteractionService, SurveyService, PerformanceReviewService, WorkScheduleService, TimesheetService, HrPaymentService, ProjectService, GeofenceService, HrStatsService, PayrollConfigService, ClassLeaderService, HolidayService, PayrollAdjustmentService, PayrollEngineService],
   exports: [HrService, StaffService, StaffPortfolioService, DepartmentService, BranchService, PositionService, LeaveService, TaskService, AttendanceHrService, TeacherService, VacancyService, CandidateService, InteractionService, SurveyService, PerformanceReviewService, WorkScheduleService, TimesheetService, HrPaymentService, ProjectService, GeofenceService, PayrollConfigService, ClassLeaderService, HolidayService, PayrollAdjustmentService],
 })
 export class HrModule {}
