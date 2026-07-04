@@ -1,10 +1,12 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AppPermission } from '../../common/constants/permissions';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Permissions } from '../../common/decorators/permissions.decorator';
 import { UuidParamDto } from '../../common/dto/uuid-param.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import type { AuthenticatedUser } from '../../common/security/authenticated-user.interface';
 import { GeneratePayrollRunDto, PayrollRunQueryDto } from './dto/payroll-run.dto';
 import { PayrollEngineService } from './payroll-engine.service';
 
@@ -30,6 +32,16 @@ export class PayrollEngineController {
   @Permissions([AppPermission.HR_PAYROLLS_READ])
   find(@Query() query: PayrollRunQueryDto) {
     return this.engine.find(query);
+  }
+
+  /**
+   * Xodimning o'z payslip'lari — maxsus ruxsat talab qilinmaydi (har kim
+   * faqat o'zinikini ko'radi; tasdiqlanmagan qoralamalar ko'rinmaydi).
+   * Diqqat: ':id' yo'lidan OLDIN turishi shart.
+   */
+  @Get('my')
+  findMine(@CurrentUser() user: AuthenticatedUser) {
+    return this.engine.findMine(user.id);
   }
 
   @Get(':id')

@@ -9,6 +9,7 @@ import { ClassSession } from '../attendance/entities/class-session.entity';
 import { StaffAttendanceRecord } from '../attendance/entities/staff-attendance-record.entity';
 import { PayrollRunQueryDto } from './dto/payroll-run.dto';
 import { ClassLeaderAssignment } from './entities/class-leader-assignment.entity';
+import { HrPayment } from './entities/hr-payment.entity';
 import { PayRateCard } from './entities/pay-rate-card.entity';
 import { Payroll } from './entities/payroll.entity';
 import { PayrollAdjustment } from './entities/payroll-adjustment.entity';
@@ -18,6 +19,7 @@ import { StaffMember } from './entities/staff-member.entity';
 import { Teacher } from './entities/teacher.entity';
 import {
   EmploymentStatus,
+  HrPaymentStatus,
   LeaveStatus,
   LeaveType,
   PayrollAdjustmentType,
@@ -138,6 +140,7 @@ export class PayrollEngineService {
     @InjectRepository(ClassLeaderAssignment) private readonly assignments: Repository<ClassLeaderAssignment>,
     @InjectRepository(PayrollAdjustment) private readonly adjustments: Repository<PayrollAdjustment>,
     @InjectRepository(PayRateCard) private readonly rateCards: Repository<PayRateCard>,
+    @InjectRepository(HrPayment) private readonly payments: Repository<HrPayment>,
     private readonly config: PayrollConfigService,
     private readonly holidays: HolidayService,
     private readonly tenant: TenantContextService,
@@ -236,7 +239,51 @@ export class PayrollEngineService {
     }
     payroll.status = rule.to;
     await this.payrolls.save(payroll);
+
+    // To'landi deb belgilanganda to'lovlar tarixida avtomatik yozuv paydo
+    // bo'ladi (netto summa). Idempotent — bir payroll uchun bitta yozuv.
+    if (rule.to === PayrollStatus.PAID) {
+      await this.createPaymentRecord(payroll);
+    }
     return this.getView(payrollId);
+  }
+
+  /** Oylik to'lovi uchun HrPayment yozuvi (note ichida payroll ID — dublikat oldini oladi). */
+  private async createPaymentRecord(payroll: Payroll): Promise<void> {
+    const marker = `payroll:${payroll.id}`;
+    const exists = await this.payments
+      .createQueryBuilder('p')
+      .where('p.deleted_at IS NULL')
+      .andWhere('p.note LIKE :m', { m: `%${marker}%` })
+      .getCount();
+    if (exists > 0) return;
+    await this.payments.save(
+      this.payments.create({
+        staffMemberId: payroll.staffMemberId,
+        amount: Number(payroll.netAmount),
+        paymentDate: new Date().toISOString().slice(0, 10),
+        status: HrPaymentStatus.PAID,
+        note: `${payroll.period} oyligi (avtomatik, ${marker})`,
+      }),
+    );
+  }
+
+  /** Xodimning O'Z payslip'lari (login user bo'yicha) — faqat tasdiqlangandan keyingi holatlar. */
+  async findMine(userId: string): Promise<PayrollRunView[]> {
+    const member = await this.staff.findOne({
+      where: tenantWhere<StaffMember>(this.tenant, { userId }, { branch: true }),
+    });
+    if (!member) return [];
+    const rows = await this.payrolls.find({
+      where: {
+        ...tenantWhere<Payroll>(this.tenant, {}, { branch: true }),
+        staffMemberId: member.id,
+        status: In([PayrollStatus.APPROVED, PayrollStatus.PAID, PayrollStatus.LOCKED]),
+      },
+      relations: { staffMember: { position: true }, items: true },
+      order: { period: 'DESC' },
+    });
+    return rows.map((p) => this.toView(p));
   }
 
   // ─── Kontekst yig'ish ─────────────────────────────────────────────────────

@@ -82,12 +82,16 @@ function sum(items: { amount: number }[]): number {
 
 // ─── Service (repo'lar computeItems uchun kerak emas) ───────────────────────
 
-function makeService(payrolls?: { findOne: jest.Mock; save: jest.Mock }): PayrollEngineService {
+function makeService(
+  payrolls?: { findOne: jest.Mock; save: jest.Mock },
+  payments?: { createQueryBuilder: jest.Mock; create: jest.Mock; save: jest.Mock },
+): PayrollEngineService {
   const noop = {} as never;
   const tenant = { getSchoolId: () => null, getBranchId: () => null } as unknown as TenantContextService;
   return new PayrollEngineService(
     (payrolls ?? noop) as never,
     noop, noop, noop, noop, noop, noop, noop, noop, noop,
+    (payments ?? noop) as never,
     noop, noop,
     tenant,
   );
@@ -252,10 +256,19 @@ describe('PayrollEngineService.transition (holat mashinasi)', () => {
       findOne: jest.fn().mockResolvedValue(payroll),
       save: jest.fn().mockImplementation(async (v) => v),
     };
-    const svc = makeService(payrolls);
+    // mark-paid uchun to'lov repo'si: dublikat yo'q (count=0) → create+save.
+    const paymentsQb: Record<string, jest.Mock> = {};
+    for (const m of ['where', 'andWhere']) paymentsQb[m] = jest.fn().mockReturnValue(paymentsQb);
+    paymentsQb.getCount = jest.fn().mockResolvedValue(0);
+    const payments = {
+      createQueryBuilder: jest.fn().mockReturnValue(paymentsQb),
+      create: jest.fn().mockImplementation((v) => v),
+      save: jest.fn().mockImplementation(async (v) => v),
+    };
+    const svc = makeService(payrolls, payments);
     // getView chaqiruvi ham findOne'dan foydalanadi — items bilan qaytaramiz.
     payrolls.findOne.mockResolvedValue({ ...payroll, items: [], staffMember: null });
-    return { svc, payrolls, payroll };
+    return { svc, payrolls, payments, payroll };
   }
 
   it('submit: draft → pending_approval', async () => {
@@ -268,6 +281,15 @@ describe('PayrollEngineService.transition (holat mashinasi)', () => {
     const { svc, payrolls } = serviceWith(PayrollStatus.DRAFT);
     await expect(svc.transition('p-1', 'approve')).rejects.toBeInstanceOf(BadRequestException);
     expect(payrolls.save).not.toHaveBeenCalled();
+  });
+
+  it("mark-paid: approved → paid + HrPayment avto-yozuvi (netto summa)", async () => {
+    const { svc, payments } = serviceWith(PayrollStatus.APPROVED);
+    await svc.transition('p-1', 'mark-paid');
+    expect(payments.save).toHaveBeenCalled();
+    expect(payments.create).toHaveBeenCalledWith(
+      expect.objectContaining({ staffMemberId: 's-1', note: expect.stringContaining('payroll:p-1') }),
+    );
   });
 
   it('lock: faqat paid holatidan', async () => {
