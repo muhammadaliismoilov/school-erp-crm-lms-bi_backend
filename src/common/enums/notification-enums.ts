@@ -24,4 +24,8 @@ export enum NotificationCategory {
   SESSION_LATE = 'session_late',
   SESSION_ABSENT = 'session_absent',
   SESSION_LEFT_EARLY = 'session_left_early',
+  /** Xavfsizlik: yangi qurilmadan kirish. */
+  SECURITY_LOGIN = 'security_login',
+  /** Xavfsizlik: parol almashtirildi. */
+  SECURITY_PASSWORD = 'security_password',
 }

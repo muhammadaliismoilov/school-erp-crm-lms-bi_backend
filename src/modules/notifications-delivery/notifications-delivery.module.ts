@@ -5,6 +5,8 @@ import { AttendanceSettings } from '../attendance/entities/attendance-settings.e
 import { Student } from '../students/entities/student.entity';
 import { StudentParent } from '../students/entities/student-parent.entity';
 import { AttendanceNotifier } from './attendance-notifier.service';
+import { SecurityNotifierService } from './security-notifier.service';
+import { UserSession } from '../identity/entities/user-session.entity';
 import { NotificationChannel } from './entities/notification-channel.entity';
 import { NotificationOutbox } from './entities/notification-outbox.entity';
 import { NotificationChannelController } from './notification-channel.controller';
@@ -23,16 +25,18 @@ import { NotificationWorker } from './notification.worker';
       StudentParent,
       AttendanceSettings,
       Student,
+      UserSession,
     ]),
   ],
   controllers: [NotificationChannelController],
   providers: [
     AttendanceNotifier,
+    SecurityNotifierService,
     NotificationChannelService,
     NotificationDispatchService,
     NotificationQueueService,
     NotificationWorker,
   ],
-  exports: [AttendanceNotifier],
+  exports: [AttendanceNotifier, SecurityNotifierService],
 })
 export class NotificationsDeliveryModule {}

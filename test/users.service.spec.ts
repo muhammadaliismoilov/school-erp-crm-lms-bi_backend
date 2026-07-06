@@ -79,6 +79,7 @@ describe('UsersService', () => {
       staffMembers as unknown as Repository<StaffMember>,
       passwords as unknown as PasswordService,
       tenant as unknown as import('../src/common/tenant/tenant-context.service').TenantContextService,
+      { revokeAllForUser: jest.fn().mockResolvedValue(0) } as unknown as import('../src/modules/auth/session-registry.service').SessionRegistryService,
     );
   });
 

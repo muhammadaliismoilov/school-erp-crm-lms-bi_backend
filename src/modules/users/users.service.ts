@@ -21,6 +21,7 @@ import { AssignRolesDto } from './dto/assign-roles.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
+import { SessionRegistryService } from '../auth/session-registry.service';
 import { UserListResponseSchema, UserResponseSchema, UserRoleSchema } from './swagger/user-response.schema';
 import { UserGender, UserManagementRole, userManagementRoleCandidates } from './enums/user.enums';
 
@@ -42,6 +43,7 @@ export class UsersService {
     private readonly staffMembers: Repository<StaffMember>,
     private readonly passwords: PasswordService,
     private readonly tenant: TenantContextService,
+    private readonly sessionRegistry: SessionRegistryService,
   ) {}
 
   async create(
@@ -396,14 +398,22 @@ export class UsersService {
     if (dto.branchId !== undefined) {
       user.branchId = this.nullableText(dto.branchId);
     }
+    let passwordChanged = false;
     if (dto.password !== undefined) {
       user.passwordHash = await this.passwords.hash(dto.password);
+      passwordChanged = true;
     }
     if (dto.role !== undefined || dto.roleNames !== undefined) {
       user.roles = await this.resolveRoles(dto.roleNames, dto.role);
     }
 
-    return this.toUserResponse(await this.users.save(user));
+    const saved = await this.users.save(user);
+    if (passwordChanged) {
+      // Parol almashdi — barcha faol sessiyalar (qurilmalar) darhol chiqariladi.
+      // "Parolimni kimdir bilib qoldi" stsenariysining to'g'ridan-to'g'ri davosi.
+      await this.sessionRegistry.revokeAllForUser(saved.id);
+    }
+    return this.toUserResponse(saved);
   }
 
   async remove(id: string): Promise<void> {

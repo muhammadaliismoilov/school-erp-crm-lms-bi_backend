@@ -21,6 +21,10 @@ export class UserSession extends UuidAuditEntity {
   @Column({ name: 'revoked_at', type: 'timestamptz', nullable: true })
   revokedAt?: Date | null;
 
+  /** Oxirgi faollik (throttle bilan yangilanadi) — Qurilmalar sahifasida "faol: 5 daq oldin". */
+  @Column({ name: 'last_seen_at', type: 'timestamptz', nullable: true })
+  lastSeenAt?: Date | null;
+
   @Column({ name: 'device_info', type: 'varchar', length: 255, nullable: true })
   deviceInfo?: string | null;
 

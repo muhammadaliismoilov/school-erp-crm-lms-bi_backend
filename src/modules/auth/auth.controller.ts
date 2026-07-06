@@ -1,7 +1,12 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Req } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { ApiLocalizedErrorResponses } from '../../common/swagger/api-localized-error-responses.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import type { AuthenticatedUser } from '../../common/security/authenticated-user.interface';
+import { ChangePasswordDto } from './dto/session.dto';
+import { TwoFactorCodeDto, TwoFactorVerifyDto } from './dto/two-factor.dto';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -42,6 +47,94 @@ export class AuthController {
   @ApiOkResponse({ description: 'Refresh token mavjud bo‘lsa bekor qilindi.' })
   logout(@Body() dto: RefreshTokenDto) {
     return this.authService.logout(dto.refreshToken);
+  }
+
+  // ─── Qurilmalar (sessiyalar) boshqaruvi — har kim faqat o'zinikini ─────────
+
+  @Get('sessions')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Mening ulangan qurilmalarim (faol sessiyalar) ro'yxati" })
+  listSessions(@CurrentUser() user: AuthenticatedUser) {
+    return this.authService.listSessions(user.id, user.sessionId);
+  }
+
+  @Delete('sessions/others')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Joriy qurilmadan tashqari BARCHA qurilmalarni chiqarish" })
+  revokeOtherSessions(@CurrentUser() user: AuthenticatedUser) {
+    return this.authService.revokeOtherSessions(user.id, user.sessionId);
+  }
+
+  @Delete('sessions/:id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Bitta qurilmani chiqarish (faqat o\'z sessiyasi)' })
+  revokeSession(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.authService.revokeSession(user.id, id, user.sessionId);
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Parolni almashtirish (boshqa barcha qurilmalar chiqariladi)" })
+  changePassword(@CurrentUser() user: AuthenticatedUser, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(user.id, dto, user.sessionId);
+  }
+
+  // ─── Ikki bosqichli tekshiruv (2FA, TOTP) ─────────────────────────────────
+
+  @Post('2fa/verify')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Login 2-bosqichi: 2FA kodi bilan token olish" })
+  verifyTwoFactor(@Body() dto: TwoFactorVerifyDto, @Req() request: Request) {
+    return this.authService.verifyTwoFactorLogin(dto.twoFactorToken, dto.code, this.getRequestMeta(request));
+  }
+
+  @Get('2fa/status')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  twoFactorStatus(@CurrentUser() user: AuthenticatedUser) {
+    return this.authService.twoFactorStatus(user.id);
+  }
+
+  @Post('2fa/setup')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "2FA sozlashni boshlash — sir va otpauth havolasi" })
+  setupTwoFactor(@CurrentUser() user: AuthenticatedUser) {
+    return this.authService.setupTwoFactor(user.id, user.username);
+  }
+
+  @Post('2fa/enable')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Kod tasdiqlansa 2FA yoqiladi" })
+  enableTwoFactor(@CurrentUser() user: AuthenticatedUser, @Body() dto: TwoFactorCodeDto) {
+    return this.authService.enableTwoFactor(user.id, dto.code);
+  }
+
+  @Post('2fa/disable')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "2FA'ni o'chirish (joriy kod bilan)" })
+  disableTwoFactor(@CurrentUser() user: AuthenticatedUser, @Body() dto: TwoFactorCodeDto) {
+    return this.authService.disableTwoFactor(user.id, dto.code);
+  }
+
+  @Get('sessions/history')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Kirish tarixi — oxirgi 20 sessiya (chiqarilganlar ham)" })
+  sessionHistory(@CurrentUser() user: AuthenticatedUser) {
+    return this.authService.listSessionHistory(user.id, user.sessionId);
   }
 
   private getRequestMeta(request: Request) {

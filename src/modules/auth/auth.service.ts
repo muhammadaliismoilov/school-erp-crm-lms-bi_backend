@@ -1,6 +1,8 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -14,10 +16,15 @@ import { parseDurationToMs } from '../../common/utils/duration';
 import { Role } from '../identity/entities/role.entity';
 import { User } from '../identity/entities/user.entity';
 import { UserSession } from '../identity/entities/user-session.entity';
+import { parseDeviceInfo } from './device-info.util';
+import { SessionRegistryService } from './session-registry.service';
+import { SecurityNotifierService } from '../notifications-delivery/security-notifier.service';
+import { ChangePasswordDto } from './dto/session.dto';
+import { buildOtpauthUrl, generateTotpSecret, verifyTotp } from './totp.util';
 import { UserGender } from '../users/enums/user.enums';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
-import { AuthTokens, JwtPayload, RequestMeta } from './auth.types';
+import { AuthTokens, JwtPayload, RequestMeta, TwoFactorChallenge } from './auth.types';
 import { PasswordService } from './password.service';
 
 @Injectable()
@@ -29,6 +36,8 @@ export class AuthService {
     private readonly roles: Repository<Role>,
     @InjectRepository(UserSession)
     private readonly sessions: Repository<UserSession>,
+    private readonly sessionRegistry: SessionRegistryService,
+    private readonly securityNotifier: SecurityNotifierService,
     private readonly passwords: PasswordService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
@@ -62,7 +71,7 @@ export class AuthService {
     return this.issueTokens(savedUser, meta);
   }
 
-  async login(dto: LoginDto, meta: RequestMeta = {}): Promise<AuthTokens> {
+  async login(dto: LoginDto, meta: RequestMeta = {}): Promise<AuthTokens | TwoFactorChallenge> {
     const user = await this.users
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
@@ -82,10 +91,111 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // 2FA yoqilgan bo'lsa — token o'rniga qisqa muddatli chaqiriq qaytariladi.
+    if (user.twoFactorEnabled) {
+      const twoFactorToken = await this.jwtService.signAsync(
+        { sub: user.id, purpose: '2fa' },
+        { secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'), expiresIn: '5m' },
+      );
+      return { requiresTwoFactor: true, twoFactorToken } satisfies TwoFactorChallenge;
+    }
+
     user.lastLoginAt = new Date();
     await this.users.save(user);
 
     return this.issueTokens(user, meta);
+  }
+
+  /** 2FA ikkinchi bosqichi: chaqiriq tokeni + authenticator kodi → haqiqiy tokenlar. */
+  async verifyTwoFactorLogin(twoFactorToken: string, code: string, meta: RequestMeta = {}): Promise<AuthTokens> {
+    let payload: { sub?: string; purpose?: string };
+    try {
+      payload = await this.jwtService.verifyAsync(twoFactorToken, {
+        secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
+      });
+    } catch {
+      throw new UnauthorizedException("2FA chaqirig'i eskirgan — qaytadan kiring");
+    }
+    if (payload.purpose !== '2fa' || !payload.sub) {
+      throw new UnauthorizedException("2FA chaqirig'i noto'g'ri");
+    }
+
+    const user = await this.users
+      .createQueryBuilder('user')
+      .addSelect('user.twoFactorSecret')
+      .leftJoinAndSelect('user.roles', 'role')
+      .leftJoinAndSelect('role.permissions', 'permission')
+      .where('user.id = :id', { id: payload.sub })
+      .getOne();
+    if (!user || user.status !== CommonStatus.ACTIVE || !user.twoFactorEnabled || !user.twoFactorSecret) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    if (!verifyTotp(user.twoFactorSecret, code)) {
+      throw new UnauthorizedException("Kod noto'g'ri yoki eskirgan");
+    }
+
+    user.lastLoginAt = new Date();
+    await this.users.save(user);
+    return this.issueTokens(user, meta);
+  }
+
+  // ─── 2FA sozlash (o'z hisobida) ───────────────────────────────────────────
+
+  /** 1-qadam: sir yaratiladi (hali yoqilmagan) — Authenticator'ga kiritish uchun. */
+  async setupTwoFactor(userId: string, username: string) {
+    const secret = generateTotpSecret();
+    await this.users.update({ id: userId }, { twoFactorSecret: secret, twoFactorEnabled: false });
+    return { secret, otpauthUrl: buildOtpauthUrl(secret, username) };
+  }
+
+  /** 2-qadam: ilovadagi kod tasdiqlansa — 2FA yoqiladi. */
+  async enableTwoFactor(userId: string, code: string) {
+    const secret = await this.loadTwoFactorSecret(userId);
+    if (!secret) throw new BadRequestException("Avval 2FA sozlashni boshlang (setup)");
+    if (!verifyTotp(secret, code)) throw new UnauthorizedException("Kod noto'g'ri yoki eskirgan");
+    await this.users.update({ id: userId }, { twoFactorEnabled: true });
+    return { enabled: true };
+  }
+
+  /** O'chirish — joriy kod talab qilinadi (sessiya o'g'irlansa ham o'chira olmasin). */
+  async disableTwoFactor(userId: string, code: string) {
+    const secret = await this.loadTwoFactorSecret(userId);
+    if (!secret) return { enabled: false };
+    if (!verifyTotp(secret, code)) throw new UnauthorizedException("Kod noto'g'ri yoki eskirgan");
+    await this.users.update({ id: userId }, { twoFactorEnabled: false, twoFactorSecret: null });
+    return { enabled: false };
+  }
+
+  async twoFactorStatus(userId: string) {
+    const user = await this.users.findOne({ where: { id: userId }, select: { id: true, twoFactorEnabled: true } });
+    return { enabled: user?.twoFactorEnabled ?? false };
+  }
+
+  private async loadTwoFactorSecret(userId: string): Promise<string | null> {
+    const user = await this.users
+      .createQueryBuilder('user')
+      .addSelect('user.twoFactorSecret')
+      .where('user.id = :id', { id: userId })
+      .getOne();
+    return user?.twoFactorSecret ?? null;
+  }
+
+  /** Kirish tarixi — oxirgi 20 sessiya (chiqarilganlar ham), audit ko'rinishi. */
+  async listSessionHistory(userId: string, currentSessionId?: string) {
+    const rows = await this.sessions.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: 20,
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      deviceInfo: r.deviceInfo ?? null,
+      ipAddress: r.ipAddress ?? null,
+      createdAt: r.createdAt,
+      lastSeenAt: r.lastSeenAt ?? null,
+      revokedAt: r.revokedAt ?? null,
+      current: r.id === currentSessionId,
+    }));
   }
 
   async refresh(refreshToken: string, meta: RequestMeta = {}): Promise<AuthTokens> {
@@ -124,6 +234,68 @@ export class AuthService {
     return { revoked: (result.affected ?? 0) > 0 };
   }
 
+  // ─── Sessiya (qurilma) boshqaruvi ─────────────────────────────────────────
+
+  /** Foydalanuvchining faol sessiyalari — Qurilmalar sahifasi uchun. */
+  async listSessions(userId: string, currentSessionId?: string) {
+    const rows = await this.sessions.find({
+      where: { userId, revokedAt: IsNull() },
+      order: { createdAt: 'DESC' },
+    });
+    const now = Date.now();
+    return rows
+      .filter((r) => r.expiresAt.getTime() > now)
+      .map((r) => ({
+        id: r.id,
+        deviceInfo: r.deviceInfo ?? null,
+        ipAddress: r.ipAddress ?? null,
+        createdAt: r.createdAt,
+        lastSeenAt: r.lastSeenAt ?? null,
+        current: r.id === currentSessionId,
+      }));
+  }
+
+  /** Bitta qurilmani chiqarish. Joriy sessiya bu yerdan emas — logout orqali. */
+  async revokeSession(userId: string, sessionId: string, currentSessionId?: string) {
+    if (sessionId === currentSessionId) {
+      throw new BadRequestException("Joriy qurilma bu yerdan chiqarilmaydi — 'Chiqish' (logout) dan foydalaning");
+    }
+    const revoked = await this.sessionRegistry.revokeSession(sessionId, userId);
+    if (!revoked) throw new NotFoundException('Sessiya topilmadi yoki allaqachon bekor qilingan');
+    return { revoked: true };
+  }
+
+  /** "Boshqa hammasini chiqarish" — joriy qurilmadan tashqari barcha sessiyalar. */
+  async revokeOtherSessions(userId: string, currentSessionId?: string) {
+    const revokedCount = await this.sessionRegistry.revokeAllForUser(userId, currentSessionId);
+    return { revokedCount };
+  }
+
+  /**
+   * O'z parolini almashtirish: eski parol tekshiriladi, yangisi saqlanadi,
+   * joriy qurilmadan tashqari BARCHA sessiyalar bekor qilinadi.
+   */
+  async changePassword(userId: string, dto: ChangePasswordDto, currentSessionId?: string) {
+    const user = await this.users
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.id = :id', { id: userId })
+      .getOne();
+    if (!user) throw new UnauthorizedException('Foydalanuvchi topilmadi');
+
+    const valid = await this.passwords.verify(user.passwordHash, dto.currentPassword);
+    if (!valid) throw new UnauthorizedException("Joriy parol noto'g'ri");
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException('Yangi parol eskisidan farq qilishi kerak');
+    }
+
+    user.passwordHash = await this.passwords.hash(dto.newPassword);
+    await this.users.save(user);
+    const revokedCount = await this.sessionRegistry.revokeAllForUser(userId, currentSessionId);
+    this.securityNotifier.notifyPasswordChanged(userId, revokedCount);
+    return { changed: true, revokedOtherSessions: revokedCount };
+  }
+
   private async issueTokens(user: User, meta: RequestMeta): Promise<AuthTokens> {
     const refreshToken = randomBytes(64).toString('base64url');
     const refreshExpiresIn =
@@ -137,10 +309,19 @@ export class AuthService {
         userId: user.id,
         refreshTokenDigest: this.digestToken(refreshToken),
         expiresAt: new Date(Date.now() + parseDurationToMs(refreshExpiresIn)),
-        deviceInfo: meta.deviceInfo,
+        deviceInfo: parseDeviceInfo(meta.deviceInfo),
         ipAddress: meta.ipAddress,
+        lastSeenAt: new Date(),
       }),
     );
+
+    // Yangi qurilmadan kirish ogohlantirishi (fire-and-forget, login'ni sekinlashtirmaydi).
+    this.securityNotifier.maybeNotifyNewLogin({
+      userId: user.id,
+      sessionId: session.id,
+      deviceInfo: session.deviceInfo ?? null,
+      ipAddress: meta.ipAddress ?? null,
+    });
 
     const authUser = this.toAuthenticatedUser(user, session.id);
     const payload: JwtPayload = {

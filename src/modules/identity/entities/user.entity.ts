@@ -40,6 +40,14 @@ export class User extends UuidAuditEntity {
   @Column({ name: 'password_hash', type: 'varchar', length: 255, select: false })
   passwordHash: string;
 
+  /** TOTP siri (base32) — faqat 2FA oqimlarida addSelect bilan o'qiladi. */
+  @Column({ name: 'two_factor_secret', type: 'varchar', length: 64, nullable: true, select: false })
+  twoFactorSecret?: string | null;
+
+  /** Ikki bosqichli tekshiruv yoqilganmi (login'da kod so'raladi). */
+  @Column({ name: 'two_factor_enabled', type: 'boolean', default: false })
+  twoFactorEnabled: boolean;
+
   @Column({ name: 'first_name', type: 'varchar', length: 80 })
   firstName: string;
 
