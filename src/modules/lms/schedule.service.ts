@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -16,12 +17,14 @@ import { LessonPeriod } from '../academic/entities/lesson-period.entity';
 import { Quarter } from '../academic/entities/quarter.entity';
 import { SchoolClass } from '../academic/entities/school-class.entity';
 import { Subject } from '../academic/entities/subject.entity';
+import { Teacher } from '../hr/entities/teacher.entity';
 import { User } from '../identity/entities/user.entity';
 import { LessonSchedule } from './entities/lesson-schedule.entity';
 import { LessonStatus } from './enums/lms.enums';
 import {
   CreateScheduleCellDto,
   GenerateScheduleDto,
+  ScheduleEditScope,
   ScheduleGenerateMode,
   SubstituteTeacherDto,
   UpdateScheduleCellDto,
@@ -49,6 +52,7 @@ export class ScheduleService {
     @InjectRepository(Course) private readonly courses: Repository<Course>,
     @InjectRepository(Subject) private readonly subjects: Repository<Subject>,
     @InjectRepository(User) private readonly users: Repository<User>,
+    @InjectRepository(Teacher) private readonly hrTeachers: Repository<Teacher>,
     private readonly tenant: TenantContextService,
     @Optional() private readonly auditService?: AuditService,
     @Optional() @InjectRepository(AuditLog) private readonly auditLogs?: Repository<AuditLog>,
@@ -77,15 +81,19 @@ export class ScheduleService {
   }
 
   /**
-   * Jadval selektorlari uchun o'qituvchilar (foydalanuvchilar) ro'yxati.
-   * Users modulidan (USERS_READ) ajratilgan — LMS ruxsati bilan ham ishlaydi.
+   * Jadval selektorlari uchun o'qituvchilar ro'yxati — HR registri (hr_teachers).
+   * Dars jadvalidagi teacher_id endi hr_teachers'ga ishora qiladi.
    */
   async getTeachers() {
-    const users = await this.users.find({
-      where: tenantWhere<User>(this.tenant, {}),
-      order: { firstName: 'ASC', lastName: 'ASC' },
+    const teachers = await this.hrTeachers.find({
+      where: tenantWhere<Teacher>(this.tenant, {}, { branch: true }),
+      relations: { staffMember: true },
     });
-    return { items: users.map((u) => ({ id: u.id, fullName: this.fullName(u) })) };
+    return {
+      items: teachers
+        .map((t) => ({ id: t.id, fullName: this.teacherFullName(t) }))
+        .sort((a, b) => a.fullName.localeCompare(b.fullName)),
+    };
   }
 
   // ============================================================ Read: grid
@@ -95,7 +103,7 @@ export class ScheduleService {
     const periods = await this.loadPeriods();
     const lessons = await this.lessons.find({
       where: tenantWhere<LessonSchedule>(this.tenant, { classId, quarterId }, { branch: true }),
-      relations: { subject: true, teacher: true, room: true, course: true, lessonPeriod: true },
+      relations: { subject: true, teacher: { staffMember: true }, room: true, course: true, lessonPeriod: true },
     });
     const cells = this.buildCells(lessons, (l) => ({
       id: l.id,
@@ -103,7 +111,7 @@ export class ScheduleService {
       subjectName: l.subject?.name ?? null,
       subjectColor: l.subject?.color ?? null,
       teacherId: l.teacherId ?? null,
-      teacherName: l.teacher ? this.fullName(l.teacher) : null,
+      teacherName: l.teacher ? this.teacherFullName(l.teacher) : null,
       roomId: l.roomId ?? null,
       roomName: l.room?.roomNumber ?? null,
       courseId: l.courseId ?? null,
@@ -133,6 +141,83 @@ export class ScheduleService {
       isSubstituted: !!l.originalTeacherId,
     }));
     return { quarterId, teacherId, days: WORK_DAYS, periods, cells, subjects: await this.legend(quarter) };
+  }
+
+  /**
+   * Chorak bo'yicha to'liq ko'rinish: darslarni haftalik shablonga SIQMAY,
+   * har bir real hafta va sanasi bilan qaytaradi. Sinf yoki o'qituvchi talab qilinadi.
+   */
+  async getQuarterView(quarterId: string, opts: { classId?: string; teacherId?: string }) {
+    if (!opts.classId && !opts.teacherId) {
+      throw new BadRequestException('classId yoki teacherId talab qilinadi.');
+    }
+    const quarter = await this.loadQuarter(quarterId);
+    const periods = await this.loadPeriods();
+    const filter: Record<string, unknown> = { quarterId };
+    if (opts.classId) filter.classId = opts.classId;
+    if (opts.teacherId) filter.teacherId = opts.teacherId;
+    const mode: 'class' | 'teacher' = opts.teacherId && !opts.classId ? 'teacher' : 'class';
+    const lessons = await this.lessons.find({
+      where: tenantWhere<LessonSchedule>(this.tenant, filter, { branch: true }),
+      relations: { subject: true, teacher: { staffMember: true }, class: true, room: true, course: true, lessonPeriod: true },
+    });
+
+    const today = this.currentDate();
+    const weekMap = new Map(
+      this.enumerateWeeks(quarter.startDate, quarter.endDate).map((w) => [
+        w.startDate,
+        {
+          ...w,
+          isCurrent: today >= w.startDate && today <= w.endDate,
+          cells: {} as Record<string, ReturnType<ScheduleService['projectQuarterCell']>>,
+        },
+      ]),
+    );
+    for (const l of lessons) {
+      if (l.weekday == null || l.lessonPeriodId == null) continue;
+      const bucket = weekMap.get(this.mondayOf(l.lessonDate));
+      if (!bucket) continue;
+      bucket.cells[`${l.weekday}:${l.lessonPeriodId}`] = this.projectQuarterCell(l, mode);
+    }
+
+    // Darssiz haftalarni chiqarib tashlaymiz (masalan chorak hafta o'rtasidan boshlansa).
+    const weeks = Array.from(weekMap.values()).filter((w) => Object.keys(w.cells).length > 0);
+
+    return {
+      quarterId,
+      classId: opts.classId ?? null,
+      teacherId: opts.teacherId ?? null,
+      startDate: quarter.startDate,
+      endDate: quarter.endDate,
+      days: WORK_DAYS,
+      periods,
+      weeks,
+      subjects: await this.legend(quarter),
+    };
+  }
+
+  /** Bitta darsni chorak ko'rinishi katagiga proyeksiya qiladi (sana bilan). */
+  private projectQuarterCell(l: LessonSchedule, mode: 'class' | 'teacher') {
+    const base = {
+      id: l.id,
+      subjectId: l.subjectId,
+      subjectName: l.subject?.name ?? null,
+      subjectColor: l.subject?.color ?? null,
+      roomId: l.roomId ?? null,
+      roomName: l.room?.roomNumber ?? null,
+      courseId: l.courseId ?? null,
+      courseName: l.course?.name ?? null,
+      lessonDate: l.lessonDate,
+      weekday: l.weekday,
+      isSubstituted: !!l.originalTeacherId,
+      classId: l.classId as string | undefined,
+      className: l.class?.name ?? null,
+      teacherId: (l.teacherId ?? null) as string | null,
+      teacherName: l.teacher ? this.teacherFullName(l.teacher) : null,
+    };
+    // mode faqat frontend uchun asosiy ustunni belgilaydi; ikkala maydon ham qaytadi.
+    void mode;
+    return base;
   }
 
   // ============================================================ Mutation: katak
@@ -184,33 +269,143 @@ export class ScheduleService {
   async updateCell(id: string, dto: UpdateScheduleCellDto, actor?: ScheduleActor) {
     const rep = await this.lessons.findOne({ where: tenantWhere<LessonSchedule>(this.tenant, { id }, { branch: true }) });
     if (!rep) throw new NotFoundException('Lesson not found');
+    const scope = dto.scope ?? ScheduleEditScope.FUTURE;
     const resolved = await this.resolveSubjectSource(
       dto.subjectId ?? rep.subjectId,
       dto.courseId ?? rep.courseId ?? undefined,
       dto.teacherId,
       dto.roomId,
     );
+
+    // Qamrovga mos qatorlar (manba slotdan).
+    const rows = await this.rowsForScope(rep, scope);
+    if (!rows.length) return { updated: 0 };
+
+    // Yakuniy qiymatlar va o'zgargan maydonlar.
+    const finalTeacherId = resolved.teacherId ?? null;
+    const finalRoomId = resolved.roomId ?? null;
+    const finalClassId = dto.classId ?? rep.classId;
+    const teacherChanged = finalTeacherId !== (rep.teacherId ?? null);
+    const roomChanged = finalRoomId !== (rep.roomId ?? null);
+    const classChanged = finalClassId !== rep.classId;
+
+    // Qat'iy konflikt tekshiruvi — faqat o'zgargan maydonlar bo'yicha.
+    if (teacherChanged || roomChanged || classChanged) {
+      await this.assertNoConflict(rows, {
+        teacherId: teacherChanged ? finalTeacherId : null,
+        roomId: roomChanged ? finalRoomId : null,
+        classId: classChanged ? finalClassId : null,
+      });
+    }
+
     const patch: {
       subjectId: string;
       courseId?: string | null;
       teacherId?: string | null;
       roomId?: string | null;
+      classId?: string;
     } = { subjectId: resolved.subjectId };
     if (dto.courseId !== undefined) patch.courseId = dto.courseId ?? null;
-    if (resolved.teacherId !== undefined || dto.teacherId !== undefined) patch.teacherId = resolved.teacherId ?? dto.teacherId ?? null;
-    if (resolved.roomId !== undefined || dto.roomId !== undefined) patch.roomId = resolved.roomId ?? dto.roomId ?? null;
+    patch.teacherId = finalTeacherId;
+    patch.roomId = finalRoomId;
+    if (classChanged) patch.classId = finalClassId;
 
-    const where = this.cellWhere(rep, this.currentDate());
-    const result = await this.lessons.update(where, patch);
-    await this.audit(actor, 'lesson_schedule.cell_updated', rep.classId, {
+    const result = await this.lessons.update({ id: In(rows.map((r) => r.id)) }, patch);
+    await this.audit(actor, 'lesson_schedule.cell_updated', finalClassId, {
       quarterId: rep.quarterId,
-      classId: rep.classId,
+      classId: finalClassId,
+      fromClassId: classChanged ? rep.classId : undefined,
       weekday: rep.weekday,
       lessonPeriodId: rep.lessonPeriodId,
       subjectId: resolved.subjectId,
+      scope,
       updated: result.affected ?? 0,
     });
     return { updated: result.affected ?? 0 };
+  }
+
+  /** Qamrovga mos darslar ro'yxati (manba sinf slotidan). */
+  private rowsForScope(rep: LessonSchedule, scope: ScheduleEditScope): Promise<LessonSchedule[]> {
+    const base = tenantWhere<LessonSchedule>(
+      this.tenant,
+      {
+        classId: rep.classId,
+        lessonPeriodId: rep.lessonPeriodId ?? undefined,
+        weekday: rep.weekday ?? undefined,
+        quarterId: rep.quarterId ?? undefined,
+        deletedAt: IsNull(),
+      },
+      { branch: true },
+    );
+    if (scope === ScheduleEditScope.SINGLE) {
+      return this.lessons.find({ where: { ...base, lessonDate: rep.lessonDate } });
+    }
+    if (scope === ScheduleEditScope.ALL) {
+      return this.lessons.find({ where: base });
+    }
+    return this.lessons.find({ where: { ...base, lessonDate: MoreThanOrEqual(this.currentDate()) } });
+  }
+
+  /** Berilgan qatorlarga yangi o'qituvchi/xona/sinf qo'yilsa konflikt bormi — bo'lsa 409. */
+  private async assertNoConflict(
+    rows: LessonSchedule[],
+    target: { teacherId: string | null; roomId: string | null; classId: string | null },
+  ) {
+    if (!target.teacherId && !target.roomId && !target.classId) return;
+    const rowIds = new Set(rows.map((r) => r.id));
+    const dates = Array.from(new Set(rows.map((r) => r.lessonDate)));
+    const periodId = rows[0]?.lessonPeriodId ?? undefined;
+    const others = await this.lessons.find({
+      where: tenantWhere<LessonSchedule>(
+        this.tenant,
+        { quarterId: rows[0]?.quarterId ?? undefined, lessonPeriodId: periodId, lessonDate: In(dates) },
+        { branch: true },
+      ),
+      relations: { class: true, teacher: { staffMember: true }, room: true },
+    });
+    const conflicts: Array<{ type: 'teacher' | 'room' | 'class'; date: string; entityName: string | null; className: string | null }> = [];
+    for (const o of others) {
+      if (rowIds.has(o.id)) continue;
+      if (target.teacherId && o.teacherId === target.teacherId) {
+        conflicts.push({ type: 'teacher', date: o.lessonDate, entityName: o.teacher ? this.teacherFullName(o.teacher) : null, className: o.class?.name ?? null });
+      }
+      if (target.roomId && o.roomId === target.roomId) {
+        conflicts.push({ type: 'room', date: o.lessonDate, entityName: o.room?.roomNumber ?? null, className: o.class?.name ?? null });
+      }
+      if (target.classId && o.classId === target.classId) {
+        conflicts.push({ type: 'class', date: o.lessonDate, entityName: o.class?.name ?? null, className: o.class?.name ?? null });
+      }
+    }
+    if (conflicts.length) {
+      throw new ConflictException({ code: 'SCHEDULE_CONFLICT', details: conflicts.slice(0, 20) });
+    }
+  }
+
+  /** Aniq sana + parada band o'qituvchi/xona/sinf identifikatorlari. */
+  async getAvailability(quarterId: string, lessonDate: string, lessonPeriodId: string, excludeId?: string) {
+    const rows = await this.lessons.find({
+      where: tenantWhere<LessonSchedule>(
+        this.tenant,
+        { quarterId, lessonDate, lessonPeriodId, deletedAt: IsNull() },
+        { branch: true },
+      ),
+    });
+    const busyTeacherIds = new Set<string>();
+    const busyRoomIds = new Set<string>();
+    const busyClassIds = new Set<string>();
+    for (const l of rows) {
+      if (excludeId && l.id === excludeId) continue;
+      if (l.teacherId) busyTeacherIds.add(l.teacherId);
+      if (l.roomId) busyRoomIds.add(l.roomId);
+      if (l.classId) busyClassIds.add(l.classId);
+    }
+    return {
+      lessonDate,
+      lessonPeriodId,
+      busyTeacherIds: Array.from(busyTeacherIds),
+      busyRoomIds: Array.from(busyRoomIds),
+      busyClassIds: Array.from(busyClassIds),
+    };
   }
 
   async deleteCell(id: string, actor?: ScheduleActor) {
@@ -405,7 +600,7 @@ export class ScheduleService {
     await this.loadQuarter(quarterId);
     const lessons = await this.lessons.find({
       where: tenantWhere<LessonSchedule>(this.tenant, { quarterId }, { branch: true }),
-      relations: { subject: true, teacher: true, room: true, class: true, lessonPeriod: true },
+      relations: { subject: true, teacher: { staffMember: true }, room: true, class: true, lessonPeriod: true },
     });
     // Haftalik vakillarga qisqartirish (har bir sana takrorini hisobga olmaslik).
     const weekly = new Map<string, LessonSchedule>();
@@ -438,7 +633,7 @@ export class ScheduleService {
           weekday: first.weekday,
           lessonPeriodId: first.lessonPeriodId,
           periodCode: slotLabel(first),
-          entityName: first.teacher ? this.fullName(first.teacher) : null,
+          entityName: first.teacher ? this.teacherFullName(first.teacher) : null,
           classes: group.map((g) => g.class?.name).filter(Boolean),
         });
       }
@@ -572,7 +767,9 @@ export class ScheduleService {
       if (!course) throw new NotFoundException('Course not found');
       return {
         subjectId: subjectId ?? course.subjectId,
-        teacherId: teacherId ?? course.teacherId,
+        // Kurs o'qituvchisi hali User'ga bog'langan — jadval esa hr_teachers'ga.
+        // User id'ni xodim (staff_member.user_id) orqali HR o'qituvchiga o'giramiz.
+        teacherId: teacherId ?? (await this.hrTeacherIdByUserId(course.teacherId)),
         roomId: roomId ?? course.roomId,
       };
     }
@@ -653,10 +850,15 @@ export class ScheduleService {
     const teacherIds = dto.distribution.map((d) => d.teacherId).filter((x): x is string => !!x);
     const classes = classIds.length ? await this.classes.find({ where: tenantWhere<SchoolClass>(this.tenant, { id: In(classIds) }, { branch: true }) }) : [];
     const subjects = subjectIds.length ? await this.subjects.find({ where: { id: In(subjectIds) } }) : [];
-    const teachers = teacherIds.length ? await this.users.find({ where: tenantWhere<User>(this.tenant, { id: In(teacherIds) }) }) : [];
+    const teachers = teacherIds.length
+      ? await this.hrTeachers.find({
+          where: tenantWhere<Teacher>(this.tenant, { id: In(teacherIds) }, { branch: true }),
+          relations: { staffMember: true },
+        })
+      : [];
     const classMap = new Map(classes.map((c) => [c.id, c.name] as const));
     const subjectMap = new Map(subjects.map((s) => [s.id, s.name] as const));
-    const teacherMap = new Map(teachers.map((t) => [t.id, this.fullName(t)] as const));
+    const teacherMap = new Map(teachers.map((t) => [t.id, this.teacherFullName(t)] as const));
     const existing = await this.lessons.find({
       where: { quarterId: dto.quarterId, classId: In(classIds.length ? classIds : ['']) },
       select: { classId: true, subjectId: true },
@@ -679,6 +881,21 @@ export class ScheduleService {
     return [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username;
   }
 
+  /** HR o'qituvchi ismi — shaxsiy ma'lumot yagona manbasi StaffMember. */
+  private teacherFullName(teacher: Teacher): string {
+    const sm = teacher.staffMember;
+    return sm ? [sm.lastName, sm.firstName].filter(Boolean).join(' ').trim() : '';
+  }
+
+  /** User id → shu foydalanuvchiga bog'langan xodimning HR o'qituvchi id'si (bo'lmasa null). */
+  private async hrTeacherIdByUserId(userId: string | null | undefined): Promise<string | null> {
+    if (!userId) return null;
+    const teacher = await this.hrTeachers.findOne({
+      where: tenantWhere<Teacher>(this.tenant, { staffMember: { userId } }, { branch: true }),
+    });
+    return teacher?.id ?? null;
+  }
+
   /** Bugungi sana (YYYY-MM-DD). Testlarda override qilinadi. */
   protected currentDate(): string {
     return new Date().toISOString().slice(0, 10);
@@ -686,6 +903,31 @@ export class ScheduleService {
 
   private maxDate(a: string, b: string): string {
     return a >= b ? a : b;
+  }
+
+  /** Berilgan sana tegishli haftaning dushanbasi (YYYY-MM-DD). */
+  private mondayOf(dateStr: string): string {
+    const d = new Date(`${dateStr}T00:00:00Z`);
+    const iso = d.getUTCDay() === 0 ? 7 : d.getUTCDay();
+    d.setUTCDate(d.getUTCDate() - (iso - 1));
+    return d.toISOString().slice(0, 10);
+  }
+
+  /** [start, end] oralig'ini haftalarga bo'ladi: har biri dushanba–yakshanba. */
+  private enumerateWeeks(start: string, end: string): { weekNumber: number; startDate: string; endDate: string }[] {
+    const weeks: { weekNumber: number; startDate: string; endDate: string }[] = [];
+    const cursor = new Date(`${this.mondayOf(start)}T00:00:00Z`);
+    const endD = new Date(`${end}T00:00:00Z`);
+    let n = 1;
+    while (cursor <= endD) {
+      const monday = cursor.toISOString().slice(0, 10);
+      const sunday = new Date(cursor);
+      sunday.setUTCDate(sunday.getUTCDate() + 6);
+      weeks.push({ weekNumber: n, startDate: monday, endDate: sunday.toISOString().slice(0, 10) });
+      cursor.setUTCDate(cursor.getUTCDate() + 7);
+      n++;
+    }
+    return weeks;
   }
 
   /** [start, end] oralig'idagi berilgan ISO hafta kuniga to'g'ri keladigan barcha sanalar. */

@@ -67,6 +67,7 @@ import { PayrollSettings } from './entities/payroll-settings.entity';
 import { PayrollConfigController } from './payroll-config.controller';
 import { PayrollConfigService } from './payroll-config.service';
 import { SchoolClass } from '../academic/entities/school-class.entity';
+import { Subject } from '../academic/entities/subject.entity';
 import { ClassLeaderAssignment } from './entities/class-leader-assignment.entity';
 import { ClassLeaderController } from './class-leader.controller';
 import { ClassLeaderService } from './class-leader.service';
@@ -116,6 +117,7 @@ import { PayrollEngineService } from './payroll-engine.service';
       PayrollSettings,
       ClassLeaderAssignment,
       SchoolClass,
+      Subject,
       Holiday,
       PayrollItem,
       PayrollAdjustment,

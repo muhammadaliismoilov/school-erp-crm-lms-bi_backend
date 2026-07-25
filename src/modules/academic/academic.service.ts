@@ -12,6 +12,7 @@ import { AttendanceRecord } from "../attendance/entities/attendance-record.entit
 import { CommunicationService } from "../communication/communication.service";
 import type { ClassCampaignRecipient } from "../communication/communication.service";
 import { CampaignStatus } from "../communication/enums/communication.enums";
+import { Teacher } from "../hr/entities/teacher.entity";
 import { User } from "../identity/entities/user.entity";
 import { JournalEntry } from "../lms/entities/journal-entry.entity";
 import { LessonSchedule } from "../lms/entities/lesson-schedule.entity";
@@ -573,7 +574,7 @@ export class AcademicService {
     if (lessonsRepo) {
       const lessons = await lessonsRepo.find({
         where: { subjectId: id },
-        relations: { class: true, teacher: true },
+        relations: { class: true, teacher: { staffMember: true } },
       });
       lessonCount = lessons.length;
       for (const lesson of lessons) {
@@ -581,7 +582,7 @@ export class AcademicService {
           classes.set(lesson.class.id, lesson.class.name);
         }
         if (lesson.teacher) {
-          teachers.set(lesson.teacher.id, this.buildUserFullName(lesson.teacher));
+          teachers.set(lesson.teacher.id, this.buildTeacherFullName(lesson.teacher));
         }
       }
     }
@@ -618,7 +619,7 @@ export class AcademicService {
         subjectId: id,
         ...(query.teacherId ? { teacherId: query.teacherId } : {}),
       },
-      relations: { class: true, teacher: true, lessonPeriod: true },
+      relations: { class: true, teacher: { staffMember: true }, lessonPeriod: true },
       order: { lessonDate: "ASC" },
     });
 
@@ -1218,7 +1219,7 @@ export class AcademicService {
       lessonDate: lesson.lessonDate,
       weekday: this.toWeekday(lesson.lessonDate),
       class: { id: lesson.class?.id ?? lesson.classId, name: lesson.class?.name ?? "" },
-      teacherName: lesson.teacher ? this.buildUserFullName(lesson.teacher) : null,
+      teacherName: lesson.teacher ? this.buildTeacherFullName(lesson.teacher) : null,
       periodLabel: lesson.lessonPeriod?.code ?? null,
       startTime: lesson.lessonPeriod ? this.formatLessonTime(lesson.lessonPeriod.startTime) : null,
       endTime: lesson.lessonPeriod ? this.formatLessonTime(lesson.lessonPeriod.endTime) : null,
@@ -2002,6 +2003,12 @@ export class AcademicService {
 
   private buildUserFullName(user: User): string {
     return [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username;
+  }
+
+  /** HR o'qituvchi ismi — shaxsiy ma'lumot manbasi StaffMember. */
+  private buildTeacherFullName(teacher: Teacher): string {
+    const sm = teacher.staffMember;
+    return sm ? [sm.lastName, sm.firstName].filter(Boolean).join(" ").trim() : "";
   }
 
   private buildStudentFullName(student: Student): string {

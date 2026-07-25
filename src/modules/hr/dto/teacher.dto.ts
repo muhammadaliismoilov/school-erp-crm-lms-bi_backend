@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayUnique,
+  IsArray,
   IsBoolean,
   IsEmail,
   IsEnum,
@@ -69,6 +71,9 @@ export class CreateTeacherDto {
   @ApiPropertyOptional({ default: false }) @IsOptional() @IsBoolean() isClassLeader?: boolean;
 
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 2000) note?: string;
+
+  @ApiPropertyOptional({ type: [String], format: 'uuid', description: 'O‘qituvchi dars beradigan fanlar (mutaxassislik).' })
+  @IsOptional() @IsArray() @ArrayUnique() @IsUUID(undefined, { each: true }) subjectIds?: string[];
 }
 
 export class UpdateTeacherDto extends PartialType(CreateTeacherDto) {}

@@ -13,8 +13,6 @@ import { Payment } from '../finance/entities/payment.entity';
 import { User } from '../identity/entities/user.entity';
 import { StudentsService } from './students.service';
 
-const ATTENDED = new Set(['present', 'late', 'excused']);
-
 interface LocalizedText {
   uz?: string;
   ru?: string;
@@ -144,7 +142,7 @@ export class StudentProfileService {
 
     const lessons = await this.lessons.find({
       where: { classId },
-      relations: { teacher: true, subject: true },
+      relations: { teacher: { staffMember: true }, subject: true },
     });
 
     const map = new Map<string, { id: string; fullName: string; subject: string }>();
@@ -152,9 +150,10 @@ export class StudentProfileService {
       if (!l.teacherId || !l.teacher) continue;
       const key = `${l.teacherId}:${l.subjectId}`;
       if (map.has(key)) continue;
+      const sm = l.teacher.staffMember;
       map.set(key, {
         id: l.teacherId,
-        fullName: `${l.teacher.lastName} ${l.teacher.firstName}`.trim(),
+        fullName: sm ? `${sm.lastName} ${sm.firstName}`.trim() : '',
         subject: pickText(l.subject?.name as unknown as LocalizedText),
       });
     }
@@ -277,7 +276,7 @@ export class StudentProfileService {
 
     const lessons = await this.lessons.find({
       where: { classId: student.currentClassId },
-      relations: { subject: true, teacher: true, lessonPeriod: true, room: true },
+      relations: { subject: true, teacher: { staffMember: true }, lessonPeriod: true, room: true },
     });
 
     const periodMap = new Map<string, LessonPeriod>();
@@ -295,7 +294,9 @@ export class StudentProfileService {
         weekday: l.weekday,
         periodId: l.lessonPeriodId,
         subject: pickText(l.subject?.name as unknown as LocalizedText),
-        teacher: l.teacher ? `${l.teacher.lastName} ${l.teacher.firstName}`.trim() : null,
+        teacher: l.teacher?.staffMember
+          ? `${l.teacher.staffMember.lastName} ${l.teacher.staffMember.firstName}`.trim()
+          : null,
         room: l.room?.roomNumber ?? null,
       });
     }

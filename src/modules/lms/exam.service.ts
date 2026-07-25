@@ -90,11 +90,14 @@ export class ExamService {
     if (classId && subjectId) {
       const lessons = await this.lessons.find({
         where: tenantWhere<LessonSchedule>(this.tenant, { classId, subjectId }, { branch: true }),
-        relations: { teacher: true },
+        // Jadval o'qituvchisi endi HR Teacher; imtihon esa User'ga bog'lanadi —
+        // xodimning user akkauntiga (staffMember.user) o'giramiz.
+        relations: { teacher: { staffMember: { user: true } } },
       });
       const byId = new Map<string, User>();
       for (const lesson of lessons) {
-        if (lesson.teacher) byId.set(lesson.teacher.id, lesson.teacher);
+        const user = lesson.teacher?.staffMember?.user;
+        if (user) byId.set(user.id, user);
       }
       if (byId.size > 0) {
         return {

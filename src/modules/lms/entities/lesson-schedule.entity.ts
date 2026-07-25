@@ -5,7 +5,7 @@ import { Course } from '../../academic/entities/course.entity';
 import { LessonPeriod } from '../../academic/entities/lesson-period.entity';
 import { Quarter } from '../../academic/entities/quarter.entity';
 import { Subject } from '../../academic/entities/subject.entity';
-import { User } from '../../identity/entities/user.entity';
+import { Teacher } from '../../hr/entities/teacher.entity';
 import { Room } from '../../settings/entities/room.entity';
 import { LessonStatus } from '../enums/lms.enums';
 import { JournalEntry } from './journal-entry.entity';
@@ -28,10 +28,10 @@ export class LessonSchedule extends UuidAuditEntity {
   @Column({ name: 'subject_id', type: 'uuid' }) subjectId: string;
   @ManyToOne(() => Subject, { onDelete: 'CASCADE' }) @JoinColumn({ name: 'subject_id' }) subject: Subject;
   @Column({ name: 'teacher_id', type: 'uuid', nullable: true }) teacherId?: string | null;
-  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' }) @JoinColumn({ name: 'teacher_id' }) teacher?: User | null;
+  @ManyToOne(() => Teacher, { nullable: true, onDelete: 'SET NULL' }) @JoinColumn({ name: 'teacher_id' }) teacher?: Teacher | null;
   /** Almashtirish belgisi: to'ldirilgan bo'lsa, dars o'qituvchisi o'rinbosarga almashtirilgan. */
   @Column({ name: 'original_teacher_id', type: 'uuid', nullable: true }) originalTeacherId?: string | null;
-  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' }) @JoinColumn({ name: 'original_teacher_id' }) originalTeacher?: User | null;
+  @ManyToOne(() => Teacher, { nullable: true, onDelete: 'SET NULL' }) @JoinColumn({ name: 'original_teacher_id' }) originalTeacher?: Teacher | null;
   @Column({ name: 'room_id', type: 'uuid', nullable: true }) roomId?: string | null;
   @ManyToOne(() => Room, { nullable: true, onDelete: 'SET NULL' }) @JoinColumn({ name: 'room_id' }) room?: Room | null;
   /** "Kurs jadvali" rejimi: slotga biriktirilgan mavjud kurs. */

@@ -7,7 +7,9 @@ import type { Quarter } from '../src/modules/academic/entities/quarter.entity';
 import type { LessonPeriod } from '../src/modules/academic/entities/lesson-period.entity';
 import type { Course } from '../src/modules/academic/entities/course.entity';
 import type { Subject } from '../src/modules/academic/entities/subject.entity';
+import type { Teacher } from '../src/modules/hr/entities/teacher.entity';
 import type { User } from '../src/modules/identity/entities/user.entity';
+import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 type AnyRepo = Record<string, jest.Mock>;
 
@@ -45,6 +47,7 @@ const makeRepos = (over: { lessons?: Partial<AnyRepo> } = {}) => {
   const courses: AnyRepo = { findOne: jest.fn() };
   const subjects: AnyRepo = { find: jest.fn().mockResolvedValue([]) };
   const users: AnyRepo = { find: jest.fn().mockResolvedValue([]) };
+  const hrTeachers: AnyRepo = { find: jest.fn().mockResolvedValue([]), findOne: jest.fn().mockResolvedValue(null) };
 
   const service = new ScheduleService(
     lessons as unknown as Repository<LessonSchedule>,
@@ -54,23 +57,24 @@ const makeRepos = (over: { lessons?: Partial<AnyRepo> } = {}) => {
     courses as unknown as Repository<Course>,
     subjects as unknown as Repository<Subject>,
     users as unknown as Repository<User>,
-    { getSchoolId: () => null, getBranchId: () => null } as unknown as import('../src/common/tenant/tenant-context.service').TenantContextService,
+    hrTeachers as unknown as Repository<Teacher>,
+    { getSchoolId: () => null, getBranchId: () => null } as unknown as TenantContextService,
   );
-  return { service, lessons, classes, quarters, periods, courses, subjects, users, saved };
+  return { service, lessons, classes, quarters, periods, courses, subjects, users, hrTeachers, saved };
 };
 
 describe('ScheduleService.getTeachers', () => {
-  it('foydalanuvchilarni {id, fullName} ko‘rinishida qaytaradi (users modulisiz)', async () => {
-    const users = [
-      { id: 'u1', firstName: 'Aziz', lastName: 'Toshmatov', username: 'aziz' },
-      { id: 'u2', firstName: '', lastName: '', username: 'noname' },
+  it('HR o‘qituvchilarni {id, fullName} ko‘rinishida (xodim ismi bilan) qaytaradi', async () => {
+    const teachers = [
+      { id: 't1', staffMember: { firstName: 'Aziz', lastName: 'Toshmatov' } },
+      { id: 't2', staffMember: { firstName: 'Bobur', lastName: 'Aliyev' } },
     ];
-    const { service } = makeRepos();
-    (service as unknown as { users: AnyRepo }).users.find = jest.fn().mockResolvedValue(users);
+    const { service, hrTeachers } = makeRepos();
+    hrTeachers.find = jest.fn().mockResolvedValue(teachers);
     const res = await service.getTeachers();
     expect(res.items).toEqual([
-      { id: 'u1', fullName: 'Aziz Toshmatov' },
-      { id: 'u2', fullName: 'noname' },
+      { id: 't2', fullName: 'Aliyev Bobur' },
+      { id: 't1', fullName: 'Toshmatov Aziz' },
     ]);
   });
 });
@@ -124,12 +128,26 @@ describe('ScheduleService.updateCell / deleteCell', () => {
   } as unknown as LessonSchedule;
 
   it('katakni yangilaydi (faqat bugun va kelgusi darslar)', async () => {
-    const { service, lessons } = makeRepos({ lessons: { findOne: jest.fn().mockResolvedValue(rep) } });
+    // rowsForScope FUTURE: bugundan keyingi qatorlar find orqali keladi.
+    const rows = [
+      { id: 'L1', lessonDate: '2026-06-01' },
+      { id: 'L2', lessonDate: '2026-06-08' },
+      { id: 'L3', lessonDate: '2026-06-15' },
+    ] as unknown as LessonSchedule[];
+    const { service, lessons } = makeRepos({
+      lessons: {
+        findOne: jest.fn().mockResolvedValue(rep),
+        find: jest.fn().mockResolvedValue(rows),
+        update: jest.fn().mockResolvedValue({ affected: 3 }),
+      },
+    });
     const result = await service.updateCell('L1', { teacherId: 'T9' });
     expect(result.updated).toBe(3);
+    const findWhere = lessons.find.mock.calls[0][0].where;
+    expect(findWhere.classId).toBe('C1');
+    expect(findWhere.lessonDate).toBeDefined(); // MoreThanOrEqual(today)
     const [where, patch] = lessons.update.mock.calls[0];
-    expect(where.classId).toBe('C1');
-    expect(where.lessonDate).toBeDefined(); // MoreThanOrEqual(today)
+    expect(where.id).toBeDefined(); // In([qator id'lari])
     expect(patch.teacherId).toBe('T9');
   });
 

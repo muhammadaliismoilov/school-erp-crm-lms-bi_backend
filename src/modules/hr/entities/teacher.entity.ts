@@ -1,5 +1,6 @@
-import { Column, Entity, Index, JoinColumn, OneToOne } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, JoinTable, ManyToMany, OneToOne } from 'typeorm';
 import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
+import { Subject } from '../../academic/entities/subject.entity';
 import { StaffMember } from './staff-member.entity';
 import {
   TeacherDegree,
@@ -79,4 +80,13 @@ export class Teacher extends UuidAuditEntity {
 
   @Column({ type: 'text', nullable: true })
   note?: string | null;
+
+  /** O'qituvchi dars beradigan fanlar (mutaxassislik). Ko'p-ko'pga. */
+  @ManyToMany(() => Subject, { cascade: false })
+  @JoinTable({
+    name: 'hr_teacher_subjects',
+    joinColumn: { name: 'teacher_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'subject_id', referencedColumnName: 'id' },
+  })
+  subjects?: Subject[];
 }

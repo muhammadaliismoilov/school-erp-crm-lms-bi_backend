@@ -8,6 +8,7 @@ import { Quarter } from '../academic/entities/quarter.entity';
 import { SchoolClass } from '../academic/entities/school-class.entity';
 import { Subject } from '../academic/entities/subject.entity';
 import { GamificationModule } from '../gamification/gamification.module';
+import { Teacher } from '../hr/entities/teacher.entity';
 import { User } from '../identity/entities/user.entity';
 import { Student } from '../students/entities/student.entity';
 import { ExamResult } from './entities/exam-result.entity';
@@ -37,6 +38,7 @@ import { ScheduleService } from './schedule.service';
       Course,
       Subject,
       User,
+      Teacher,
       AuditLog,
       QuarterSubjectGrade,
     ]),

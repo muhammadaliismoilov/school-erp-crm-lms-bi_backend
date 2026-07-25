@@ -5,6 +5,7 @@ import {
   ArrayUnique,
   IsArray,
   IsBoolean,
+  IsDateString,
   IsEnum,
   IsInt,
   IsOptional,
@@ -17,6 +18,16 @@ import {
 export enum ScheduleGenerateMode {
   ADD = 'add',
   REFRESH = 'refresh',
+}
+
+/** Tahrir/o'chirish qamrovi. */
+export enum ScheduleEditScope {
+  /** Faqat bosilgan aniq sanadagi dars. */
+  SINGLE = 'single',
+  /** Bugundan boshlab shu slotning barcha kelgusi darslari. */
+  FUTURE = 'future',
+  /** Chorak bo'ylab shu slotning barcha darslari (o'tganlar ham). */
+  ALL = 'all',
 }
 
 // --------------------------------------------------------------- Query DTOs
@@ -33,6 +44,22 @@ export class ScheduleGridQueryDto {
 export class ScheduleTeacherGridQueryDto {
   @ApiProperty({ format: 'uuid' }) @IsUUID() quarterId: string;
   @ApiProperty({ format: 'uuid' }) @IsUUID() teacherId: string;
+}
+
+export class ScheduleQuarterViewQueryDto {
+  @ApiProperty({ format: 'uuid' }) @IsUUID() quarterId: string;
+  @ApiPropertyOptional({ format: 'uuid', description: 'Sinf bo‘yicha ko‘rinish' })
+  @IsOptional() @IsUUID() classId?: string;
+  @ApiPropertyOptional({ format: 'uuid', description: 'O‘qituvchi bo‘yicha ko‘rinish' })
+  @IsOptional() @IsUUID() teacherId?: string;
+}
+
+export class ScheduleAvailabilityQueryDto {
+  @ApiProperty({ format: 'uuid' }) @IsUUID() quarterId: string;
+  @ApiProperty({ description: 'Dars sanasi (YYYY-MM-DD)' }) @IsDateString() lessonDate: string;
+  @ApiProperty({ format: 'uuid' }) @IsUUID() lessonPeriodId: string;
+  @ApiPropertyOptional({ format: 'uuid', description: 'Hisobga olinmaydigan dars (tahrirlanayotgan)' })
+  @IsOptional() @IsUUID() excludeId?: string;
 }
 
 export class ScheduleConflictsQueryDto {
@@ -66,6 +93,14 @@ export class UpdateScheduleCellDto {
   @ApiPropertyOptional({ format: 'uuid' }) @IsOptional() @IsUUID() teacherId?: string;
   @ApiPropertyOptional({ format: 'uuid' }) @IsOptional() @IsUUID() roomId?: string;
   @ApiPropertyOptional({ format: 'uuid' }) @IsOptional() @IsUUID() courseId?: string;
+  @ApiPropertyOptional({ format: 'uuid', description: 'Darsni boshqa sinfga ko‘chirish' })
+  @IsOptional() @IsUUID() classId?: string;
+  @ApiPropertyOptional({
+    enum: ScheduleEditScope,
+    default: ScheduleEditScope.FUTURE,
+    description: 'Qamrov: single=faqat shu kun, future=bugun+kelgusi, all=butun chorak',
+  })
+  @IsOptional() @IsEnum(ScheduleEditScope) scope?: ScheduleEditScope;
 }
 
 export class GenerateDistributionItemDto {

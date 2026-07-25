@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository } from 'typeorm';
+import { Brackets, In, Repository } from 'typeorm';
 import { CreateTeacherDto, TeacherQueryDto, UpdateTeacherDto } from './dto/teacher.dto';
 import { UpdateStaffMemberDto } from './dto/hr.dto';
 import { Teacher } from './entities/teacher.entity';
 import { StaffMember } from './entities/staff-member.entity';
+import { Subject } from '../academic/entities/subject.entity';
 import { StaffService } from './staff.service';
 import { QualificationCategory, TeacherStatus, TeacherWorkType } from './enums/hr.enums';
 import { UserGender } from '../users/enums/user.enums';
@@ -48,6 +49,8 @@ export interface TeacherResponse {
   isExtraLesson: boolean;
   isClassLeader: boolean;
   note: string | null;
+  /** Mutaxassislik fanlari (name — LocalizedText). */
+  subjects: Array<{ id: string; name: Subject['name'] }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -70,6 +73,7 @@ export class TeacherService {
   constructor(
     @InjectRepository(Teacher) private readonly teachers: Repository<Teacher>,
     @InjectRepository(StaffMember) private readonly staff: Repository<StaffMember>,
+    @InjectRepository(Subject) private readonly subjects: Repository<Subject>,
     private readonly staffService: StaffService,
     private readonly tenant: TenantContextService,
   ) {}
@@ -81,6 +85,7 @@ export class TeacherService {
     const qb = this.teachers
       .createQueryBuilder('t')
       .leftJoinAndSelect('t.staffMember', 'sm')
+      .leftJoinAndSelect('t.subjects', 'subj')
       .where('t.deleted_at IS NULL');
     applyTenantScope(qb, 't', this.tenant, { branch: true });
 
@@ -140,7 +145,7 @@ export class TeacherService {
   async getTeacherByStaff(staffMemberId: string): Promise<TeacherResponse | null> {
     const entity = await this.teachers.findOne({
       where: { staffMemberId },
-      relations: { staffMember: true },
+      relations: { staffMember: true, subjects: true },
     });
     return entity ? this.toResponse(entity) : null;
   }
@@ -187,6 +192,7 @@ export class TeacherService {
       const entity = await this.teachers.save(
         this.teachers.create({
           staffMemberId,
+          subjects: await this.resolveSubjects(dto.subjectIds),
           workType: dto.workType ?? TeacherWorkType.FULL,
           degree: dto.degree ?? null,
           employmentType: dto.employmentType ?? undefined,
@@ -239,6 +245,7 @@ export class TeacherService {
     if (dto.isExtraLesson !== undefined) entity.isExtraLesson = dto.isExtraLesson;
     if (dto.isClassLeader !== undefined) entity.isClassLeader = dto.isClassLeader;
     if (dto.note !== undefined) entity.note = this.nullableText(dto.note);
+    if (dto.subjectIds !== undefined) entity.subjects = (await this.resolveSubjects(dto.subjectIds)) ?? [];
 
     await this.teachers.save(entity);
     return this.getTeacher(entity.id);
@@ -252,7 +259,7 @@ export class TeacherService {
   // ─── Helperlar ──────────────────────────────────────────────────────────
 
   private async findEntity(id: string): Promise<Teacher> {
-    const entity = await this.teachers.findOne({ where: tenantWhere<Teacher>(this.tenant, { id }, { branch: true }), relations: { staffMember: true } });
+    const entity = await this.teachers.findOne({ where: tenantWhere<Teacher>(this.tenant, { id }, { branch: true }), relations: { staffMember: true, subjects: true } });
     if (!entity) throw new NotFoundException('O‘qituvchi topilmadi');
     return entity;
   }
@@ -284,6 +291,16 @@ export class TeacherService {
 
     if (Object.keys(patch).length === 0) return;
     await this.staffService.updateStaff(staffMemberId, patch as unknown as UpdateStaffMemberDto);
+  }
+
+  /** subjectIds → Subject[]; noma'lum id bo'lsa 404. undefined → tegilmaydi. */
+  private async resolveSubjects(subjectIds?: string[]): Promise<Subject[] | undefined> {
+    if (subjectIds === undefined) return undefined;
+    const ids = Array.from(new Set(subjectIds));
+    if (ids.length === 0) return [];
+    const found = await this.subjects.find({ where: { id: In(ids) } });
+    if (found.length !== ids.length) throw new NotFoundException('Fan topilmadi');
+    return found;
   }
 
   private assertDateRange(start?: string | null, end?: string | null): void {
@@ -329,6 +346,7 @@ export class TeacherService {
       isExtraLesson: t.isExtraLesson,
       isClassLeader: t.isClassLeader,
       note: t.note ?? null,
+      subjects: (t.subjects ?? []).map((s) => ({ id: s.id, name: s.name })),
       createdAt: t.createdAt,
       updatedAt: t.updatedAt,
     };

@@ -23,10 +23,12 @@ import { ScheduleActor, ScheduleService } from './schedule.service';
 import {
   CreateScheduleCellDto,
   GenerateScheduleDto,
+  ScheduleAvailabilityQueryDto,
   ScheduleClassesQueryDto,
   ScheduleConflictsQueryDto,
   ScheduleGridQueryDto,
   ScheduleHistoryQueryDto,
+  ScheduleQuarterViewQueryDto,
   ScheduleTeacherGridQueryDto,
   SubstituteTeacherDto,
   UpdateScheduleCellDto,
@@ -71,11 +73,33 @@ export class ScheduleController {
     return this.service.getTeacherGrid(query.quarterId, query.teacherId);
   }
 
+  @Get('lessons/quarter-view')
+  @Permissions([AppPermission.LMS_LESSONS_READ])
+  @ApiOperation({ summary: 'Chorak bo‘yicha barcha haftalar va sanali darslar (siqilmagan)' })
+  getQuarterView(@Query() query: ScheduleQuarterViewQueryDto) {
+    return this.service.getQuarterView(query.quarterId, {
+      classId: query.classId,
+      teacherId: query.teacherId,
+    });
+  }
+
   @Get('lessons/conflicts')
   @Permissions([AppPermission.LMS_LESSONS_READ])
   @ApiOperation({ summary: 'Jadval ziddiyatlari (o‘qituvchi/xona/sinf bandligi)' })
   getConflicts(@Query() query: ScheduleConflictsQueryDto) {
     return this.service.getConflicts(query.quarterId);
+  }
+
+  @Get('lessons/availability')
+  @Permissions([AppPermission.LMS_LESSONS_READ])
+  @ApiOperation({ summary: 'Aniq sana + parada band o‘qituvchi/xona/sinf' })
+  getAvailability(@Query() query: ScheduleAvailabilityQueryDto) {
+    return this.service.getAvailability(
+      query.quarterId,
+      query.lessonDate,
+      query.lessonPeriodId,
+      query.excludeId,
+    );
   }
 
   @Get('lessons/history')

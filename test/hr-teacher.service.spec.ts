@@ -2,8 +2,9 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { TeacherService } from '../src/modules/hr/teacher.service';
 import type { StaffService } from '../src/modules/hr/staff.service';
-import { Teacher } from '../src/modules/hr/entities/teacher.entity';
+import type { Teacher } from '../src/modules/hr/entities/teacher.entity';
 import type { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
+import type { Subject } from '../src/modules/academic/entities/subject.entity';
 import {
   QualificationCategory,
   TeacherEmploymentType,
@@ -62,6 +63,7 @@ describe('TeacherService', () => {
     Pick<Repository<Teacher>, 'createQueryBuilder' | 'create' | 'save' | 'findOne' | 'softDelete'>
   >;
   let staff: jest.Mocked<Pick<Repository<StaffMember>, 'findOne' | 'softDelete'>>;
+  let subjects: jest.Mocked<Pick<Repository<Subject>, 'find'>>;
   let staffService: jest.Mocked<Pick<StaffService, 'createBareStaff' | 'updateStaff'>>;
   let service: TeacherService;
 
@@ -74,6 +76,7 @@ describe('TeacherService', () => {
       softDelete: jest.fn(),
     };
     staff = { findOne: jest.fn(), softDelete: jest.fn() };
+    subjects = { find: jest.fn().mockResolvedValue([]) };
     staffService = {
       createBareStaff: jest.fn().mockResolvedValue({ id: 'sm-1' } as StaffMember),
       updateStaff: jest.fn().mockResolvedValue({ id: 'sm-1' } as StaffMember),
@@ -81,6 +84,7 @@ describe('TeacherService', () => {
     service = new TeacherService(
       teachers as unknown as Repository<Teacher>,
       staff as unknown as Repository<StaffMember>,
+      subjects as unknown as Repository<Subject>,
       staffService as unknown as StaffService,
       new TenantContextService(),
     );
