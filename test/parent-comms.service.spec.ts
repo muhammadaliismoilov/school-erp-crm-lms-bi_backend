@@ -5,9 +5,10 @@ import type { SchoolClass } from '../src/modules/academic/entities/school-class.
 import type { Student } from '../src/modules/students/entities/student.entity';
 import { ParentCommsService } from '../src/modules/parent-comms/parent-comms.service';
 import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
+import type {
+  ParentCommunication} from '../src/modules/parent-comms/entities/parent-communication.entity';
 import {
   CommunicationSentiment,
-  ParentCommunication,
   ParentType,
 } from '../src/modules/parent-comms/entities/parent-communication.entity';
 

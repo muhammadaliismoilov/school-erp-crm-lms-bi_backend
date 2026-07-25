@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * Sinf rahbarligi biriktiruvlari (5b): teacher ↔ class, sanali (proporsional

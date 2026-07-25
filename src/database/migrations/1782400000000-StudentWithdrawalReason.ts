@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * `students.withdrawal_reason` ustunini qo‘shadi — o‘quvchini o‘chirish (soft-delete)

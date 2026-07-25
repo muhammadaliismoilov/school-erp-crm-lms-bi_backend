@@ -1,9 +1,9 @@
-import { Repository } from 'typeorm';
+import type { Repository } from 'typeorm';
 import { SecurityNotifierService } from '../src/modules/notifications-delivery/security-notifier.service';
-import { NotificationOutbox } from '../src/modules/notifications-delivery/entities/notification-outbox.entity';
-import { NotificationChannel } from '../src/modules/notifications-delivery/entities/notification-channel.entity';
-import { UserSession } from '../src/modules/identity/entities/user-session.entity';
-import { NotificationQueueService } from '../src/modules/notifications-delivery/notification-queue.service';
+import type { NotificationOutbox } from '../src/modules/notifications-delivery/entities/notification-outbox.entity';
+import type { NotificationChannel } from '../src/modules/notifications-delivery/entities/notification-channel.entity';
+import type { UserSession } from '../src/modules/identity/entities/user-session.entity';
+import type { NotificationQueueService } from '../src/modules/notifications-delivery/notification-queue.service';
 import { NotificationCategory, NotificationChannelType } from '../src/common/enums/notification-enums';
 
 /** Fire-and-forget promise'lar tugashini kutish. */

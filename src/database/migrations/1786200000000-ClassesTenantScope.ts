@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * Ko'p-maktabli ajratish — sinflar (`classes`)ga `school_id`+`filial_id` qo'shadi

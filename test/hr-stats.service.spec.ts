@@ -1,29 +1,42 @@
-import type { Repository } from 'typeorm';
+import type { ObjectLiteral, Repository } from 'typeorm';
 import { HrStatsService } from '../src/modules/hr/hr-stats.service';
-import { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
-import { StaffLeave } from '../src/modules/hr/entities/staff-leave.entity';
-import { AttendanceRecord } from '../src/modules/hr/entities/attendance-record.entity';
-import { Vacancy } from '../src/modules/hr/entities/vacancy.entity';
-import { Candidate } from '../src/modules/hr/entities/candidate.entity';
-import { Interaction } from '../src/modules/hr/entities/interaction.entity';
-import { Task } from '../src/modules/hr/entities/task.entity';
+import type { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
+import type { StaffLeave } from '../src/modules/hr/entities/staff-leave.entity';
+import type { AttendanceRecord } from '../src/modules/hr/entities/attendance-record.entity';
+import type { Vacancy } from '../src/modules/hr/entities/vacancy.entity';
+import type { Candidate } from '../src/modules/hr/entities/candidate.entity';
+import type { Interaction } from '../src/modules/hr/entities/interaction.entity';
+import type { Task } from '../src/modules/hr/entities/task.entity';
 import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 /**
  * `getCount` uchun ketma-ket qiymatlar qaytaruvchi query-builder mock. Har chaqiruv
  * navbatdagi sonni beradi; `getRawOne` esa distinct sanoq ({ c }) qaytaradi.
  */
-function repoWithCounts(counts: number[], raw: number[] = []): Repository<any> {
+interface CountingQueryBuilder {
+  where: () => CountingQueryBuilder;
+  andWhere: () => CountingQueryBuilder;
+  select: () => CountingQueryBuilder;
+  getCount: () => Promise<number>;
+  getRawOne: () => Promise<{ c: string }>;
+}
+
+function repoWithCounts(
+  counts: number[],
+  raw: number[] = [],
+): Repository<ObjectLiteral> {
   let countIdx = 0;
   let rawIdx = 0;
-  const qb: any = {
+  const qb: CountingQueryBuilder = {
     where: () => qb,
     andWhere: () => qb,
     select: () => qb,
     getCount: jest.fn(async () => counts[countIdx++] ?? 0),
     getRawOne: jest.fn(async () => ({ c: String(raw[rawIdx++] ?? 0) })),
   };
-  return { createQueryBuilder: jest.fn(() => qb) } as unknown as Repository<any>;
+  return {
+    createQueryBuilder: jest.fn(() => qb),
+  } as unknown as Repository<ObjectLiteral>;
 }
 
 describe('HrStatsService', () => {

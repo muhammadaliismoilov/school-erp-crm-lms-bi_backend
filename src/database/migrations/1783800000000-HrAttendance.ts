@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * HR "Davomat" moduli: `hr_geofences` (minimal lokatsiyalar) va

@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** Davomat sozlamalari resursi uchun granular ruxsatlar (attendance umbrella). */
 export class AttendanceSettingsPermissions1788800000000 implements MigrationInterface {

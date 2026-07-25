@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** HR "Jadvallar" moduli: `hr_work_schedules` va `hr_work_schedule_days` jadvallarini yaratadi. */
 export class HrWorkSchedules1784900000000 implements MigrationInterface {

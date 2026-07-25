@@ -1,10 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import type { Repository } from 'typeorm';
 import { PayrollConfigService } from '../src/modules/hr/payroll-config.service';
-import { PayRateCard } from '../src/modules/hr/entities/pay-rate-card.entity';
-import { PayrollSettings } from '../src/modules/hr/entities/payroll-settings.entity';
+import type { PayRateCard } from '../src/modules/hr/entities/pay-rate-card.entity';
+import type { PayrollSettings } from '../src/modules/hr/entities/payroll-settings.entity';
 import { QualificationCategory } from '../src/modules/hr/enums/hr.enums';
-import { TenantContextService } from '../src/common/tenant/tenant-context.service';
+import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 /** Zanjirli QueryBuilder mock — chaqiruvlar o'z-o'zini qaytaradi. */
 function makeQb(result: { one?: unknown; many?: unknown[]; count?: number }) {

@@ -1,12 +1,13 @@
 import { BadRequestException } from '@nestjs/common';
-import { PayrollEngineService, PeriodContext } from '../src/modules/hr/payroll-engine.service';
-import { Payroll } from '../src/modules/hr/entities/payroll.entity';
-import { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
-import { Teacher } from '../src/modules/hr/entities/teacher.entity';
-import { StaffLeave } from '../src/modules/hr/entities/staff-leave.entity';
-import { ClassLeaderAssignment } from '../src/modules/hr/entities/class-leader-assignment.entity';
-import { PayrollAdjustment } from '../src/modules/hr/entities/payroll-adjustment.entity';
-import { PayRateCard } from '../src/modules/hr/entities/pay-rate-card.entity';
+import type { PeriodContext } from '../src/modules/hr/payroll-engine.service';
+import { PayrollEngineService } from '../src/modules/hr/payroll-engine.service';
+import type { Payroll } from '../src/modules/hr/entities/payroll.entity';
+import type { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
+import type { Teacher } from '../src/modules/hr/entities/teacher.entity';
+import type { StaffLeave } from '../src/modules/hr/entities/staff-leave.entity';
+import type { ClassLeaderAssignment } from '../src/modules/hr/entities/class-leader-assignment.entity';
+import type { PayrollAdjustment } from '../src/modules/hr/entities/payroll-adjustment.entity';
+import type { PayRateCard } from '../src/modules/hr/entities/pay-rate-card.entity';
 import {
   LeaveType,
   PayrollAdjustmentType,
@@ -15,7 +16,7 @@ import {
   QualificationCategory,
   StaffKpiMode,
 } from '../src/modules/hr/enums/hr.enums';
-import { TenantContextService } from '../src/common/tenant/tenant-context.service';
+import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 // ─── Fixture yordamchilari ──────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** HR "So'rovnomalar" moduli: `hr_surveys` jadvalini yaratadi. */
 export class HrSurveys1784700000000 implements MigrationInterface {

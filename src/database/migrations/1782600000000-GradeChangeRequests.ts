@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * `grade_change_requests` jadvalini yaratadi — "Baho o'zgartirish so'rovi"

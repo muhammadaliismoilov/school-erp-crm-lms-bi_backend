@@ -9,8 +9,9 @@ import type { NotificationsService } from '../src/modules/notifications/notifica
 import { NotificationChannel } from '../src/modules/notifications/enums/notification-status.enum';
 import { AppealsService } from '../src/modules/appeals/appeals.service';
 import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
+import type {
+  Appeal} from '../src/modules/appeals/entities/appeal.entity';
 import {
-  Appeal,
   AppealSource,
   AppealStatus,
   AppealType,

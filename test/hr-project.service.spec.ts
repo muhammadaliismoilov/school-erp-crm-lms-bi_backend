@@ -1,7 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { ProjectService } from '../src/modules/hr/project.service';
-import { Project } from '../src/modules/hr/entities/project.entity';
+import type { Project } from '../src/modules/hr/entities/project.entity';
 import { ProjectStatus } from '../src/modules/hr/enums/hr.enums';
 import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 

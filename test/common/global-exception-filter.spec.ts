@@ -1,4 +1,5 @@
-import { ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
+import type { ArgumentsHost} from '@nestjs/common';
+import { HttpException, HttpStatus } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
 import { GlobalExceptionFilter } from '../../src/common/filters/global-exception.filter';
 

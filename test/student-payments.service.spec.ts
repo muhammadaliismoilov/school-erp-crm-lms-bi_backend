@@ -10,6 +10,7 @@ import {
   StudentPaymentStatus,
 } from '../src/modules/student-payments/entities/student-payment.entity';
 import { StudentPaymentsService } from '../src/modules/student-payments/student-payments.service';
+import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 const spId = '11111111-1111-1111-1111-111111111111';
 const studentId = '22222222-2222-2222-2222-222222222222';
@@ -126,7 +127,7 @@ describe('StudentPaymentsService', () => {
       paymentTypes as never as Repository<PaymentType>,
       audit as never as AuditService,
       dataSource as never as DataSource,
-      { getSchoolId: () => null, getBranchId: () => null } as unknown as import('../src/common/tenant/tenant-context.service').TenantContextService,
+      { getSchoolId: () => null, getBranchId: () => null } as unknown as TenantContextService,
     );
   });
 

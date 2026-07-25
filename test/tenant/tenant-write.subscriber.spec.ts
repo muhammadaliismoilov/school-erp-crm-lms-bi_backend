@@ -1,4 +1,4 @@
-import { DataSource, InsertEvent } from 'typeorm';
+import type { DataSource, InsertEvent } from 'typeorm';
 import { TenantWriteSubscriber } from '../../src/common/tenant/tenant-write.subscriber';
 import { TenantContextService } from '../../src/common/tenant/tenant-context.service';
 

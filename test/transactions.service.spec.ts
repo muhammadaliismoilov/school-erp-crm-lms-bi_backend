@@ -8,6 +8,7 @@ import type { TransactionCategory } from '../src/modules/transactions/entities/t
 import { TransactionCategoryKind } from '../src/modules/transactions/entities/transaction-category.entity';
 import { TransactionType } from '../src/modules/transactions/dto/create-transaction.dto';
 import { TransactionsService } from '../src/modules/transactions/transactions.service';
+import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 const txId = '11111111-1111-1111-1111-111111111111';
 const catId = '22222222-2222-2222-2222-222222222222';
@@ -129,7 +130,7 @@ describe('TransactionsService', () => {
       categories as never as Repository<TransactionCategory>,
       users as never as Repository<User>,
       audit as never as AuditService,
-      tenant as unknown as import('../src/common/tenant/tenant-context.service').TenantContextService,
+      tenant as unknown as TenantContextService,
     );
   });
 

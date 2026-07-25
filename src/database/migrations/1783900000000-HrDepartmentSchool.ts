@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * HR "Bo'limlar" — bo'lim egasini kengaytirish: `hr_departments` ga `school_id`

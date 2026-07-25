@@ -9,6 +9,7 @@ import type { Subject } from '../src/modules/academic/entities/subject.entity';
 import type { Course } from '../src/modules/academic/entities/course.entity';
 import type { Quarter } from '../src/modules/academic/entities/quarter.entity';
 import type { User } from '../src/modules/identity/entities/user.entity';
+import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 type AnyRepo = Record<string, jest.Mock>;
 
@@ -88,7 +89,7 @@ const makeService = (over: { exams?: Partial<AnyRepo> } = {}) => {
     quarters as unknown as Repository<Quarter>,
     users as unknown as Repository<User>,
     lessons as unknown as Repository<LessonSchedule>,
-    { getSchoolId: () => null, getBranchId: () => null } as unknown as import('../src/common/tenant/tenant-context.service').TenantContextService,
+    { getSchoolId: () => null, getBranchId: () => null } as unknown as TenantContextService,
     audit as never,
   );
   return { service, exams, classes, subjects, courses, quarters, users, lessons, audit, saved };

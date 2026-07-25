@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * Ko'p-maktabli ajratish — Phase 4 (yakunlovchi to'plam): HR, CRM, academic

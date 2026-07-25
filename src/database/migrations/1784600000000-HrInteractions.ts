@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** HR "Muloqotlar" moduli: `hr_interactions` jadvalini yaratadi. */
 export class HrInteractions1784600000000 implements MigrationInterface {

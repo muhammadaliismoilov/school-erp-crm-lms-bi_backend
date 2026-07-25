@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { TimesheetService } from '../src/modules/hr/timesheet.service';
-import { Timesheet } from '../src/modules/hr/entities/timesheet.entity';
+import type { Timesheet } from '../src/modules/hr/entities/timesheet.entity';
 import type { TimesheetLine } from '../src/modules/hr/entities/timesheet-line.entity';
 import { TimesheetStatus } from '../src/modules/hr/enums/hr.enums';
 import { TenantContextService } from '../src/common/tenant/tenant-context.service';

@@ -1,7 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { PerformanceReviewService } from '../src/modules/hr/performance-review.service';
-import { PerformanceReview } from '../src/modules/hr/entities/performance-review.entity';
+import type { PerformanceReview } from '../src/modules/hr/entities/performance-review.entity';
 import type { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
 import { PerformanceReviewStatus } from '../src/modules/hr/enums/hr.enums';
 import { TenantContextService } from '../src/common/tenant/tenant-context.service';

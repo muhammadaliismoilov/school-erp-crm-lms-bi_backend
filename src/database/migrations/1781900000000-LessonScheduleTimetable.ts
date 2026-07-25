@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class LessonScheduleTimetable1781900000000 implements MigrationInterface {
   name = 'LessonScheduleTimetable1781900000000';

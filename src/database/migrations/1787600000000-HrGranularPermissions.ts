@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * Granular ruxsatlar — "hr" moduli (eng katta: 22 resurs, 84 kod).

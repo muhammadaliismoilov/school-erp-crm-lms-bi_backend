@@ -1,8 +1,9 @@
 import { NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { WorkScheduleService } from '../src/modules/hr/work-schedule.service';
-import { WorkSchedule } from '../src/modules/hr/entities/work-schedule.entity';
-import { Weekday, WorkScheduleDay } from '../src/modules/hr/entities/work-schedule-day.entity';
+import type { WorkSchedule } from '../src/modules/hr/entities/work-schedule.entity';
+import type { WorkScheduleDay } from '../src/modules/hr/entities/work-schedule-day.entity';
+import { Weekday } from '../src/modules/hr/entities/work-schedule-day.entity';
 import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 function makeSchedule(overrides: Partial<WorkSchedule> = {}): WorkSchedule {

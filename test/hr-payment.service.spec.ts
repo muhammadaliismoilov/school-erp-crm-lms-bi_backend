@@ -1,7 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { HrPaymentService } from '../src/modules/hr/hr-payment.service';
-import { HrPayment } from '../src/modules/hr/entities/hr-payment.entity';
+import type { HrPayment } from '../src/modules/hr/entities/hr-payment.entity';
 import type { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
 import { HrPaymentStatus } from '../src/modules/hr/enums/hr.enums';
 import { TenantContextService } from '../src/common/tenant/tenant-context.service';

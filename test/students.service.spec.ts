@@ -6,6 +6,7 @@ import type { StudentDocument } from '../src/modules/students/entities/student-d
 import type { StudentParent } from '../src/modules/students/entities/student-parent.entity';
 import type { Student } from '../src/modules/students/entities/student.entity';
 import { Gender, StudentStatus } from '../src/modules/students/enums/student-status.enum';
+import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 const emptyRepository = <T extends object>(): Repository<T> => ({}) as Repository<T>;
 
@@ -58,7 +59,7 @@ describe('StudentsService', () => {
       emptyRepository<StudentDocument>(),
       {} as DataSource,
       usersService as unknown as UsersService,
-      tenant as unknown as import('../src/common/tenant/tenant-context.service').TenantContextService,
+      tenant as unknown as TenantContextService,
       undefined,
     );
   });

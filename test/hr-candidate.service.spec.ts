@@ -1,7 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { CandidateService } from '../src/modules/hr/candidate.service';
-import { Candidate } from '../src/modules/hr/entities/candidate.entity';
+import type { Candidate } from '../src/modules/hr/entities/candidate.entity';
 import { CandidateStage } from '../src/modules/hr/enums/hr.enums';
 import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 

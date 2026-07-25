@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * `parent_communications` jadvalini yaratadi — "Ota-onalar bilan muloqot"

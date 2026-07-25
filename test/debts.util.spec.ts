@@ -1,10 +1,11 @@
+import type {
+  DebtCell,
+  MonthKey} from '../src/modules/student-payments/debts.util';
 import {
   aggregateMonth,
   buildMonthAxis,
   buildStudentCells,
   cellStatus,
-  DebtCell,
-  MonthKey,
   monthKeyStr,
   summarizeStudent,
 } from '../src/modules/student-payments/debts.util';

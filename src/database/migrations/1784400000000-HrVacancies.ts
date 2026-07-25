@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** HR "Vakansiyalar" moduli: `hr_vacancies` jadvalini yaratadi. */
 export class HrVacancies1784400000000 implements MigrationInterface {

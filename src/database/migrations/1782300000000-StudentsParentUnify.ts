@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * Ota-ona modelini birlashtirish: endi ota-ona = PARENT rolidagi `users` yozuvi

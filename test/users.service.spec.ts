@@ -6,6 +6,8 @@ import type { User } from '../src/modules/identity/entities/user.entity';
 import type { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
 import type { PasswordService } from '../src/modules/auth/password.service';
 import { UsersService } from '../src/modules/users/users.service';
+import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
+import type { SessionRegistryService } from '../src/modules/auth/session-registry.service';
 
 describe('UsersService', () => {
   const userId = '2ec0e170-8249-4c79-9dc7-5ec7faeeb3e9';
@@ -78,8 +80,8 @@ describe('UsersService', () => {
       roles as unknown as Repository<Role>,
       staffMembers as unknown as Repository<StaffMember>,
       passwords as unknown as PasswordService,
-      tenant as unknown as import('../src/common/tenant/tenant-context.service').TenantContextService,
-      { revokeAllForUser: jest.fn().mockResolvedValue(0) } as unknown as import('../src/modules/auth/session-registry.service').SessionRegistryService,
+      tenant as unknown as TenantContextService,
+      { revokeAllForUser: jest.fn().mockResolvedValue(0) } as unknown as SessionRegistryService,
     );
   });
 

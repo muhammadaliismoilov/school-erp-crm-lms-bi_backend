@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** HR "Loyihalar" — `hr_projects` ga `color` (UI rangi) ustunini qo'shadi. */
 export class HrProjectColor1785100000000 implements MigrationInterface {

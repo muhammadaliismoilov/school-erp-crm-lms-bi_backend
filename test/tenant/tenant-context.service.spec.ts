@@ -25,7 +25,7 @@ describe('TenantContextService', () => {
   it('parallel so‘rovlar bir-biriga aralashmaydi (izolyatsiya)', async () => {
     const runReq = (school: string) =>
       new Promise<string | null>((resolve) => {
-        tenant.run(async () => {
+        void tenant.run(async () => {
           tenant.set({ schoolId: school });
           // Asinxron kutish — ALS kontekst async chegaradan o‘tishi shart.
           await new Promise((r) => setTimeout(r, 10));

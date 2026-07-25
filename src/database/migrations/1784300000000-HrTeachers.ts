@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * HR "O'qituvchilar ro'yxati" moduli: `hr_teachers` jadvalini yaratadi.

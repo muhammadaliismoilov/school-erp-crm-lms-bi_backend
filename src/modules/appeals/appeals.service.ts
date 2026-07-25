@@ -7,7 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
-import { Between, Brackets, In, Repository } from 'typeorm';
+import { Between, Brackets, Repository } from 'typeorm';
 import { CommonStatus } from '../../common/enums/common-status.enum';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';

@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * "O'zgartirish so'rovlari" (Tranzaksiya o'zgartirish so'rovlari) moduli:

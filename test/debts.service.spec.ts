@@ -1,5 +1,5 @@
 import { DebtsService } from '../src/modules/student-payments/debts.service';
-import { PlanConfig } from '../src/modules/student-payments/billing.util';
+import type { PlanConfig } from '../src/modules/student-payments/billing.util';
 
 /** Chainable query-builder mock — getMany/getRawMany/getRawOne natijasini qaytaradi. */
 function qbMock(result: unknown[], raw = false, earliest = '2020-09-01') {

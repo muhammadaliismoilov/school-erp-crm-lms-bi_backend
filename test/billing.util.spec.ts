@@ -1,3 +1,5 @@
+import type {
+  PlanConfig} from '../src/modules/student-payments/billing.util';
 import {
   allocateInstallments,
   balanceStatus,
@@ -9,7 +11,6 @@ import {
   expectedToDate,
   monthSpanInclusive,
   monthsBilled,
-  PlanConfig,
   resolvePlanDiscount,
   validatePlanRates,
 } from '../src/modules/student-payments/billing.util';

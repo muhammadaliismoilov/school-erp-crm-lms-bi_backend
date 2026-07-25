@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * "Bazadagi barcha ma'lumot Yuton School'ga" — `school_id` ustuni bor HAR QANDAY

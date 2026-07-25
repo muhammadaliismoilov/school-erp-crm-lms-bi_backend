@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * HR "Lavozimlar" kengaytmasi: `hr_positions` ga tavsif, bo'lim (department),

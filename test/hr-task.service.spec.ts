@@ -1,7 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { TaskService } from '../src/modules/hr/task.service';
-import { Task } from '../src/modules/hr/entities/task.entity';
+import type { Task } from '../src/modules/hr/entities/task.entity';
 import type { Project } from '../src/modules/hr/entities/project.entity';
 import type { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
 import { TaskPriority, TaskStatus } from '../src/modules/hr/enums/hr.enums';

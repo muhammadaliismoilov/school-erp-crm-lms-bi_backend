@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * HR "Lavozimlar" seed — asosiy maktab (Yuton School) uchun 6 bo'limga tavsiya

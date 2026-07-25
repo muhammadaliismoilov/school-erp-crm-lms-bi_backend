@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * Har-xodim KPI sozlamasi (5c): `hr_staff_members.kpi_mode` (percent|fixed,

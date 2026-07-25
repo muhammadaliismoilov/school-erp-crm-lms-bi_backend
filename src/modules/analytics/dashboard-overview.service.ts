@@ -112,7 +112,6 @@ export class DashboardOverviewService {
     if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.data;
 
     const today = isoDate(new Date());
-    const monthStart = today.slice(0, 7) + '-01';
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth() + 1;

@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class DropSchoolCity1781300000001 implements MigrationInterface {
   name = 'DropSchoolCity1781300000001';

@@ -1,7 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { InteractionService } from '../src/modules/hr/interaction.service';
-import { Interaction } from '../src/modules/hr/entities/interaction.entity';
+import type { Interaction } from '../src/modules/hr/entities/interaction.entity';
 import { InteractionStatus, InteractionType } from '../src/modules/hr/enums/hr.enums';
 import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 

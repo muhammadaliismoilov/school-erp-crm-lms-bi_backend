@@ -1,7 +1,8 @@
 import { NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { PositionService } from '../src/modules/hr/position.service';
-import { Position, PositionStatus } from '../src/modules/hr/entities/position.entity';
+import type { Position} from '../src/modules/hr/entities/position.entity';
+import { PositionStatus } from '../src/modules/hr/entities/position.entity';
 import type { Department } from '../src/modules/hr/entities/department.entity';
 import type { Branch } from '../src/modules/settings/entities/branch.entity';
 import { TenantContextService } from '../src/common/tenant/tenant-context.service';

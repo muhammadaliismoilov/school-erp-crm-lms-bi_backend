@@ -1,7 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { AttendanceHrService } from '../src/modules/hr/attendance-hr.service';
-import { AttendanceRecord } from '../src/modules/hr/entities/attendance-record.entity';
+import type { AttendanceRecord } from '../src/modules/hr/entities/attendance-record.entity';
 import type { Geofence } from '../src/modules/hr/entities/geofence.entity';
 import type { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
 import { AttendanceAction, AttendanceReviewStatus } from '../src/modules/hr/enums/hr.enums';

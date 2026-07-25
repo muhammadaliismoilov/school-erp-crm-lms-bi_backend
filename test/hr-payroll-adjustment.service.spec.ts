@@ -1,11 +1,11 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import type { Repository } from 'typeorm';
 import { PayrollAdjustmentService } from '../src/modules/hr/payroll-adjustment.service';
-import { PayrollAdjustment } from '../src/modules/hr/entities/payroll-adjustment.entity';
-import { Payroll } from '../src/modules/hr/entities/payroll.entity';
-import { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
+import type { PayrollAdjustment } from '../src/modules/hr/entities/payroll-adjustment.entity';
+import type { Payroll } from '../src/modules/hr/entities/payroll.entity';
+import type { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
 import { PayrollAdjustmentType } from '../src/modules/hr/enums/hr.enums';
-import { TenantContextService } from '../src/common/tenant/tenant-context.service';
+import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 describe('PayrollAdjustmentService', () => {
   let adjustments: {

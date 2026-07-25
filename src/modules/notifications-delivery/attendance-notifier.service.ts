@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import { tenantWhere } from '../../common/tenant/tenant-scope.util';
-import { NotificationCategory, NotificationStatus } from '../../common/enums/notification-enums';
+import { NotificationCategory } from '../../common/enums/notification-enums';
 import { AttendanceSettings } from '../attendance/entities/attendance-settings.entity';
 import { Student } from '../students/entities/student.entity';
 import { StudentParent } from '../students/entities/student-parent.entity';

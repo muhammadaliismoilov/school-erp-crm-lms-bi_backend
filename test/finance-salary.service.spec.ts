@@ -5,6 +5,7 @@ import type { TeacherSalary } from '../src/modules/finance/entities/teacher-sala
 import { TeacherSalaryStatus } from '../src/modules/finance/enums/salary-status.enum';
 import type { User } from '../src/modules/identity/entities/user.entity';
 import type { FinanceTransaction } from '../src/modules/finance/entities/transaction.entity';
+import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 function makeSalary(overrides: Partial<TeacherSalary> = {}): TeacherSalary {
   return {
@@ -85,7 +86,7 @@ describe('SalaryService', () => {
       salaries as unknown as Repository<TeacherSalary>,
       transactions as unknown as Repository<FinanceTransaction>,
       audit as never,
-      { getSchoolId: () => null, getBranchId: () => null } as unknown as import('../src/common/tenant/tenant-context.service').TenantContextService,
+      { getSchoolId: () => null, getBranchId: () => null } as unknown as TenantContextService,
     );
   });
 

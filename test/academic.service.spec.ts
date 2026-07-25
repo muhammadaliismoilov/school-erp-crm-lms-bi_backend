@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { AcademicService } from '../src/modules/academic/academic.service';
-import { AcademicYear } from '../src/modules/academic/entities/academic-year.entity';
+import type { AcademicYear } from '../src/modules/academic/entities/academic-year.entity';
 import type { LessonPeriod } from '../src/modules/academic/entities/lesson-period.entity';
 import type { Quarter } from '../src/modules/academic/entities/quarter.entity';
 import type { SchoolClass } from '../src/modules/academic/entities/school-class.entity';

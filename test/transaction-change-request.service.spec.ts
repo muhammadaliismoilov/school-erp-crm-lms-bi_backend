@@ -1,8 +1,9 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { TransactionChangeRequestService } from '../src/modules/transactions/transaction-change-request.service';
+import type {
+  TransactionChangeRequest} from '../src/modules/transactions/entities/transaction-change-request.entity';
 import {
-  TransactionChangeRequest,
   TransactionChangeRequestStatus,
   TransactionChangeRequestType,
 } from '../src/modules/transactions/entities/transaction-change-request.entity';

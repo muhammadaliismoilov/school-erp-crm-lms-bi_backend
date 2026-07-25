@@ -8,7 +8,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import { randomInt, randomBytes } from "crypto";
-import { In, Repository, SelectQueryBuilder } from "typeorm";
+import { Repository, SelectQueryBuilder } from "typeorm";
 import type { LocalizedText } from "../../common/i18n/locale";
 import { AuditService } from "../audit/audit.service";
 import { CrmActor } from "./crm.service";

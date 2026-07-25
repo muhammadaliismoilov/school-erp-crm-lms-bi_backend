@@ -10,6 +10,7 @@ import type { Quarter } from '../src/modules/academic/entities/quarter.entity';
 import type { QuarterSubjectGrade } from '../src/modules/lms/entities/quarter-subject-grade.entity';
 import type { Subject } from '../src/modules/academic/entities/subject.entity';
 import type { LessonPeriod } from '../src/modules/academic/entities/lesson-period.entity';
+import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 type AnyRepo = Record<string, jest.Mock>;
 
@@ -35,7 +36,7 @@ const make = (over: { lessons?: Partial<AnyRepo>; journal?: Partial<AnyRepo>; st
     subjects as unknown as Repository<Subject>,
     periods as unknown as Repository<LessonPeriod>,
     gamification as unknown as GamificationService,
-    { getSchoolId: () => null, getBranchId: () => null } as unknown as import('../src/common/tenant/tenant-context.service').TenantContextService,
+    { getSchoolId: () => null, getBranchId: () => null } as unknown as TenantContextService,
   );
   return { service, lessons, journal, students, quarterGrades, gamification, saved };
 };

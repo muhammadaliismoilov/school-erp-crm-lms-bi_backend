@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * HR "Vazifalar" moduli: `hr_projects` (minimal loyihalar) va `hr_tasks`

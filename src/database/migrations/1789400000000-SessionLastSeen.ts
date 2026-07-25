@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * Sessiya xavfsizligi (S1): `user_sessions.last_seen_at` (Qurilmalar

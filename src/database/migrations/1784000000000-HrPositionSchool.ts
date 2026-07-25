@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * HR "Lavozimlar" — lavozim egasini kengaytirish: `hr_positions` ga `school_id`

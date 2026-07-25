@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddAppealAssignmentAndResolution1781500000000 implements MigrationInterface {
   name = 'AddAppealAssignmentAndResolution1781500000000';

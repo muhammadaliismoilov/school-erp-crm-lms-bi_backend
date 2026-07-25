@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** HR "Nomzodlar" moduli: `hr_candidates` jadvalini yaratadi (recruitment pipeline). */
 export class HrCandidates1784500000000 implements MigrationInterface {

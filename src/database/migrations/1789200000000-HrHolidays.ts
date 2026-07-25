@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * Ish kalendari (5d): `hr_holidays` — bayram/dam olish kunlari. Payroll

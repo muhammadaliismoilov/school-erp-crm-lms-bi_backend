@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * `users.workplace` ustunini qo‘shadi — asosan ota-onalar uchun ish joyi.

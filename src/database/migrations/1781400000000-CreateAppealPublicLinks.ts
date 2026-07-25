@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateAppealPublicLinks1781400000000 implements MigrationInterface {
   name = 'CreateAppealPublicLinks1781400000000';

@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * HR "Ta'tillar" kengaytmasi: `hr_staff_leaves` ga ta'til turi (type) va kunlar

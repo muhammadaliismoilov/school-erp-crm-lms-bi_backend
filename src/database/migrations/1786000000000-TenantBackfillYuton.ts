@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * Ko'p-maktabli ajratish — backfill (yoqish). Mavjud (school_id IS NULL) barcha

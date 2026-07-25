@@ -1,11 +1,11 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import type { Repository } from 'typeorm';
 import { ClassLeaderService } from '../src/modules/hr/class-leader.service';
-import { ClassLeaderAssignment } from '../src/modules/hr/entities/class-leader-assignment.entity';
-import { Teacher } from '../src/modules/hr/entities/teacher.entity';
-import { SchoolClass } from '../src/modules/academic/entities/school-class.entity';
-import { PayrollConfigService } from '../src/modules/hr/payroll-config.service';
-import { TenantContextService } from '../src/common/tenant/tenant-context.service';
+import type { ClassLeaderAssignment } from '../src/modules/hr/entities/class-leader-assignment.entity';
+import type { Teacher } from '../src/modules/hr/entities/teacher.entity';
+import type { SchoolClass } from '../src/modules/academic/entities/school-class.entity';
+import type { PayrollConfigService } from '../src/modules/hr/payroll-config.service';
+import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 /** Zanjirli QueryBuilder mock. */
 function makeQb(result: { many?: unknown[]; count?: number }) {

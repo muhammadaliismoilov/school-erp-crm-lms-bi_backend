@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Matches, Min } from 'class-validator';
 
 /** O'quvchilar qarzlari matritsasi uchun filtr/sahifalash. */
 export class DebtsQueryDto {

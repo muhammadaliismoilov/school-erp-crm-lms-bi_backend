@@ -6,6 +6,8 @@ import type { User } from '../src/modules/identity/entities/user.entity';
 import type { Role } from '../src/modules/identity/entities/role.entity';
 import type { UsersService } from '../src/modules/users/users.service';
 import { EmploymentStatus } from '../src/modules/hr/enums/hr.enums';
+import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
+import type { Teacher } from '../src/modules/hr/entities/teacher.entity';
 
 function makeStaff(overrides: Partial<StaffMember> = {}): StaffMember {
   return {
@@ -65,11 +67,11 @@ describe('StaffService', () => {
     service = new StaffService(
       staff as unknown as Repository<StaffMember>,
       history as unknown as Repository<StaffSalaryHistory>,
-      teachers as unknown as Repository<import('../src/modules/hr/entities/teacher.entity').Teacher>,
+      teachers as unknown as Repository<Teacher>,
       users as unknown as Repository<User>,
       roles as unknown as Repository<Role>,
       usersService as unknown as UsersService,
-      tenant as unknown as import('../src/common/tenant/tenant-context.service').TenantContextService,
+      tenant as unknown as TenantContextService,
     );
   });
 

@@ -1,7 +1,8 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { DepartmentService } from '../src/modules/hr/department.service';
-import { Department, DepartmentStatus } from '../src/modules/hr/entities/department.entity';
+import type { Department} from '../src/modules/hr/entities/department.entity';
+import { DepartmentStatus } from '../src/modules/hr/entities/department.entity';
 import type { Branch } from '../src/modules/settings/entities/branch.entity';
 import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 

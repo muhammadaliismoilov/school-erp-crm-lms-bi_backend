@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * Progress imtihonlar moduli: `lms_exams` jadvalini sinf + kurs imtihonini

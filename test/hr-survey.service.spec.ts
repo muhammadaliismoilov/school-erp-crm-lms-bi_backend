@@ -1,7 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
 import { SurveyService } from '../src/modules/hr/survey.service';
-import { Survey } from '../src/modules/hr/entities/survey.entity';
+import type { Survey } from '../src/modules/hr/entities/survey.entity';
 import { SurveyStatus, SurveyType } from '../src/modules/hr/enums/hr.enums';
 import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 

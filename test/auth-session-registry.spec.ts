@@ -1,6 +1,6 @@
-import { Repository } from 'typeorm';
+import type { Repository } from 'typeorm';
 import { SessionRegistryService } from '../src/modules/auth/session-registry.service';
-import { UserSession } from '../src/modules/identity/entities/user-session.entity';
+import type { UserSession } from '../src/modules/identity/entities/user-session.entity';
 import { parseDeviceInfo } from '../src/modules/auth/device-info.util';
 
 describe('SessionRegistryService', () => {

@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** HR "Samaradorlik baholash" moduli: `hr_performance_reviews` jadvalini yaratadi. */
 export class HrPerformanceReviews1784800000000 implements MigrationInterface {

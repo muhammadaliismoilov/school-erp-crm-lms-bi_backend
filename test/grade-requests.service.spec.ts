@@ -10,8 +10,9 @@ import type { JournalEntry } from '../src/modules/lms/entities/journal-entry.ent
 import type { QuarterSubjectGrade } from '../src/modules/lms/entities/quarter-subject-grade.entity';
 import { GradeRequestsService } from '../src/modules/grade-requests/grade-requests.service';
 import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
+import type {
+  GradeChangeRequest} from '../src/modules/grade-requests/entities/grade-change-request.entity';
 import {
-  GradeChangeRequest,
   GradeRequestKind,
   GradeRequestStatus,
 } from '../src/modules/grade-requests/entities/grade-change-request.entity';

@@ -10,6 +10,7 @@ import { StaffCertificate } from './staff-certificate.entity';
 import { StaffAchievement } from './staff-achievement.entity';
 import { EmploymentStatus, QualificationCategory, StaffKpiMode } from '../enums/hr.enums';
 import { UserGender } from '../../users/enums/user.enums';
+import type { Teacher } from './teacher.entity';
 
 @Entity('hr_staff_members')
 @Index('uq_hr_staff_employee_code_active', ['employeeCode'], { unique: true, where: 'deleted_at IS NULL' })
@@ -140,5 +141,5 @@ export class StaffMember extends UuidAuditEntity {
    * Bog'langan o'qituvchilik yozuvi — ustun EMAS, faqat findStaff'dagi
    * leftJoinAndMapOne natijasi (ro'yxatda 🎓 belgisi uchun).
    */
-  teacher?: import('./teacher.entity').Teacher | null;
+  teacher?: Teacher | null;
 }

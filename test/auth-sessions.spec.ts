@@ -1,13 +1,14 @@
 import { BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
-import { Repository } from 'typeorm';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
+import type { Repository } from 'typeorm';
+import type { JwtService } from '@nestjs/jwt';
+import type { ConfigService } from '@nestjs/config';
 import { AuthService } from '../src/modules/auth/auth.service';
-import { PasswordService } from '../src/modules/auth/password.service';
-import { SessionRegistryService } from '../src/modules/auth/session-registry.service';
-import { User } from '../src/modules/identity/entities/user.entity';
-import { Role } from '../src/modules/identity/entities/role.entity';
-import { UserSession } from '../src/modules/identity/entities/user-session.entity';
+import type { PasswordService } from '../src/modules/auth/password.service';
+import type { SessionRegistryService } from '../src/modules/auth/session-registry.service';
+import type { User } from '../src/modules/identity/entities/user.entity';
+import type { Role } from '../src/modules/identity/entities/role.entity';
+import type { UserSession } from '../src/modules/identity/entities/user-session.entity';
+import type { SecurityNotifierService } from '../src/modules/notifications-delivery/security-notifier.service';
 
 describe('AuthService — sessiya boshqaruvi (S2)', () => {
   let users: { createQueryBuilder: jest.Mock; save: jest.Mock };
@@ -29,7 +30,7 @@ describe('AuthService — sessiya boshqaruvi (S2)', () => {
       {} as unknown as Repository<Role>,
       sessions as unknown as Repository<UserSession>,
       registry as unknown as SessionRegistryService,
-      { maybeNotifyNewLogin: jest.fn(), notifyPasswordChanged: jest.fn() } as unknown as import('../src/modules/notifications-delivery/security-notifier.service').SecurityNotifierService,
+      { maybeNotifyNewLogin: jest.fn(), notifyPasswordChanged: jest.fn() } as unknown as SecurityNotifierService,
       passwords as unknown as PasswordService,
       {} as unknown as JwtService,
       { get: () => undefined, getOrThrow: () => 'secret' } as unknown as ConfigService,
