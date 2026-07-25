@@ -5,11 +5,15 @@ import {
   NestInterceptor,
 } from '@nestjs/common';
 import { Observable, catchError, tap, throwError } from 'rxjs';
+import { QueryContextService } from '../../common/database/query-context.service';
 import { MetricsService } from './metrics.service';
 
 @Injectable()
 export class MetricsInterceptor implements NestInterceptor {
-  constructor(private readonly metricsService: MetricsService) {}
+  constructor(
+    private readonly metricsService: MetricsService,
+    private readonly queryContext: QueryContextService,
+  ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const http = context.switchToHttp();
@@ -29,12 +33,25 @@ export class MetricsInterceptor implements NestInterceptor {
       }
       recorded = true;
       const durationSeconds = Number(process.hrtime.bigint() - start) / 1_000_000_000;
+      const route = request.route?.path ?? request.originalUrl ?? request.url ?? 'unknown';
       this.metricsService.observeHttpRequest({
         method: request.method,
-        route: request.route?.path ?? request.originalUrl ?? request.url ?? 'unknown',
+        route,
         statusCode,
         durationSeconds,
       });
+
+      // N+1 detektori: shu so'rov davomida nechta SQL ketgani
+      // (docs/postgres-senior-plan.md, 1.3-band). Kontekst faqat HTTP oqimida
+      // ochiladi — worker/cron chaqiruvlarida `null` bo'ladi va o'tkazib yuboriladi.
+      const stats = this.queryContext.stats();
+      if (stats) {
+        this.metricsService.observeQueriesPerRequest({
+          method: request.method,
+          route,
+          queryCount: stats.count,
+        });
+      }
     };
 
     return next.handle().pipe(

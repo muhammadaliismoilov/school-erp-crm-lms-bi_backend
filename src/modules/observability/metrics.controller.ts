@@ -1,5 +1,6 @@
 import { Controller, Get, Header, VERSION_NEUTRAL } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SkipEnvelope } from '../../common/decorators/skip-envelope.decorator';
 import { MetricsService } from './metrics.service';
 
 @ApiTags('Operatsion metrikalar')
@@ -8,6 +9,8 @@ export class MetricsController {
   constructor(private readonly metricsService: MetricsService) {}
 
   @Get()
+  // Prometheus text formati — javob konvertga o'ralsa scraper o'qiy olmaydi.
+  @SkipEnvelope()
   @Header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8')
   @ApiOperation({
     summary: 'Prometheus metrikalari',

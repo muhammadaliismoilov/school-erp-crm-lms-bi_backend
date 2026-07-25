@@ -66,9 +66,13 @@ import { TransactionsModule } from "./modules/transactions/transactions.module";
 import { StudentPaymentsModule } from "./modules/student-payments/student-payments.module";
 import { EncryptionModule } from "./common/security/encryption.module";
 import { TenantModule } from "./common/tenant/tenant.module";
+import { DatabaseObservabilityModule } from "./common/database/database-observability.module";
+import { DbPoolMetricsModule } from "./common/database/db-pool-metrics.module";
+import { QueryMetricsLogger } from "./common/database/query-metrics.logger";
 
 const buildTypeOrmOptions = (
   configService: ConfigService,
+  logger: QueryMetricsLogger,
 ): TypeOrmModuleOptions => {
   const ssl = configService.get<boolean>("database.ssl")
     ? { rejectUnauthorized: false }
@@ -77,10 +81,18 @@ const buildTypeOrmOptions = (
     type: "postgres" as const,
     autoLoadEntities: true,
     synchronize: configService.get<boolean>("database.synchronize") ?? false,
-    logging: configService.get<boolean>("database.logging") ?? false,
     migrationsRun: false,
     migrations: [__dirname + "/database/migrations/*{.ts,.js}"],
     ssl,
+    /**
+     * O'lchov qatlami (docs/postgres-senior-plan.md, 1.3-band). TypeORM
+     * `logQuery`/`logQuerySlow`/`logQueryError` ni `logging` sozlamasidan
+     * qat'i nazar chaqiradi — filtrlash logger ichida bo'ladi. Shu sababli
+     * so'rovlarni sanash uchun `logging: true` shart emas.
+     */
+    logger,
+    maxQueryExecutionTime:
+      configService.get<number>("database.slowQueryMs") ?? 300,
   };
   const master = {
     host: configService.getOrThrow<string>("database.host"),
@@ -162,9 +174,11 @@ const buildTypeOrmOptions = (
       }),
     }),
     TypeOrmModule.forRootAsync({
-      inject: [ConfigService],
+      imports: [DatabaseObservabilityModule],
+      inject: [ConfigService, QueryMetricsLogger],
       useFactory: buildTypeOrmOptions,
     }),
+    DbPoolMetricsModule,
     HealthModule,
     ObservabilityModule,
     AuthModule,

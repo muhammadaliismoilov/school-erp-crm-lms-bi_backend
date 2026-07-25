@@ -51,6 +51,17 @@ services:
       POSTGRESQL_USERNAME: ${DATABASE_USER}
       POSTGRESQL_PASSWORD: ${DATABASE_PASSWORD}
       POSTGRESQL_DATABASE: ${DATABASE_NAME}
+      # O'lchov qatlami (docs/postgres-senior-plan.md, 1-bosqich).
+      # pgaudit — bitnami standarti, uni yo'qotmaslik uchun ro'yxatga qo'shib yoziladi.
+      POSTGRESQL_SHARED_PRELOAD_LIBRARIES: "pgaudit,pg_stat_statements"
+      POSTGRESQL_EXTRA_FLAGS: >-
+        -c pg_stat_statements.max=10000
+        -c pg_stat_statements.track=all
+        -c log_min_duration_statement=300ms
+        -c log_lock_waits=on
+        -c log_temp_files=0
+        -c log_autovacuum_min_duration=0
+        -c log_checkpoints=on
     volumes:
       - postgres_data:/bitnami/postgresql
     healthcheck:
@@ -73,6 +84,15 @@ services:
       POSTGRESQL_USERNAME: ${DATABASE_USER}
       POSTGRESQL_PASSWORD: ${DATABASE_PASSWORD}
       POSTGRESQL_DATABASE: ${DATABASE_NAME}
+      # Replica'da ham o'lchov yoqiladi: og'ir hisobot so'rovlari aynan shu
+      # yerda bajariladi, demak sekin so'rovlar ham shu yerda ko'rinadi.
+      POSTGRESQL_SHARED_PRELOAD_LIBRARIES: "pgaudit,pg_stat_statements"
+      POSTGRESQL_EXTRA_FLAGS: >-
+        -c pg_stat_statements.max=10000
+        -c pg_stat_statements.track=all
+        -c log_min_duration_statement=300ms
+        -c log_lock_waits=on
+        -c log_temp_files=0
     volumes:
       - postgres_replica_data:/bitnami/postgresql
     depends_on:
