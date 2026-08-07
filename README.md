@@ -1,4 +1,4 @@
-# Yuton School Backend
+School Backend
 
 Production-oriented NestJS backend scaffold for a unified school management system. It starts as a modular monolith and keeps clear module boundaries for later extraction into services.
 
