@@ -98,7 +98,7 @@ export class StudentPaymentsController {
   }
 
   @Put('plan-config')
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.STUDENT_PAYMENT_PLANS_UPDATE])
   @ApiOperation({
     summary: 'To‘lov rejasi chegirmasini sozlash',
     description:
@@ -180,7 +180,7 @@ export class StudentPaymentsController {
   }
 
   @Post('reconcile-transactions')
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.STUDENT_PAYMENTS_RECONCILE])
   @ApiOperation({
     summary: 'Moliya defteri proyeksiyalarini qayta sinxronlash (drift tuzatish)',
     description:
@@ -235,7 +235,7 @@ export class StudentPaymentsController {
   }
 
   @Post()
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.STUDENT_PAYMENTS_CREATE])
   @ApiOperation({ summary: 'O‘quvchi to‘lovini yaratish' })
   @ApiResponse({ status: HttpStatus.CREATED, type: StudentPaymentResponseSchema })
   async create(
@@ -264,7 +264,7 @@ export class StudentPaymentsController {
   }
 
   @Patch(':id')
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.STUDENT_PAYMENTS_UPDATE])
   @ApiParam(uuidParamDocs)
   @ApiOperation({ summary: 'To‘lovni qisman tahrirlash' })
   @ApiResponse({ status: HttpStatus.OK, type: StudentPaymentResponseSchema })
@@ -283,7 +283,7 @@ export class StudentPaymentsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.FINANCE_MANAGE])
+  @Permissions([AppPermission.STUDENT_PAYMENTS_DELETE])
   @ApiParam(uuidParamDocs)
   @ApiOperation({ summary: 'To‘lovni o‘chirish (soft-delete)' })
   @ApiResponse({ status: HttpStatus.NO_CONTENT })

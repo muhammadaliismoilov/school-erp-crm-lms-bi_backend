@@ -1,5 +1,6 @@
 import { Column, Entity, Index, JoinTable, ManyToMany } from 'typeorm';
 import { UuidAuditEntity } from '../../../common/entities/abstract.entity';
+import { DataScope } from '../../../common/scope/data-scope.enum';
 import type { LocalizedText } from '../../../common/i18n/locale';
 import { User } from './user.entity';
 import { Permission } from './permission.entity';
@@ -26,6 +27,14 @@ export class Role extends UuidAuditEntity {
 
   @Column({ name: 'is_system', type: 'boolean', default: false })
   isSystem: boolean;
+
+  /**
+   * Ma'lumot doirasi — ruxsatlardan ALOHIDA qatlam: ruxsat "qaysi amal",
+   * doira "qaysi qatorlar" degan savolga javob beradi. `OWN` roli, masalan,
+   * `students.read` bilan ham faqat o'z sinflarining o'quvchilarini ko'radi.
+   */
+  @Column({ name: 'data_scope', type: 'varchar', length: 16, default: DataScope.ALL })
+  dataScope: DataScope;
 
   @ManyToMany(() => Permission, (permission) => permission.roles, { eager: true })
   @JoinTable({

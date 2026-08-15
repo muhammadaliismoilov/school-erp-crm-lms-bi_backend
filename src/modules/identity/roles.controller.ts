@@ -93,7 +93,7 @@ export class RolesController {
             en: "Sales Manager",
           },
           description: { uz: "Sotuv va CRM amallari uchun rol" },
-          permissionCodes: ["crm.read", "crm.manage", "students.read"],
+          permissionCodes: ["crm.read", "crm-leads.create", "crm-leads.update", "students.read"],
         },
       },
     },

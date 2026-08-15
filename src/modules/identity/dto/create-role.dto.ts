@@ -5,6 +5,7 @@ import {
   ArrayMinSize,
   ArrayUnique,
   IsArray,
+  IsEnum,
   IsOptional,
   IsString,
   Length,
@@ -12,6 +13,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { LocalizedTextInputDto } from '../../../common/i18n/dto/localized-text.dto';
+import { DataScope } from '../../../common/scope/data-scope.enum';
 
 export class CreateRoleDto {
   @ApiProperty({
@@ -62,4 +64,16 @@ export class CreateRoleDto {
     message: 'Har bir imtiyoz kodi module.action formatida bo‘lishi kerak',
   })
   permissionCodes: string[];
+
+  @ApiPropertyOptional({
+    description:
+      "Ma'lumot doirasi. `all` — maktab/filial ichidagi barcha qatorlar; " +
+      "`own` — faqat foydalanuvchining o‘z sinflari (sinf rahbarligi yoki dars " +
+      'jadvali) va o‘z farzandlari. Imtiyozlarni KENGAYTIRMAYDI, faqat toraytiradi.',
+    enum: DataScope,
+    default: DataScope.ALL,
+  })
+  @IsOptional()
+  @IsEnum(DataScope, { message: "Ma'lumot doirasi 'all' yoki 'own' bo‘lishi kerak" })
+  dataScope?: DataScope;
 }

@@ -144,6 +144,8 @@ export const MODULE_CATEGORY: Record<string, PermissionCategoryKey> = {
   students: 'talim',
   'student-parents': 'talim',
   'student-documents': 'talim',
+  'student-achievements': 'talim',
+  'student-reports': 'talim',
   admissions: 'talim',
   gamification: 'talim',
   'gamification-badges': 'talim',
@@ -156,6 +158,8 @@ export const MODULE_CATEGORY: Record<string, PermissionCategoryKey> = {
   'finance-payments': 'moliya',
   'finance-teacher-rates': 'moliya',
   'finance-salaries': 'moliya',
+  'student-payments': 'moliya',
+  'student-payment-plans': 'moliya',
   'advanced-finance': 'moliya',
   procurement: 'moliya',
   assets: 'moliya',
@@ -184,6 +188,7 @@ export const MODULE_CATEGORY: Record<string, PermissionCategoryKey> = {
   'hr-vacancies': 'hr',
   'hr-work-schedules': 'hr',
   'hr-statistics': 'hr',
+  'hr-class-leaderships': 'hr',
 
   crm: 'crm',
 
@@ -310,6 +315,8 @@ export const MODULE_LABEL: Record<string, LocalizedText> = {
   students: { uz: "O'quvchilar", ru: 'Ученики', en: 'Students' },
   'student-parents': { uz: "O'quvchi ota-onalari", ru: 'Родители ученика', en: 'Student parents' },
   'student-documents': { uz: "O'quvchi hujjatlari", ru: 'Документы ученика', en: 'Student documents' },
+  'student-achievements': { uz: "O'quvchi yutuqlari", ru: 'Достижения ученика', en: 'Student achievements' },
+  'student-reports': { uz: "O'quvchi xulosalari va rejalari", ru: 'Заключения и планы ученика', en: 'Student reports' },
   admissions: { uz: 'Qabul', ru: 'Приём', en: 'Admissions' },
   gamification: { uz: 'Gamifikatsiya', ru: 'Геймификация', en: 'Gamification' },
   'gamification-badges': { uz: 'Nishonlar (badge)', ru: 'Значки', en: 'Badges' },
@@ -322,6 +329,8 @@ export const MODULE_LABEL: Record<string, LocalizedText> = {
   'finance-payments': { uz: "To'lovlar (shartnoma)", ru: 'Платежи (договор)', en: 'Payments (contract)' },
   'finance-teacher-rates': { uz: "O'qituvchi dars stavkalari", ru: 'Ставки учителей', en: 'Teacher lesson rates' },
   'finance-salaries': { uz: "O'qituvchi oyliklari", ru: 'Зарплаты учителей', en: 'Teacher salaries' },
+  'student-payments': { uz: "O'quvchi to'lovlari", ru: 'Платежи учеников', en: 'Student payments' },
+  'student-payment-plans': { uz: "To'lov rejasi sozlamalari", ru: 'Настройки плана оплаты', en: 'Payment plan settings' },
   'advanced-finance': { uz: 'Kengaytirilgan moliya', ru: 'Расширенные финансы', en: 'Advanced finance' },
   procurement: { uz: 'Xaridlar', ru: 'Закупки', en: 'Procurement' },
   assets: { uz: 'Aktivlar', ru: 'Активы', en: 'Assets' },
@@ -350,6 +359,7 @@ export const MODULE_LABEL: Record<string, LocalizedText> = {
   'hr-vacancies': { uz: "Vakansiyalar", ru: 'Вакансии', en: 'Vacancies' },
   'hr-work-schedules': { uz: "Ish jadvallari", ru: 'Графики работы', en: 'Work schedules' },
   'hr-statistics': { uz: "HR statistikasi", ru: 'HR статистика', en: 'HR statistics' },
+  'hr-class-leaderships': { uz: "Sinf rahbarligi", ru: 'Классное руководство', en: 'Class leadership' },
 
   crm: { uz: 'CRM', ru: 'CRM', en: 'CRM' },
 
@@ -389,8 +399,10 @@ export const ACTION_LABEL: Record<string, LocalizedText> = {
   create: { uz: 'Yaratish', ru: 'Создание', en: 'Create' },
   update: { uz: 'Tahrirlash', ru: 'Редактирование', en: 'Update' },
   delete: { uz: "O'chirish", ru: 'Удаление', en: 'Delete' },
-  manage: { uz: 'Boshqarish', ru: 'Управление', en: 'Manage' },
   upload: { uz: 'Yuklash', ru: 'Загрузка', en: 'Upload' },
+  assign: { uz: 'Biriktirish', ru: 'Назначение', en: 'Assign' },
+  reconcile: { uz: 'Solishtirish', ru: 'Сверка', en: 'Reconcile' },
+  'reset-password': { uz: 'Parolni tiklash', ru: 'Сброс пароля', en: 'Reset password' },
   '*': { uz: 'Barchasi', ru: 'Все', en: 'All' },
 };
 

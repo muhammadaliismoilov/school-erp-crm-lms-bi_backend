@@ -1,6 +1,14 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, FindOptionsWhere, Repository } from 'typeorm';
+import { AppPermission } from '../../common/constants/permissions';
+import type { AuthenticatedUser } from '../../common/security/authenticated-user.interface';
+import { permissionMatches } from '../../common/security/permission.matcher';
+import {
+  assertNotSelf,
+  assertRolesGrantable,
+  isSuperAdmin,
+} from '../../common/security/privilege.policy';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { Role } from '../identity/entities/role.entity';
@@ -31,10 +39,12 @@ export interface BareStaffInput {
   employeeCode?: string | null;
 }
 
-/** Amalni bajargan aktor (audit/snapshot uchun). */
+/** Amalni bajargan aktor (audit/snapshot va rol siyosati uchun). */
 export interface StaffActor {
   userId?: string;
   username?: string;
+  /** Aktor ruxsatlari — rol biriktirishda Q2/Q3 siyosati uchun. */
+  permissions?: string[];
 }
 
 export interface PageMeta {
@@ -150,8 +160,13 @@ export class StaffService {
     } as CreateUserDto;
 
     // Staff yozuvini quyida o'zimiz (bo'lim/lavozim/maosh bilan) yaratamiz, shu
-    // sababli UsersService'ning avtomatik ko'zgu yozuvini o'chiramiz.
-    const createdUser = await this.usersService.create(userDto, { skipStaffSync: true });
+    // sababli UsersService'ning avtomatik ko'zgu yozuvini o'chiramiz. Aktor
+    // uzatiladi — rol tanlovi Q2 (kuchaytirmaslik) siyosatidan o'tsin.
+    const createdUser = await this.usersService.create(
+      userDto,
+      { skipStaffSync: true },
+      this.toPolicyActor(actor),
+    );
 
     // 2) Xodim yozuvini yaratamiz. Xatolik bo'lsa — userni qaytarib olamiz.
     try {
@@ -260,9 +275,16 @@ export class StaffService {
     }
 
     this.assignStaffFields(staff, dto);
+    // Rol o'zgarishi — saqlashdan OLDIN va catch'siz: siyosat rad etsa (403)
+    // butun amal to'xtaydi. Profil sinxroni esa pastda avvalgidek yumshoq —
+    // uning xatosi xodim yozuvini yangilashga to'sqinlik qilmaydi.
+    if (dto.roleName && staff.userId) {
+      await this.assignRoleToLinkedUser(staff.userId, dto.roleName, actor);
+    }
+
     const saved = await this.staff.save(staff);
 
-    // Bog'langan login userni sinxronlaymiz (ism, aloqa, rol).
+    // Bog'langan login userni sinxronlaymiz (ism, aloqa).
     if (staff.userId) {
       await this.syncUser(staff.userId, dto).catch((e) =>
         this.logger.warn(`Staff user sync failed: ${e instanceof Error ? e.message : String(e)}`),
@@ -270,6 +292,59 @@ export class StaffService {
     }
 
     return this.getStaff(saved.id);
+  }
+
+  /**
+   * Xodimning login akkauntiga rol biriktirish — `PATCH /users/:id/roles`
+   * bilan BIR XIL siyosat ostida (T-02). `hr-staff.update` ruxsatining o'zi
+   * rol almashtirish uchun yetarli emas: aktor `roles.assign` ga ega bo'lishi,
+   * o'ziga tegmasligi (Q3) va rol ruxsatlari o'zinikidan oshmasligi (Q2) shart.
+   */
+  private async assignRoleToLinkedUser(
+    userId: string,
+    roleName: string,
+    actor?: StaffActor,
+  ): Promise<void> {
+    const user = await this.users.findOne({
+      where: tenantWhere<User>(this.tenant, { id: userId }, { branch: true }),
+      relations: { roles: true },
+    });
+    if (!user) return;
+
+    const role = await this.roles.findOne({
+      where: tenantWhere<Role>(this.tenant, { name: roleName.trim() }, { branch: true }),
+    });
+    // Noma'lum rol nomi — eski xulq saqlanadi (jim o'tkaziladi): UI select
+    // faqat mavjud rollarni beradi, erkin matn kelsa profil yangilanishini
+    // yiqitmaymiz.
+    if (!role) return;
+
+    if (actor?.permissions && !isSuperAdmin(actor.permissions)) {
+      const canAssign = actor.permissions.some((code) =>
+        permissionMatches(code, AppPermission.ROLES_ASSIGN),
+      );
+      if (!canAssign) {
+        throw new ForbiddenException(
+          "Xodim rolini almashtirish uchun 'roles.assign' ruxsati kerak — xodim profilini tahrirlash (hr-staff.update) buning uchun yetarli emas.",
+        );
+      }
+      assertNotSelf(actor.userId, user.id, 'rol');
+      assertRolesGrantable(actor.permissions, [role]);
+    }
+
+    user.roles = [role];
+    await this.users.save(user);
+  }
+
+  /** StaffActor'ni UsersService siyosati kutadigan shaklga keltiradi. */
+  private toPolicyActor(actor?: StaffActor): AuthenticatedUser | undefined {
+    if (!actor?.permissions) return undefined;
+    return {
+      id: actor.userId ?? '',
+      username: actor.username ?? '',
+      roles: [],
+      permissions: actor.permissions,
+    };
   }
 
   /**
@@ -331,11 +406,8 @@ export class StaffService {
     if (dto.gender !== undefined) user.gender = (dto.gender as UserGender) ?? null;
     if (dto.birthDate !== undefined) user.birthDate = dto.birthDate ?? null;
 
-    if (dto.roleName) {
-      const role = await this.roles.findOne({ where: tenantWhere<Role>(this.tenant, { name: dto.roleName.trim() }, { branch: true }) });
-      if (role) user.roles = [role];
-    }
-
+    // Rol bu yerda YO'Q (T-02): rol almashtirish `assignRoleToLinkedUser` da,
+    // siyosat bilan va xatosi yutilmaydigan yo'lda bajariladi.
     await this.users.save(user);
   }
 

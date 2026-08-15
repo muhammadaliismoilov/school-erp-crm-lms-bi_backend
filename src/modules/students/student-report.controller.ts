@@ -41,7 +41,7 @@ export class StudentReportController {
   }
 
   @Put("conclusions")
-  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @Permissions([AppPermission.STUDENT_REPORTS_UPDATE])
   @ApiOperation({ summary: "Xulosani saqlash" })
   @ApiOkResponse({ description: "Xulosa saqlandi." })
   upsertConclusion(@Param("id") id: string, @Body() dto: UpsertConclusionDto) {
@@ -57,7 +57,7 @@ export class StudentReportController {
   }
 
   @Put("smart-goals")
-  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @Permissions([AppPermission.STUDENT_REPORTS_UPDATE])
   @ApiOperation({ summary: "Kelajak rejasini saqlash" })
   @ApiOkResponse({ description: "Reja saqlandi." })
   upsertSmartGoals(@Param("id") id: string, @Body() dto: UpsertSmartGoalsDto) {

@@ -53,7 +53,7 @@ export class StudentAchievementController {
   }
 
   @Post()
-  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @Permissions([AppPermission.STUDENT_ACHIEVEMENTS_CREATE])
   @ApiOperation({ summary: "Yutuq qo‘shish" })
   @ApiCreatedResponse({ description: "Yutuq qo‘shildi." })
   create(@Param("id") id: string, @Body() dto: CreateAchievementDto) {
@@ -61,7 +61,7 @@ export class StudentAchievementController {
   }
 
   @Patch(":achievementId")
-  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @Permissions([AppPermission.STUDENT_ACHIEVEMENTS_UPDATE])
   @ApiOperation({ summary: "Yutuqni tahrirlash" })
   @ApiOkResponse({ description: "Yutuq tahrirlandi." })
   update(
@@ -73,7 +73,7 @@ export class StudentAchievementController {
   }
 
   @Delete(":achievementId")
-  @Permissions([AppPermission.STUDENTS_MANAGE])
+  @Permissions([AppPermission.STUDENT_ACHIEVEMENTS_DELETE])
   @ApiOperation({ summary: "Yutuqni o‘chirish" })
   @ApiOkResponse({ description: "Yutuq o‘chirildi." })
   remove(@Param("id") id: string, @Param("achievementId") achievementId: string) {

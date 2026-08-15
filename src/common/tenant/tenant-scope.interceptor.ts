@@ -1,17 +1,26 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
 import type { Request } from 'express';
 import { Observable } from 'rxjs';
+import { DataScope } from '../scope/data-scope.enum';
 import { TenantContextService } from './tenant-context.service';
 
 interface RequestUser {
+  id?: string;
   schoolId?: string | null;
   branchId?: string | null;
+  dataScope?: DataScope | null;
+  permissions?: string[];
 }
 
+/** Texnik super-admin (`*.*`) — hech qachon egalik filtriga tushmaydi. */
+const hasWildcardPermission = (permissions: readonly string[] = []): boolean =>
+  permissions.some((code) => code.split('.')[0] === '*');
+
 /**
- * Autentifikatsiyadan keyin (guard req.user'ni to'ldirgach) tenant kontekstini
- * foydalanuvchining maktabi/filiali bilan to'ldiradi. Aktiv filialни so'rov
- * `X-Branch-Id` sarlavhasi bilan (bir maktab ichida) almashtirishi mumkin.
+ * Autentifikatsiyadan keyin (guard req.user'ni to'ldirgach) so'rov kontekstini
+ * foydalanuvchining maktabi/filiali VA ma'lumot doirasi bilan to'ldiradi.
+ * Aktiv filialni so'rov `X-Branch-Id` sarlavhasi bilan (bir maktab ichida)
+ * almashtirishi mumkin.
  */
 @Injectable()
 export class TenantScopeInterceptor implements NestInterceptor {
@@ -30,6 +39,10 @@ export class TenantScopeInterceptor implements NestInterceptor {
       this.tenant.set({
         schoolId: user.schoolId ?? schoolOverride ?? null,
         branchId: branchOverride ?? user.branchId ?? null,
+        userId: user.id ?? null,
+        dataScope: hasWildcardPermission(user.permissions)
+          ? DataScope.ALL
+          : user.dataScope ?? DataScope.ALL,
       });
     }
     return next.handle();

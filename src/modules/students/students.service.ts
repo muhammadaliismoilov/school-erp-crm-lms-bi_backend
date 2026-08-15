@@ -1,10 +1,19 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, DataSource, EntityManager, In, Repository } from 'typeorm';
+import {
+  Brackets,
+  DataSource,
+  EntityManager,
+  In,
+  Repository,
+  type SelectQueryBuilder,
+} from 'typeorm';
 import { AuditService } from '../audit/audit.service';
 import { createPage, PageDto } from '../../common/dto/page.dto';
+import { AccessScopeService } from '../../common/scope/access-scope.service';
+import { applyOwnershipScope } from '../../common/scope/data-scope.util';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
-import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
+import { applyTenantScope } from '../../common/tenant/tenant-scope.util';
 import { UsersService } from '../users/users.service';
 import { UserGender } from '../users/enums/user.enums';
 import { CreateDocumentDto } from './dto/create-document.dto';
@@ -48,6 +57,7 @@ export class StudentsService {
     private readonly dataSource: DataSource,
     private readonly usersService: UsersService,
     private readonly tenant: TenantContextService,
+    private readonly accessScope: AccessScopeService,
     private readonly auditService?: AuditService,
   ) {}
 
@@ -207,6 +217,28 @@ export class StudentsService {
     });
   }
 
+  // ------------------------------------------------------ Qator darajasidagi egalik
+
+  /**
+   * Egalik filtri — tenant filtridan KEYIN, uning ustiga qo'yiladi.
+   *
+   * Doira `ALL` bo'lsa hech nima qo'shilmaydi (eski xulq). `OWN` bo'lsa
+   * o'quvchi faqat ikki yo'ldan biri orqali ko'rinadi: mening sinfimda
+   * o'qiydi YOKI mening farzandim. Ikkalasi ham bo'sh bo'lsa — hech narsa
+   * qaytmaydi (`applyOwnershipScope` `1 = 0` qo'yadi).
+   */
+  private async applyOwnership(
+    qb: SelectQueryBuilder<Student>,
+    alias = 'student',
+  ): Promise<void> {
+    if (!this.accessScope.isRestricted()) return;
+    const own = await this.accessScope.resolveOwnScope();
+    applyOwnershipScope(qb, alias, [
+      { column: 'current_class_id', values: own.classIds },
+      { column: 'id', values: own.studentIds },
+    ]);
+  }
+
   async findStudents(query: QueryStudentsDto): Promise<PageDto<Student>> {
     const qb = this.students
       .createQueryBuilder('student')
@@ -218,6 +250,7 @@ export class StudentsService {
       .take(query.limit);
 
     applyTenantScope(qb, 'student', this.tenant, { branch: true });
+    await this.applyOwnership(qb);
 
     if (query.status) qb.andWhere('student.status = :status', { status: query.status });
     if (query.gender) qb.andWhere('student.gender = :gender', { gender: query.gender });
@@ -252,28 +285,49 @@ export class StudentsService {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
+    // Kartochkalardagi raqamlar ro'yxat bilan bir xil chegarada bo'lishi shart:
+    // aks holda o'qituvchi 12 ta o'quvchi ko'rib turib "jami 640" yozuvini
+    // o'qirdi — bu ham sirni oshkor qilish, ham ishonchni yo'qotish.
+    const base = async (): Promise<SelectQueryBuilder<Student>> => {
+      const qb = this.students.createQueryBuilder('student');
+      applyTenantScope(qb, 'student', this.tenant, { branch: true });
+      await this.applyOwnership(qb);
+      return qb;
+    };
+
     const [total, male, female, newThisMonth] = await Promise.all([
-      this.students.count({ where: tenantWhere<Student>(this.tenant, {}, { branch: true }) }),
-      this.students.count({ where: tenantWhere<Student>(this.tenant, { gender: Gender.MALE }, { branch: true }) }),
-      this.students.count({ where: tenantWhere<Student>(this.tenant, { gender: Gender.FEMALE }, { branch: true }) }),
-      applyTenantScope(
-        this.students
-          .createQueryBuilder('student')
-          .where('student.created_at >= :monthStart', { monthStart }),
-        'student',
-        this.tenant,
-        { branch: true },
-      ).getCount(),
+      base().then((qb) => qb.getCount()),
+      base().then((qb) =>
+        qb.andWhere('student.gender = :gender', { gender: Gender.MALE }).getCount(),
+      ),
+      base().then((qb) =>
+        qb.andWhere('student.gender = :gender', { gender: Gender.FEMALE }).getCount(),
+      ),
+      base().then((qb) =>
+        qb.andWhere('student.created_at >= :monthStart', { monthStart }).getCount(),
+      ),
     ]);
 
     return { total, male, female, newThisMonth };
   }
 
+  /**
+   * Bitta o'quvchi. Doiradan tashqaridagi yozuv uchun ataylab 404 (403 emas):
+   * 403 "bunday o'quvchi bor, lekin senga ko'rsatmayman" degani bo'lardi,
+   * ya'ni mavjudlik faktini oshkor qilardi.
+   */
   async findStudent(id: string): Promise<Student> {
-    const student = await this.students.findOne({
-      where: tenantWhere<Student>(this.tenant, { id }, { branch: true }),
-      relations: { parents: { parent: true }, documents: true, currentClass: true },
-    });
+    const qb = this.students
+      .createQueryBuilder('student')
+      .leftJoinAndSelect('student.parents', 'sp')
+      .leftJoinAndSelect('sp.parent', 'parent')
+      .leftJoinAndSelect('student.documents', 'documents')
+      .leftJoinAndSelect('student.currentClass', 'currentClass')
+      .where('student.id = :id', { id });
+    applyTenantScope(qb, 'student', this.tenant, { branch: true });
+    await this.applyOwnership(qb);
+
+    const student = await qb.getOne();
     if (!student) {
       throw new NotFoundException('Student not found');
     }
@@ -324,6 +378,7 @@ export class StudentsService {
       .take(query.limit);
 
     applyTenantScope(qb, 'student', this.tenant, { branch: true });
+    await this.applyOwnership(qb);
 
     if (query.gender) qb.andWhere('student.gender = :gender', { gender: query.gender });
     if (query.classId) qb.andWhere('student.current_class_id = :classId', { classId: query.classId });
@@ -347,21 +402,24 @@ export class StudentsService {
 
   /** Ketgan o‘quvchilar statistikasi (jami / erkak / ayol). */
   async getDepartedStats(): Promise<DepartedStats> {
-    const base = () =>
-      applyTenantScope(
-        this.students
-          .createQueryBuilder('student')
-          .withDeleted()
-          .where('student.deleted_at IS NOT NULL'),
-        'student',
-        this.tenant,
-        { branch: true },
-      );
+    const base = async (): Promise<SelectQueryBuilder<Student>> => {
+      const qb = this.students
+        .createQueryBuilder('student')
+        .withDeleted()
+        .where('student.deleted_at IS NOT NULL');
+      applyTenantScope(qb, 'student', this.tenant, { branch: true });
+      await this.applyOwnership(qb);
+      return qb;
+    };
 
     const [total, male, female] = await Promise.all([
-      base().getCount(),
-      base().andWhere('student.gender = :gender', { gender: Gender.MALE }).getCount(),
-      base().andWhere('student.gender = :gender', { gender: Gender.FEMALE }).getCount(),
+      base().then((qb) => qb.getCount()),
+      base().then((qb) =>
+        qb.andWhere('student.gender = :gender', { gender: Gender.MALE }).getCount(),
+      ),
+      base().then((qb) =>
+        qb.andWhere('student.gender = :gender', { gender: Gender.FEMALE }).getCount(),
+      ),
     ]);
 
     return { total, male, female };
@@ -369,10 +427,7 @@ export class StudentsService {
 
   /** Ketgan o‘quvchini tiklaydi (soft-delete bekor qilinadi). */
   async restoreStudent(id: string): Promise<{ id: string }> {
-    const student = await this.students.findOne({
-      where: tenantWhere<Student>(this.tenant, { id }, { branch: true }),
-      withDeleted: true,
-    });
+    const student = await this.findDeletedInScope(id);
     if (!student) {
       throw new NotFoundException('Student not found');
     }
@@ -386,12 +441,24 @@ export class StudentsService {
     return { id };
   }
 
+  /**
+   * O'chirilgan o'quvchini tenant + egalik chegarasida topadi. Tiklash va
+   * butunlay o'chirish uchun umumiy — ikkalasi ham \"ko'rmaydigan\" yozuvga
+   * ta'sir qila olmasligi kerak.
+   */
+  private async findDeletedInScope(id: string): Promise<Student | null> {
+    const qb = this.students
+      .createQueryBuilder('student')
+      .withDeleted()
+      .where('student.id = :id', { id });
+    applyTenantScope(qb, 'student', this.tenant, { branch: true });
+    await this.applyOwnership(qb);
+    return qb.getOne();
+  }
+
   /** Ketgan o‘quvchini butunlay (qaytarib bo‘lmaydigan) o‘chiradi. */
   async permanentlyRemoveStudent(id: string): Promise<{ id: string }> {
-    const student = await this.students.findOne({
-      where: tenantWhere<Student>(this.tenant, { id }, { branch: true }),
-      withDeleted: true,
-    });
+    const student = await this.findDeletedInScope(id);
     if (!student) {
       throw new NotFoundException('Student not found');
     }

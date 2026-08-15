@@ -11,6 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes, createHash } from 'crypto';
 import { IsNull, Repository } from 'typeorm';
 import { CommonStatus } from '../../common/enums/common-status.enum';
+import { widestDataScope } from '../../common/scope/data-scope.enum';
 import { AuthenticatedUser } from '../../common/security/authenticated-user.interface';
 import { parseDurationToMs } from '../../common/utils/duration';
 import { Role } from '../identity/entities/role.entity';
@@ -362,6 +363,8 @@ export class AuthService {
       sessionId,
       schoolId: user.schoolId ?? null,
       branchId: user.branchId ?? null,
+      // Rollar qo'shiluvchi: bitta ham keng rol bo'lsa — to'liq ko'rish.
+      dataScope: widestDataScope(user.roles?.map((role) => role.dataScope) ?? []),
     };
   }
 

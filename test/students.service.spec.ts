@@ -7,8 +7,62 @@ import type { StudentParent } from '../src/modules/students/entities/student-par
 import type { Student } from '../src/modules/students/entities/student.entity';
 import { Gender, StudentStatus } from '../src/modules/students/enums/student-status.enum';
 import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
+import type { AccessScopeService } from '../src/common/scope/access-scope.service';
+import type { OwnScope } from '../src/common/scope/data-scope.enum';
 
 const emptyRepository = <T extends object>(): Repository<T> => ({}) as Repository<T>;
+
+/** `where`/`andWhere` chaqiruvlarini yozib boruvchi QueryBuilder taqlidi. */
+interface QbResult {
+  one?: unknown;
+  count?: number;
+  manyAndCount?: [unknown[], number];
+}
+
+interface RecordedCondition {
+  sql: string;
+  params?: Record<string, unknown>;
+}
+
+interface FakeQb {
+  conditions: RecordedCondition[];
+  withDeleted: jest.Mock;
+  leftJoinAndSelect: jest.Mock;
+  orderBy: jest.Mock;
+  skip: jest.Mock;
+  take: jest.Mock;
+  where: jest.Mock;
+  andWhere: jest.Mock;
+  getOne: jest.Mock;
+  getCount: jest.Mock;
+  getManyAndCount: jest.Mock;
+}
+
+function makeQb(result: QbResult = {}): FakeQb {
+  const conditions: RecordedCondition[] = [];
+  const qb = { conditions } as FakeQb;
+  const chain = jest.fn(() => qb);
+  const record = jest.fn((sql: string, params?: Record<string, unknown>) => {
+    conditions.push({ sql, params });
+    return qb;
+  });
+
+  qb.withDeleted = chain;
+  qb.leftJoinAndSelect = chain;
+  qb.orderBy = chain;
+  qb.skip = chain;
+  qb.take = chain;
+  qb.where = record;
+  qb.andWhere = record;
+  qb.getOne = jest.fn().mockResolvedValue(result.one ?? null);
+  qb.getCount = jest.fn().mockResolvedValue(result.count ?? 0);
+  qb.getManyAndCount = jest.fn().mockResolvedValue(result.manyAndCount ?? [[], 0]);
+  return qb;
+}
+
+/** Shartlar ro'yxatida berilgan SQL bo'lakchasi bormi. */
+const hasCondition = (qb: FakeQb, fragment: string): boolean =>
+  qb.conditions.some((condition) => condition.sql.includes(fragment));
 
 describe('StudentsService', () => {
   const studentId = 'b3c1f8a2-0000-4000-8000-000000000001';
@@ -24,6 +78,7 @@ describe('StudentsService', () => {
   >;
   let usersService: jest.Mocked<Pick<UsersService, 'createParent' | 'findParentUser'>>;
   let service: StudentsService;
+  let accessScope: { isRestricted: jest.Mock; resolveOwnScope: jest.Mock };
   const tenantCtx: { schoolId: string | null; branchId: string | null } = { schoolId: null, branchId: null };
 
   beforeEach(() => {
@@ -53,6 +108,12 @@ describe('StudentsService', () => {
     // Tenant kontekst — sozlanadigan (default: maktab/filial yo'q, scoping o'chiq).
     const tenant = { getSchoolId: () => tenantCtx.schoolId, getBranchId: () => tenantCtx.branchId };
 
+    // Egalik doirasi — default: chegaralanmagan (`ALL`), eski xulq saqlanadi.
+    accessScope = {
+      isRestricted: jest.fn().mockReturnValue(false),
+      resolveOwnScope: jest.fn().mockResolvedValue({ classIds: [], studentIds: [] }),
+    };
+
     service = new StudentsService(
       students as unknown as Repository<Student>,
       studentParents as unknown as Repository<StudentParent>,
@@ -60,33 +121,57 @@ describe('StudentsService', () => {
       {} as DataSource,
       usersService as unknown as UsersService,
       tenant as unknown as TenantContextService,
+      accessScope as unknown as AccessScopeService,
       undefined,
     );
   });
 
+  /** Doirani `OWN` ga o'tkazib, berilgan egalik ro'yxatini beradi. */
+  const restrictTo = (own: OwnScope) => {
+    accessScope.isRestricted.mockReturnValue(true);
+    accessScope.resolveOwnScope.mockResolvedValue(own);
+  };
+
   describe('getStats', () => {
     it('aggregates total, gender counts and new-this-month', async () => {
-      students.count
-        .mockResolvedValueOnce(120) // total
-        .mockResolvedValueOnce(70) // male
-        .mockResolvedValueOnce(50); // female
-      students.createQueryBuilder.mockReturnValue({
-        where: jest.fn().mockReturnThis(),
-        getCount: jest.fn().mockResolvedValue(8),
-      } as never);
+      const [total, male, female, fresh] = [
+        makeQb({ count: 120 }),
+        makeQb({ count: 70 }),
+        makeQb({ count: 50 }),
+        makeQb({ count: 8 }),
+      ];
+      students.createQueryBuilder
+        .mockReturnValueOnce(total as never)
+        .mockReturnValueOnce(male as never)
+        .mockReturnValueOnce(female as never)
+        .mockReturnValueOnce(fresh as never);
 
       const stats = await service.getStats();
 
       expect(stats).toEqual({ total: 120, male: 70, female: 50, newThisMonth: 8 });
-      expect(students.count).toHaveBeenNthCalledWith(2, { where: { gender: Gender.MALE } });
-      expect(students.count).toHaveBeenNthCalledWith(3, { where: { gender: Gender.FEMALE } });
+      expect(hasCondition(male, 'student.gender')).toBe(true);
+      expect(hasCondition(fresh, 'student.created_at')).toBe(true);
+    });
+
+    it("doira `OWN` bo'lsa kartochka raqamlari ham chegaralanadi", async () => {
+      restrictTo({ classIds: ['c1'], studentIds: [] });
+      const qbs = [makeQb(), makeQb(), makeQb(), makeQb()];
+      qbs.forEach((qb) => students.createQueryBuilder.mockReturnValueOnce(qb as never));
+
+      await service.getStats();
+
+      // Har bir hisob so'rovi egalik shartini oladi — aks holda o'qituvchi
+      // 12 ta o'quvchi ko'rib turib "jami 640" raqamini o'qigan bo'lardi.
+      for (const qb of qbs) {
+        expect(hasCondition(qb, 'student.current_class_id IN')).toBe(true);
+      }
     });
   });
 
   describe('removeStudent', () => {
     it('soft-removes an existing student and returns its id', async () => {
       const student = { id: studentId, status: StudentStatus.ACTIVE } as Student;
-      students.findOne.mockResolvedValue(student);
+      students.createQueryBuilder.mockReturnValue(makeQb({ one: student }) as never);
       students.softRemove.mockResolvedValue(student as never);
 
       const result = await service.removeStudent(studentId);
@@ -97,7 +182,7 @@ describe('StudentsService', () => {
 
     it('persists the withdrawal reason before soft-removing', async () => {
       const student = { id: studentId, status: StudentStatus.ACTIVE } as Student;
-      students.findOne.mockResolvedValue(student);
+      students.createQueryBuilder.mockReturnValue(makeQb({ one: student }) as never);
       students.save.mockImplementation(async (value) => value as Student);
       students.softRemove.mockResolvedValue(student as never);
 
@@ -110,7 +195,7 @@ describe('StudentsService', () => {
 
     it('does not persist a blank reason', async () => {
       const student = { id: studentId, status: StudentStatus.ACTIVE } as Student;
-      students.findOne.mockResolvedValue(student);
+      students.createQueryBuilder.mockReturnValue(makeQb({ one: student }) as never);
       students.softRemove.mockResolvedValue(student as never);
 
       await service.removeStudent(studentId, '   ');
@@ -120,23 +205,14 @@ describe('StudentsService', () => {
     });
 
     it('throws NotFound when the student does not exist', async () => {
-      students.findOne.mockResolvedValue(null);
+      students.createQueryBuilder.mockReturnValue(makeQb({ one: null }) as never);
       await expect(service.removeStudent(studentId)).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
   describe('findDeparted', () => {
     it('filters soft-deleted students by gender and class with search', async () => {
-      const qb = {
-        withDeleted: jest.fn().mockReturnThis(),
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[{ id: studentId }], 1]),
-      };
+      const qb = makeQb({ manyAndCount: [[{ id: studentId }], 1] });
       students.createQueryBuilder.mockReturnValue(qb as never);
 
       const page = await service.findDeparted({
@@ -159,16 +235,10 @@ describe('StudentsService', () => {
 
   describe('getDepartedStats', () => {
     it('counts departed students by gender', async () => {
-      const make = (n: number) => ({
-        withDeleted: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getCount: jest.fn().mockResolvedValue(n),
-      });
       students.createQueryBuilder
-        .mockReturnValueOnce(make(12) as never)
-        .mockReturnValueOnce(make(7) as never)
-        .mockReturnValueOnce(make(5) as never);
+        .mockReturnValueOnce(makeQb({ count: 12 }) as never)
+        .mockReturnValueOnce(makeQb({ count: 7 }) as never)
+        .mockReturnValueOnce(makeQb({ count: 5 }) as never);
 
       const stats = await service.getDepartedStats();
 
@@ -183,7 +253,7 @@ describe('StudentsService', () => {
         deletedAt: new Date(),
         withdrawalReason: 'x',
       } as unknown as Student;
-      students.findOne.mockResolvedValue(student);
+      students.createQueryBuilder.mockReturnValue(makeQb({ one: student }) as never);
       students.save.mockImplementation(async (value) => value as Student);
       students.recover.mockResolvedValue(student as never);
 
@@ -195,21 +265,31 @@ describe('StudentsService', () => {
     });
 
     it('throws BadRequest when the student is not departed', async () => {
-      students.findOne.mockResolvedValue({ id: studentId, deletedAt: null } as Student);
+      const student = { id: studentId, deletedAt: null } as Student;
+      students.createQueryBuilder.mockReturnValue(makeQb({ one: student }) as never);
       await expect(service.restoreStudent(studentId)).rejects.toBeInstanceOf(BadRequestException);
       expect(students.recover).not.toHaveBeenCalled();
     });
 
     it('throws NotFound when the student does not exist', async () => {
-      students.findOne.mockResolvedValue(null);
+      students.createQueryBuilder.mockReturnValue(makeQb({ one: null }) as never);
       await expect(service.restoreStudent(studentId)).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it("doiradan tashqaridagi ketgan o'quvchini tiklab bo'lmaydi", async () => {
+      restrictTo({ classIds: ['c1'], studentIds: [] });
+      const qb = makeQb({ one: null });
+      students.createQueryBuilder.mockReturnValue(qb as never);
+
+      await expect(service.restoreStudent(studentId)).rejects.toBeInstanceOf(NotFoundException);
+      expect(hasCondition(qb, 'student.current_class_id IN')).toBe(true);
     });
   });
 
   describe('permanentlyRemoveStudent', () => {
     it('hard-removes a departed student', async () => {
       const student = { id: studentId, deletedAt: new Date() } as unknown as Student;
-      students.findOne.mockResolvedValue(student);
+      students.createQueryBuilder.mockReturnValue(makeQb({ one: student }) as never);
       students.remove.mockResolvedValue(student as never);
 
       const result = await service.permanentlyRemoveStudent(studentId);
@@ -219,7 +299,8 @@ describe('StudentsService', () => {
     });
 
     it('refuses to hard-remove a student that is not departed', async () => {
-      students.findOne.mockResolvedValue({ id: studentId, deletedAt: null } as Student);
+      const alive = { id: studentId, deletedAt: null } as Student;
+      students.createQueryBuilder.mockReturnValue(makeQb({ one: alive }) as never);
       await expect(service.permanentlyRemoveStudent(studentId)).rejects.toBeInstanceOf(
         BadRequestException,
       );
@@ -230,7 +311,7 @@ describe('StudentsService', () => {
   describe('updateStudent', () => {
     it('applies the patch but never persists guardian-only fields onto the entity', async () => {
       const student = { id: studentId, firstName: 'Ali', region: null } as Student;
-      students.findOne.mockResolvedValue(student);
+      students.createQueryBuilder.mockReturnValue(makeQb({ one: student }) as never);
       students.save.mockImplementation(async (value) => value as Student);
 
       const saved = await service.updateStudent(studentId, {
@@ -265,7 +346,9 @@ describe('StudentsService', () => {
 
   describe('linkParent', () => {
     it('validates the parent user then creates the link', async () => {
-      students.findOne.mockResolvedValue({ id: studentId } as Student);
+      students.createQueryBuilder.mockReturnValue(
+        makeQb({ one: { id: studentId } as Student }) as never,
+      );
       usersService.findParentUser.mockResolvedValue({ id: parentId } as never);
       studentParents.findOne.mockResolvedValue(null);
       studentParents.create.mockImplementation((value) => value as never);
@@ -282,7 +365,9 @@ describe('StudentsService', () => {
     });
 
     it('propagates the error when the user is not a PARENT', async () => {
-      students.findOne.mockResolvedValue({ id: studentId } as Student);
+      students.createQueryBuilder.mockReturnValue(
+        makeQb({ one: { id: studentId } as Student }) as never,
+      );
       usersService.findParentUser.mockRejectedValue(new BadRequestException());
 
       await expect(
@@ -334,23 +419,90 @@ describe('StudentsService', () => {
   });
 
   describe('tenant scoping (ko‘p-maktabli ajratish)', () => {
-    it('findStudent — kontekstda maktab/filial bo‘lsa where‘ga qo‘shiladi', async () => {
+    it('findStudent — kontekstda maktab/filial bo‘lsa so‘rovga qo‘shiladi', async () => {
       tenantCtx.schoolId = 'school-A';
       tenantCtx.branchId = 'branch-1';
-      students.findOne.mockResolvedValue({ id: studentId } as Student);
+      const qb = makeQb({ one: { id: studentId } as Student });
+      students.createQueryBuilder.mockReturnValue(qb as never);
 
       await service.findStudent(studentId);
 
-      const where = students.findOne.mock.calls[0][0].where;
-      expect(where).toMatchObject({ id: studentId, schoolId: 'school-A', filialId: 'branch-1' });
+      expect(hasCondition(qb, 'student.school_id = :tenantSchoolId')).toBe(true);
+      expect(hasCondition(qb, 'student.filial_id = :tenantBranchId')).toBe(true);
     });
 
     it('findStudent — kontekst yo‘q bo‘lsa faqat id bo‘yicha', async () => {
-      students.findOne.mockResolvedValue({ id: studentId } as Student);
+      const qb = makeQb({ one: { id: studentId } as Student });
+      students.createQueryBuilder.mockReturnValue(qb as never);
 
       await service.findStudent(studentId);
 
-      expect(students.findOne.mock.calls[0][0].where).toEqual({ id: studentId });
+      expect(qb.conditions).toEqual([{ sql: 'student.id = :id', params: { id: studentId } }]);
+    });
+  });
+
+  describe('qator darajasidagi egalik (data scope)', () => {
+    it("doira `ALL` — egalik sharti umuman qo'shilmaydi (eski xulq)", async () => {
+      const qb = makeQb({ manyAndCount: [[], 0] });
+      students.createQueryBuilder.mockReturnValue(qb as never);
+
+      await service.findStudents({ page: 1, limit: 20 } as never);
+
+      expect(accessScope.resolveOwnScope).not.toHaveBeenCalled();
+      expect(hasCondition(qb, 'ownScope')).toBe(false);
+    });
+
+    it("doira `OWN` — o'z sinflari VA o'z farzandlari OR bilan birlashadi", async () => {
+      restrictTo({ classIds: ['c1', 'c2'], studentIds: ['s9'] });
+      const qb = makeQb({ manyAndCount: [[], 0] });
+      students.createQueryBuilder.mockReturnValue(qb as never);
+
+      await service.findStudents({ page: 1, limit: 20 } as never);
+
+      const ownership = qb.conditions.find((condition) => condition.sql.includes('ownScope'));
+      expect(ownership?.sql).toContain('student.current_class_id IN');
+      expect(ownership?.sql).toContain('student.id IN');
+      expect(ownership?.sql).toContain(' OR ');
+      expect(Object.values(ownership?.params ?? {})).toEqual([['c1', 'c2'], ['s9']]);
+    });
+
+    it("egalik bo'sh — HECH NARSA qaytmaydi (filtr tashlab yuborilmaydi)", async () => {
+      restrictTo({ classIds: [], studentIds: [] });
+      const qb = makeQb({ manyAndCount: [[], 0] });
+      students.createQueryBuilder.mockReturnValue(qb as never);
+
+      await service.findStudents({ page: 1, limit: 20 } as never);
+
+      expect(hasCondition(qb, '1 = 0')).toBe(true);
+    });
+
+    it("doiradan tashqaridagi o'quvchi uchun 404 (403 emas — mavjudlik oshkor bo'lmasin)", async () => {
+      restrictTo({ classIds: ['c1'], studentIds: [] });
+      const qb = makeQb({ one: null });
+      students.createQueryBuilder.mockReturnValue(qb as never);
+
+      await expect(service.findStudent(studentId)).rejects.toBeInstanceOf(NotFoundException);
+      expect(hasCondition(qb, 'student.current_class_id IN')).toBe(true);
+    });
+
+    it("tahrirlash ham egalik orqali o'tadi (findStudent'ga tayanadi)", async () => {
+      restrictTo({ classIds: ['c1'], studentIds: [] });
+      students.createQueryBuilder.mockReturnValue(makeQb({ one: null }) as never);
+
+      await expect(
+        service.updateStudent(studentId, { region: 'Toshkent' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(students.save).not.toHaveBeenCalled();
+    });
+
+    it('ketganlar ro‘yxati ham chegaralanadi', async () => {
+      restrictTo({ classIds: ['c1'], studentIds: [] });
+      const qb = makeQb({ manyAndCount: [[], 0] });
+      students.createQueryBuilder.mockReturnValue(qb as never);
+
+      await service.findDeparted({ page: 1, limit: 20 } as never);
+
+      expect(hasCondition(qb, 'student.current_class_id IN')).toBe(true);
     });
   });
 });

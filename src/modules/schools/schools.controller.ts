@@ -72,7 +72,7 @@ export class SchoolsController {
   }
 
   @Post()
-  @Permissions([AppPermission.SETTINGS_MANAGE])
+  @Permissions([AppPermission.SETTINGS_SCHOOL_CREATE])
   @ApiOperation({
     summary: "Maktab yaratish",
     description:
@@ -129,7 +129,7 @@ export class SchoolsController {
   }
 
   @Patch(":id")
-  @Permissions([AppPermission.SETTINGS_MANAGE])
+  @Permissions([AppPermission.SETTINGS_SCHOOL_UPDATE])
   @ApiOperation({
     summary: "Maktabni tahrirlash",
     description:
@@ -147,7 +147,7 @@ export class SchoolsController {
 
   @Delete(":id")
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Permissions([AppPermission.SETTINGS_MANAGE])
+  @Permissions([AppPermission.SETTINGS_SCHOOL_DELETE])
   @ApiOperation({ summary: "Maktabni arxivlash" })
   @ApiParam(uuidParamDocs)
   @ApiNoContentResponse({ description: "Maktab arxivlandi. Body qaytmaydi." })

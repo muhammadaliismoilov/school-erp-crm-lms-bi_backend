@@ -507,7 +507,7 @@ export class TransactionsService {
   /**
    * Tranzaksiyani faqat uni yaratgan xodim yoki super-admin o'zgartira/o'chira
    * oladi. Egasi noma'lum eski yozuvlar (createdBy=null) — back-compat:
-   * `finance.manage` guard (controller darajasida) yetarli.
+   * granular `transactions.*` guard (controller darajasida) yetarli.
    */
   private assertCanModify(
     entity: FinanceTransaction,

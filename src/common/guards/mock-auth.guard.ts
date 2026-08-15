@@ -1,5 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Observable } from 'rxjs';
+import { AppPermission, WRITE_BUNDLES } from '../constants/permissions';
 
 @Injectable()
 export class MockAuthGuard implements CanActivate {
@@ -13,10 +14,10 @@ export class MockAuthGuard implements CanActivate {
       id: 'mock-admin-id',
       roles: ['Admin'],
       permissions: [
-        'appeals.read',
-        'appeals.manage',
-        'integrations.read',
-        'integrations.manage',
+        AppPermission.APPEALS_READ,
+        ...WRITE_BUNDLES.appeals,
+        AppPermission.INTEGRATIONS_READ,
+        ...WRITE_BUNDLES.integrations,
       ],
     };
 

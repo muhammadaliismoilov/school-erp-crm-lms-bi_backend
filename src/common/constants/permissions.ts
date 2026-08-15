@@ -27,7 +27,9 @@ export const AppPermission = {
   INTEGRATIONS_DELETE: 'integrations.delete',
   // Resurs: settings-school
   SETTINGS_SCHOOL_READ: 'settings-school.read',
+  SETTINGS_SCHOOL_CREATE: 'settings-school.create',
   SETTINGS_SCHOOL_UPDATE: 'settings-school.update',
+  SETTINGS_SCHOOL_DELETE: 'settings-school.delete',
   // Resurs: settings-rooms
   SETTINGS_ROOMS_READ: 'settings-rooms.read',
   SETTINGS_ROOMS_CREATE: 'settings-rooms.create',
@@ -37,6 +39,8 @@ export const AppPermission = {
   ROLES_CREATE: 'roles.create',
   ROLES_UPDATE: 'roles.update',
   ROLES_DELETE: 'roles.delete',
+  /** Foydalanuvchiga rol biriktirish — imtiyoz oshirish yo'li, alohida kod. */
+  ROLES_ASSIGN: 'roles.assign',
   // Resurs: data-jobs
   DATA_JOBS_CREATE: 'data-jobs.create',
   DATA_JOBS_UPDATE: 'data-jobs.update',
@@ -279,21 +283,22 @@ export const AppPermission = {
   USERS_READ: 'users.read',
   USERS_CREATE: 'users.create',
   USERS_UPDATE: 'users.update',
+  /**
+   * Boshqa foydalanuvchi parolini tiklash — `users.update` dan ATAYLAB
+   * ajratilgan: parol tiklash o'sha akkaunt nomidan kirish bilan barobar,
+   * shuning uchun profil tahriri bilan bitta ruxsatda turishi mumkin emas
+   * (T-02 imtiyoz oshirish tuzatishi, 1790100000000 migratsiyasi).
+   */
+  USERS_RESET_PASSWORD: 'users.reset-password',
   FILES_READ: 'files.read',
   FILES_UPLOAD: 'files.upload',
   ROLES_READ: 'roles.read',
-  ROLES_MANAGE: 'roles.manage',
   APPEALS_READ: 'appeals.read',
-  APPEALS_MANAGE: 'appeals.manage',
   INTEGRATIONS_READ: 'integrations.read',
-  INTEGRATIONS_MANAGE: 'integrations.manage',
-  CRM_READ: 'crm.read',
-  CRM_MANAGE: 'crm.manage',
   STUDENTS_READ: 'students.read',
   STUDENTS_CREATE: 'students.create',
   STUDENTS_UPDATE: 'students.update',
   STUDENTS_DELETE: 'students.delete',
-  STUDENTS_MANAGE: 'students.manage',
   // Sub-resurs: o'quvchi ↔ ota-ona bog'lanishi
   STUDENT_PARENTS_READ: 'student-parents.read',
   STUDENT_PARENTS_CREATE: 'student-parents.create',
@@ -302,8 +307,12 @@ export const AppPermission = {
   STUDENT_DOCUMENTS_READ: 'student-documents.read',
   STUDENT_DOCUMENTS_CREATE: 'student-documents.create',
   STUDENT_DOCUMENTS_DELETE: 'student-documents.delete',
-  ACADEMIC_READ: 'academic.read',
-  ACADEMIC_MANAGE: 'academic.manage',
+  // Sub-resurs: o'quvchi yutuqlari (o'qish `students.read` bilan)
+  STUDENT_ACHIEVEMENTS_CREATE: 'student-achievements.create',
+  STUDENT_ACHIEVEMENTS_UPDATE: 'student-achievements.update',
+  STUDENT_ACHIEVEMENTS_DELETE: 'student-achievements.delete',
+  // Sub-resurs: tutor/psixolog xulosalari va SMART maqsadlar (upsert)
+  STUDENT_REPORTS_UPDATE: 'student-reports.update',
   // Resurs: o'quv yillari
   ACADEMIC_YEARS_READ: 'academic-years.read',
   ACADEMIC_YEARS_CREATE: 'academic-years.create',
@@ -334,8 +343,6 @@ export const AppPermission = {
   ACADEMIC_CLASSES_CREATE: 'academic-classes.create',
   ACADEMIC_CLASSES_UPDATE: 'academic-classes.update',
   ACADEMIC_CLASSES_DELETE: 'academic-classes.delete',
-  ATTENDANCE_READ: 'attendance.read',
-  ATTENDANCE_MANAGE: 'attendance.manage',
   // Resurs: o'quvchi davomati yozuvlari
   ATTENDANCE_RECORDS_READ: 'attendance-records.read',
   ATTENDANCE_RECORDS_CREATE: 'attendance-records.create',
@@ -354,7 +361,6 @@ export const AppPermission = {
   ATTENDANCE_SETTINGS_READ: 'attendance-settings.read',
   ATTENDANCE_SETTINGS_UPDATE: 'attendance-settings.update',
   FINANCE_READ: 'finance.read',
-  FINANCE_MANAGE: 'finance.manage',
   // Resurs: shartnomalar
   FINANCE_CONTRACTS_READ: 'finance-contracts.read',
   FINANCE_CONTRACTS_CREATE: 'finance-contracts.create',
@@ -366,12 +372,15 @@ export const AppPermission = {
   // Resurs: o'qituvchi oyliklari
   FINANCE_SALARIES_READ: 'finance-salaries.read',
   FINANCE_SALARIES_UPDATE: 'finance-salaries.update',
-  NOTIFICATIONS_READ: 'notifications.read',
-  NOTIFICATIONS_MANAGE: 'notifications.manage',
+  // Resurs: o'quvchi to'lovlari (o'qish `finance.read` bilan)
+  STUDENT_PAYMENTS_CREATE: 'student-payments.create',
+  STUDENT_PAYMENTS_UPDATE: 'student-payments.update',
+  STUDENT_PAYMENTS_DELETE: 'student-payments.delete',
+  /** Defter proyeksiyalarini qayta sinxronlash — xizmat amali. */
+  STUDENT_PAYMENTS_RECONCILE: 'student-payments.reconcile',
+  // Resurs: to'lov rejasi chegirma konfiguratsiyasi (maktab darajasida)
+  STUDENT_PAYMENT_PLANS_UPDATE: 'student-payment-plans.update',
   SETTINGS_READ: 'settings.read',
-  SETTINGS_MANAGE: 'settings.manage',
-  HR_READ: 'hr.read',
-  HR_MANAGE: 'hr.manage',
   // Resurs: hr-branches
   HR_BRANCHES_READ: 'hr-branches.read',
   HR_BRANCHES_CREATE: 'hr-branches.create',
@@ -500,12 +509,7 @@ export const AppPermission = {
   HR_WORK_SCHEDULES_DELETE: 'hr-work-schedules.delete',
   // Resurs: hr-statistics
   HR_STATISTICS_READ: 'hr-statistics.read',
-  INVENTORY_READ: 'inventory.read',
-  INVENTORY_MANAGE: 'inventory.manage',
-  YOUTH_READ: 'youth.read',
-  YOUTH_MANAGE: 'youth.manage',
   LMS_READ: 'lms.read',
-  LMS_MANAGE: 'lms.manage',
   // Resurs: baholar jurnali (gradebook)
   LMS_GRADEBOOK_READ: 'lms-gradebook.read',
   LMS_GRADEBOOK_UPDATE: 'lms-gradebook.update',
@@ -528,8 +532,6 @@ export const AppPermission = {
   LMS_LESSONS_UPDATE: 'lms-lessons.update',
   LMS_LESSONS_DELETE: 'lms-lessons.delete',
   ANALYTICS_READ: 'analytics.read',
-  GAMIFICATION_READ: 'gamification.read',
-  GAMIFICATION_MANAGE: 'gamification.manage',
   // Resurs: nishonlar (badge) + berish
   GAMIFICATION_BADGES_READ: 'gamification-badges.read',
   GAMIFICATION_BADGES_CREATE: 'gamification-badges.create',
@@ -544,28 +546,10 @@ export const AppPermission = {
   GAMIFICATION_COIN_PRESETS_CREATE: 'gamification-coin-presets.create',
   GAMIFICATION_COIN_PRESETS_UPDATE: 'gamification-coin-presets.update',
   GAMIFICATION_COIN_PRESETS_DELETE: 'gamification-coin-presets.delete',
-  FEEDBACK_READ: 'feedback.read',
-  FEEDBACK_MANAGE: 'feedback.manage',
-  KPI_READ: 'kpi.read',
-  KPI_MANAGE: 'kpi.manage',
   REPORTS_READ: 'reports.read',
   MOBILE_PORTAL_READ: 'mobile-portal.read',
   DOCUMENTS_READ: 'documents.read',
-  DOCUMENTS_MANAGE: 'documents.manage',
-  COMMUNICATION_READ: 'communication.read',
-  COMMUNICATION_MANAGE: 'communication.manage',
-  TRANSPORT_READ: 'transport.read',
-  TRANSPORT_MANAGE: 'transport.manage',
-  ACCESS_CONTROL_READ: 'access-control.read',
-  ACCESS_CONTROL_MANAGE: 'access-control.manage',
   DATA_JOBS_READ: 'data-jobs.read',
-  DATA_JOBS_MANAGE: 'data-jobs.manage',
-  WORKFLOW_READ: 'workflow.read',
-  WORKFLOW_MANAGE: 'workflow.manage',
-  ADMISSIONS_READ: 'admissions.read',
-  ADMISSIONS_MANAGE: 'admissions.manage',
-  TIMETABLE_READ: 'timetable.read',
-  TIMETABLE_MANAGE: 'timetable.manage',
   // Resurs: jadval shablonlari
   TIMETABLE_TEMPLATES_READ: 'timetable-templates.read',
   TIMETABLE_TEMPLATES_CREATE: 'timetable-templates.create',
@@ -589,18 +573,9 @@ export const AppPermission = {
   HOMEWORK_SUBMISSIONS_READ: 'homework-submissions.read',
   HOMEWORK_SUBMISSIONS_CREATE: 'homework-submissions.create',
   HOMEWORK_SUBMISSIONS_UPDATE: 'homework-submissions.update',
-  LIBRARY_READ: 'library.read',
-  LIBRARY_MANAGE: 'library.manage',
-  HEALTH_SAFETY_READ: 'health-safety.read',
-  HEALTH_SAFETY_MANAGE: 'health-safety.manage',
-  PROCUREMENT_READ: 'procurement.read',
-  PROCUREMENT_MANAGE: 'procurement.manage',
-  ASSETS_READ: 'assets.read',
-  ASSETS_MANAGE: 'assets.manage',
-  ADVANCED_FINANCE_READ: 'advanced-finance.read',
-  ADVANCED_FINANCE_MANAGE: 'advanced-finance.manage',
   COUNSELING_READ: 'counseling.read',
-  COUNSELING_MANAGE: 'counseling.manage',
+  COUNSELING_CREATE: 'counseling.create',
+  COUNSELING_UPDATE: 'counseling.update',
 } as const;
 
 export type AppPermissionValue = (typeof AppPermission)[keyof typeof AppPermission];
@@ -615,48 +590,62 @@ export const DEFAULT_PERMISSION_CODES = Object.values(AppPermission);
  */
 export const CONFIDENTIAL_PERMISSION_CODES: readonly string[] = [
   AppPermission.COUNSELING_READ,
-  AppPermission.COUNSELING_MANAGE,
+  AppPermission.COUNSELING_CREATE,
+  AppPermission.COUNSELING_UPDATE,
 ];
 
 /**
- * Granular-ga bosqichma-bosqich o'tish xaritasi. Eski keng `<module>.manage`
- * kodi yangi `<resurs>.<amal>` yozuv kodlariga yoyiladi; eski `<module>.read`
- * yangi sub-resurs `read` kodlariga. Migratsiya (foydalanuvchi yaratgan
- * rollar) va seed (tizim rollari) IKKALASI ham shundan foydalanadi — bitta
- * manba, mos qoladi. Yangi modul granular qilinganda shu yerga qo'shiladi.
+ * Modul bo'yicha YOZUV kodlari to'plami — dasturchi qisqartmasi.
+ *
+ * MUHIM: bu `<module>.manage` degan RUXSAT KODI emas. `manage` tushunchasi
+ * tizimdan butunlay olib tashlangan (1789900000000 migratsiyasi): bazada
+ * ham, Rollar sahifasida ham faqat granular `<resurs>.<amal>` kodlari bor,
+ * shuning uchun UI'da belgilangan katak — bajariladigan huquqning o'zi.
+ *
+ * Bu xarita ikki joyda ishlatiladi:
+ *  1) `identity-seed` — tizim rollarini "modul bo'yicha to'liq yozuv" deb
+ *     qisqa ta'riflash uchun (kodda, aniq va ko'rinadigan);
+ *  2) 1789900000000 migratsiyasi — eski `<module>.manage` grantlarini shu
+ *     ro'yxatga ko'chirish uchun.
+ *
+ * Yangi modul granular qilinganda shu yerga qo'shiladi.
  */
-export const MANAGE_EXPANSION: Record<string, string[]> = {
-  [AppPermission.NOTIFICATIONS_MANAGE]: [
+export const WRITE_BUNDLES: Record<string, string[]> = {
+  'notifications': [
     AppPermission.NOTIFICATION_TEMPLATES_CREATE,
     AppPermission.NOTIFICATION_QUEUE_CREATE,
   ],
-  [AppPermission.APPEALS_MANAGE]: [
+  'appeals': [
     AppPermission.APPEALS_CREATE,
     AppPermission.APPEALS_UPDATE,
     AppPermission.APPEALS_DELETE,
     AppPermission.APPEALS_PUBLIC_LINK_CREATE,
   ],
-  [AppPermission.INTEGRATIONS_MANAGE]: [
+  'integrations': [
     AppPermission.INTEGRATIONS_CREATE,
     AppPermission.INTEGRATIONS_UPDATE,
     AppPermission.INTEGRATIONS_DELETE,
   ],
-  [AppPermission.SETTINGS_MANAGE]: [
+  'settings': [
+    AppPermission.SETTINGS_SCHOOL_CREATE,
     AppPermission.SETTINGS_SCHOOL_UPDATE,
+    AppPermission.SETTINGS_SCHOOL_DELETE,
     AppPermission.SETTINGS_ROOMS_CREATE,
     AppPermission.SETTINGS_ROOMS_UPDATE,
     AppPermission.SETTINGS_ROOMS_DELETE,
   ],
-  [AppPermission.ROLES_MANAGE]: [
+  'roles': [
     AppPermission.ROLES_CREATE,
     AppPermission.ROLES_UPDATE,
     AppPermission.ROLES_DELETE,
+    AppPermission.ROLES_ASSIGN,
   ],
-  [AppPermission.DATA_JOBS_MANAGE]: [
+  'counseling': [AppPermission.COUNSELING_CREATE, AppPermission.COUNSELING_UPDATE],
+  'data-jobs': [
     AppPermission.DATA_JOBS_CREATE,
     AppPermission.DATA_JOBS_UPDATE,
   ],
-  [AppPermission.COMMUNICATION_MANAGE]: [
+  'communication': [
     AppPermission.COMMUNICATION_TEMPLATES_CREATE,
     AppPermission.COMMUNICATION_TEMPLATES_UPDATE,
     AppPermission.COMMUNICATION_CAMPAIGNS_CREATE,
@@ -664,34 +653,34 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.COMMUNICATION_DELIVERIES_CREATE,
     AppPermission.COMMUNICATION_DELIVERIES_UPDATE,
   ],
-  [AppPermission.FEEDBACK_MANAGE]: [
+  'feedback': [
     AppPermission.FEEDBACK_TICKETS_CREATE,
     AppPermission.FEEDBACK_TICKETS_UPDATE,
     AppPermission.FEEDBACK_COMMENTS_CREATE,
   ],
-  [AppPermission.YOUTH_MANAGE]: [
+  'youth': [
     AppPermission.YOUTH_MEAL_MENUS_CREATE,
     AppPermission.YOUTH_MEAL_MENUS_UPDATE,
     AppPermission.YOUTH_REQUESTS_CREATE,
     AppPermission.YOUTH_REQUESTS_UPDATE,
   ],
-  [AppPermission.KPI_MANAGE]: [
+  'kpi': [
     AppPermission.KPI_METRICS_CREATE,
     AppPermission.KPI_METRICS_UPDATE,
     AppPermission.KPI_RESULTS_CREATE,
     AppPermission.KPI_RESULTS_UPDATE,
   ],
-  [AppPermission.WORKFLOW_MANAGE]: [
+  'workflow': [
     AppPermission.WORKFLOW_APPROVALS_CREATE,
     AppPermission.WORKFLOW_APPROVALS_UPDATE,
   ],
-  [AppPermission.ACCESS_CONTROL_MANAGE]: [
+  'access-control': [
     AppPermission.ACCESS_CONTROL_DEVICES_CREATE,
     AppPermission.ACCESS_CONTROL_DEVICES_UPDATE,
     AppPermission.ACCESS_CONTROL_FACE_PROFILES_CREATE,
     AppPermission.ACCESS_CONTROL_EVENTS_CREATE,
   ],
-  [AppPermission.PROCUREMENT_MANAGE]: [
+  'procurement': [
     AppPermission.PROCUREMENT_VENDORS_CREATE,
     AppPermission.PROCUREMENT_VENDORS_UPDATE,
     AppPermission.PROCUREMENT_REQUESTS_CREATE,
@@ -701,7 +690,7 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.PROCUREMENT_RECEIPTS_CREATE,
     AppPermission.PROCUREMENT_RECEIPTS_UPDATE,
   ],
-  [AppPermission.ASSETS_MANAGE]: [
+  'assets': [
     AppPermission.ASSETS_ITEMS_CREATE,
     AppPermission.ASSETS_ITEMS_UPDATE,
     AppPermission.ASSETS_MAINTENANCE_CREATE,
@@ -709,7 +698,7 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.ASSETS_DEPRECIATIONS_CREATE,
     AppPermission.ASSETS_DEPRECIATIONS_UPDATE,
   ],
-  [AppPermission.ADVANCED_FINANCE_MANAGE]: [
+  'advanced-finance': [
     AppPermission.ADVANCED_FINANCE_INVOICES_CREATE,
     AppPermission.ADVANCED_FINANCE_INVOICES_UPDATE,
     AppPermission.ADVANCED_FINANCE_SCHOLARSHIPS_CREATE,
@@ -721,7 +710,7 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.ADVANCED_FINANCE_BANK_TRANSACTIONS_CREATE,
     AppPermission.ADVANCED_FINANCE_BANK_TRANSACTIONS_UPDATE,
   ],
-  [AppPermission.TRANSPORT_MANAGE]: [
+  'transport': [
     AppPermission.TRANSPORT_VEHICLES_CREATE,
     AppPermission.TRANSPORT_VEHICLES_UPDATE,
     AppPermission.TRANSPORT_ROUTES_CREATE,
@@ -732,7 +721,7 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.TRANSPORT_TRIPS_CREATE,
     AppPermission.TRANSPORT_TRIPS_UPDATE,
   ],
-  [AppPermission.HEALTH_SAFETY_MANAGE]: [
+  'health-safety': [
     AppPermission.HEALTH_SAFETY_RECORDS_CREATE,
     AppPermission.HEALTH_SAFETY_RECORDS_UPDATE,
     AppPermission.HEALTH_SAFETY_NURSE_VISITS_CREATE,
@@ -742,7 +731,7 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.HEALTH_SAFETY_DRILLS_CREATE,
     AppPermission.HEALTH_SAFETY_DRILLS_UPDATE,
   ],
-  [AppPermission.CRM_MANAGE]: [
+  'crm': [
     AppPermission.CRM_LEADS_CREATE,
     AppPermission.CRM_LEADS_UPDATE,
     AppPermission.CRM_LEADS_DELETE,
@@ -759,7 +748,7 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.CRM_REFERRALS_UPDATE,
     AppPermission.CRM_REFERRALS_DELETE,
   ],
-  [AppPermission.ADMISSIONS_MANAGE]: [
+  'admissions': [
     AppPermission.ADMISSIONS_PIPELINES_CREATE,
     AppPermission.ADMISSIONS_PIPELINES_UPDATE,
     AppPermission.ADMISSIONS_STAGES_CREATE,
@@ -771,7 +760,7 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.ADMISSIONS_DECISIONS_CREATE,
     AppPermission.ADMISSIONS_DECISIONS_UPDATE,
   ],
-  [AppPermission.LIBRARY_MANAGE]: [
+  'library': [
     AppPermission.LIBRARY_BOOKS_CREATE,
     AppPermission.LIBRARY_BOOKS_UPDATE,
     AppPermission.LIBRARY_COPIES_CREATE,
@@ -781,14 +770,14 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.LIBRARY_RESERVATIONS_CREATE,
     AppPermission.LIBRARY_RESERVATIONS_UPDATE,
   ],
-  [AppPermission.INVENTORY_MANAGE]: [
+  'inventory': [
     AppPermission.INVENTORY_CATEGORIES_CREATE,
     AppPermission.INVENTORY_CATEGORIES_UPDATE,
     AppPermission.INVENTORY_ITEMS_CREATE,
     AppPermission.INVENTORY_ITEMS_UPDATE,
     AppPermission.INVENTORY_TRANSACTIONS_CREATE,
   ],
-  [AppPermission.STUDENTS_MANAGE]: [
+  'students': [
     AppPermission.STUDENTS_CREATE,
     AppPermission.STUDENTS_UPDATE,
     AppPermission.STUDENTS_DELETE,
@@ -799,8 +788,12 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.PARENT_COMMUNICATIONS_CREATE,
     AppPermission.PARENT_COMMUNICATIONS_UPDATE,
     AppPermission.PARENT_COMMUNICATIONS_DELETE,
+    AppPermission.STUDENT_ACHIEVEMENTS_CREATE,
+    AppPermission.STUDENT_ACHIEVEMENTS_UPDATE,
+    AppPermission.STUDENT_ACHIEVEMENTS_DELETE,
+    AppPermission.STUDENT_REPORTS_UPDATE,
   ],
-  [AppPermission.ACADEMIC_MANAGE]: [
+  'academic': [
     AppPermission.ACADEMIC_YEARS_CREATE,
     AppPermission.ACADEMIC_YEARS_UPDATE,
     AppPermission.ACADEMIC_YEARS_DELETE,
@@ -820,7 +813,7 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.ACADEMIC_CLASSES_UPDATE,
     AppPermission.ACADEMIC_CLASSES_DELETE,
   ],
-  [AppPermission.LMS_MANAGE]: [
+  'lms': [
     AppPermission.LMS_GRADEBOOK_UPDATE,
     AppPermission.LMS_JOURNAL_CREATE,
     AppPermission.LMS_JOURNAL_UPDATE,
@@ -841,7 +834,7 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.GRADE_REQUESTS_UPDATE,
     AppPermission.GRADE_REQUESTS_DELETE,
   ],
-  [AppPermission.GAMIFICATION_MANAGE]: [
+  'gamification': [
     AppPermission.GAMIFICATION_BADGES_CREATE,
     AppPermission.GAMIFICATION_BADGES_UPDATE,
     AppPermission.GAMIFICATION_COINS_CREATE,
@@ -849,11 +842,17 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.GAMIFICATION_COIN_PRESETS_UPDATE,
     AppPermission.GAMIFICATION_COIN_PRESETS_DELETE,
   ],
-  [AppPermission.FINANCE_MANAGE]: [
+  'finance': [
     AppPermission.FINANCE_CONTRACTS_CREATE,
     AppPermission.FINANCE_PAYMENTS_CREATE,
     AppPermission.FINANCE_TEACHER_RATES_UPDATE,
     AppPermission.FINANCE_SALARIES_UPDATE,
+    // o'quvchi to'lovlari ham moliya yozuvi doirasida
+    AppPermission.STUDENT_PAYMENTS_CREATE,
+    AppPermission.STUDENT_PAYMENTS_UPDATE,
+    AppPermission.STUDENT_PAYMENTS_DELETE,
+    AppPermission.STUDENT_PAYMENTS_RECONCILE,
+    AppPermission.STUDENT_PAYMENT_PLANS_UPDATE,
     // tranzaksiyalar finance umbrella ostida
     AppPermission.TRANSACTIONS_CREATE,
     AppPermission.TRANSACTIONS_UPDATE,
@@ -868,7 +867,7 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.TRANSACTION_CHANGE_REQUESTS_UPDATE,
     AppPermission.TRANSACTION_CHANGE_REQUESTS_DELETE,
   ],
-  [AppPermission.DOCUMENTS_MANAGE]: [
+  'documents': [
     AppPermission.DOCUMENTS_CREATE,
     AppPermission.DOCUMENTS_UPDATE,
     AppPermission.DOCUMENT_TEMPLATES_CREATE,
@@ -876,7 +875,7 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.DOCUMENT_SIGN_REQUESTS_CREATE,
     AppPermission.DOCUMENT_SIGN_REQUESTS_UPDATE,
   ],
-  [AppPermission.ATTENDANCE_MANAGE]: [
+  'attendance': [
     AppPermission.ATTENDANCE_RECORDS_CREATE,
     AppPermission.TURNSTILE_DEVICES_CREATE,
     AppPermission.TURNSTILE_DEVICES_UPDATE,
@@ -885,7 +884,7 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.SESSION_ATTENDANCE_UPDATE,
     AppPermission.ATTENDANCE_SETTINGS_UPDATE,
   ],
-  [AppPermission.TIMETABLE_MANAGE]: [
+  'timetable': [
     AppPermission.TIMETABLE_TEMPLATES_CREATE,
     AppPermission.TIMETABLE_TEMPLATES_UPDATE,
     AppPermission.TIMETABLE_SLOTS_CREATE,
@@ -895,7 +894,7 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
     AppPermission.TIMETABLE_CONFLICTS_CREATE,
     AppPermission.TIMETABLE_CONFLICTS_UPDATE,
   ],
-  [AppPermission.HR_MANAGE]: [
+  'hr': [
     AppPermission.HR_BRANCHES_CREATE,
     AppPermission.HR_BRANCHES_UPDATE,
     AppPermission.HR_BRANCHES_DELETE,
@@ -974,114 +973,112 @@ export const MANAGE_EXPANSION: Record<string, string[]> = {
   ],
 };
 
-export const READ_EXPANSION: Record<string, string[]> = {
-  [AppPermission.NOTIFICATIONS_READ]: [
+export const READ_BUNDLES: Record<string, string[]> = {
+  'notifications': [
     AppPermission.NOTIFICATION_TEMPLATES_READ,
   ],
-  [AppPermission.APPEALS_READ]: [
+  'appeals': [
     AppPermission.APPEALS_READ,
     AppPermission.APPEALS_PUBLIC_LINK_READ,
   ],
-  [AppPermission.INTEGRATIONS_READ]: [
+  'integrations': [
     AppPermission.INTEGRATIONS_READ,
   ],
-  [AppPermission.SETTINGS_READ]: [
+  'settings': [
     AppPermission.SETTINGS_SCHOOL_READ,
     AppPermission.SETTINGS_ROOMS_READ,
   ],
-  [AppPermission.ROLES_READ]: [
-    AppPermission.ROLES_READ,
-  ],
-  [AppPermission.DATA_JOBS_READ]: [
+  // `roles` sub-resursi yo'q — `roles.read` o'zi endpointlarda ishlatiladi.
+  'data-jobs': [
     AppPermission.DATA_JOBS_READ,
   ],
-  [AppPermission.COMMUNICATION_READ]: [
+  'communication': [
     AppPermission.COMMUNICATION_TEMPLATES_READ,
     AppPermission.COMMUNICATION_CAMPAIGNS_READ,
     AppPermission.COMMUNICATION_DELIVERIES_READ,
   ],
-  [AppPermission.FEEDBACK_READ]: [
+  'feedback': [
     AppPermission.FEEDBACK_TICKETS_READ,
     AppPermission.FEEDBACK_COMMENTS_READ,
   ],
-  [AppPermission.YOUTH_READ]: [
+  'youth': [
     AppPermission.YOUTH_MEAL_MENUS_READ,
     AppPermission.YOUTH_REQUESTS_READ,
   ],
-  [AppPermission.KPI_READ]: [
+  'kpi': [
     AppPermission.KPI_METRICS_READ,
     AppPermission.KPI_RESULTS_READ,
   ],
-  [AppPermission.WORKFLOW_READ]: [
+  'workflow': [
     AppPermission.WORKFLOW_APPROVALS_READ,
   ],
-  [AppPermission.ACCESS_CONTROL_READ]: [
+  'access-control': [
     AppPermission.ACCESS_CONTROL_DEVICES_READ,
     AppPermission.ACCESS_CONTROL_FACE_PROFILES_READ,
     AppPermission.ACCESS_CONTROL_EVENTS_READ,
   ],
-  [AppPermission.PROCUREMENT_READ]: [
+  'procurement': [
     AppPermission.PROCUREMENT_VENDORS_READ,
     AppPermission.PROCUREMENT_REQUESTS_READ,
     AppPermission.PROCUREMENT_ORDERS_READ,
     AppPermission.PROCUREMENT_RECEIPTS_READ,
   ],
-  [AppPermission.ASSETS_READ]: [
+  'assets': [
     AppPermission.ASSETS_ITEMS_READ,
     AppPermission.ASSETS_MAINTENANCE_READ,
     AppPermission.ASSETS_DEPRECIATIONS_READ,
   ],
-  [AppPermission.ADVANCED_FINANCE_READ]: [
+  'advanced-finance': [
     AppPermission.ADVANCED_FINANCE_INVOICES_READ,
     AppPermission.ADVANCED_FINANCE_SCHOLARSHIPS_READ,
     AppPermission.ADVANCED_FINANCE_REFUNDS_READ,
     AppPermission.ADVANCED_FINANCE_CASHBOXES_READ,
     AppPermission.ADVANCED_FINANCE_BANK_TRANSACTIONS_READ,
   ],
-  [AppPermission.TRANSPORT_READ]: [
+  'transport': [
     AppPermission.TRANSPORT_VEHICLES_READ,
     AppPermission.TRANSPORT_ROUTES_READ,
     AppPermission.TRANSPORT_STOPS_READ,
     AppPermission.TRANSPORT_ASSIGNMENTS_READ,
     AppPermission.TRANSPORT_TRIPS_READ,
   ],
-  [AppPermission.HEALTH_SAFETY_READ]: [
+  'health-safety': [
     AppPermission.HEALTH_SAFETY_RECORDS_READ,
     AppPermission.HEALTH_SAFETY_NURSE_VISITS_READ,
     AppPermission.HEALTH_SAFETY_INCIDENTS_READ,
     AppPermission.HEALTH_SAFETY_DRILLS_READ,
   ],
-  [AppPermission.CRM_READ]: [
+  'crm': [
     AppPermission.CRM_LEADS_READ,
     AppPermission.CRM_LEAD_COMMENTS_READ,
     AppPermission.CRM_TAGS_READ,
     AppPermission.CRM_SOURCES_READ,
     AppPermission.CRM_REFERRALS_READ,
   ],
-  [AppPermission.ADMISSIONS_READ]: [
+  'admissions': [
     AppPermission.ADMISSIONS_PIPELINES_READ,
     AppPermission.ADMISSIONS_STAGES_READ,
     AppPermission.ADMISSIONS_APPLICATIONS_READ,
     AppPermission.ADMISSIONS_EXAMS_READ,
     AppPermission.ADMISSIONS_DECISIONS_READ,
   ],
-  [AppPermission.LIBRARY_READ]: [
+  'library': [
     AppPermission.LIBRARY_BOOKS_READ,
     AppPermission.LIBRARY_COPIES_READ,
     AppPermission.LIBRARY_LOANS_READ,
     AppPermission.LIBRARY_RESERVATIONS_READ,
   ],
-  [AppPermission.INVENTORY_READ]: [
+  'inventory': [
     AppPermission.INVENTORY_CATEGORIES_READ,
     AppPermission.INVENTORY_ITEMS_READ,
     AppPermission.INVENTORY_TRANSACTIONS_READ,
   ],
-  [AppPermission.STUDENTS_READ]: [
+  'students': [
     AppPermission.STUDENT_PARENTS_READ,
     AppPermission.STUDENT_DOCUMENTS_READ,
     AppPermission.PARENT_COMMUNICATIONS_READ,
   ],
-  [AppPermission.ACADEMIC_READ]: [
+  'academic': [
     AppPermission.ACADEMIC_YEARS_READ,
     AppPermission.ACADEMIC_QUARTERS_READ,
     AppPermission.ACADEMIC_LESSON_PERIODS_READ,
@@ -1089,7 +1086,7 @@ export const READ_EXPANSION: Record<string, string[]> = {
     AppPermission.ACADEMIC_COURSES_READ,
     AppPermission.ACADEMIC_CLASSES_READ,
   ],
-  [AppPermission.LMS_READ]: [
+  'lms': [
     AppPermission.LMS_GRADEBOOK_READ,
     AppPermission.LMS_JOURNAL_READ,
     AppPermission.LMS_EXAM_RESULTS_READ,
@@ -1099,13 +1096,13 @@ export const READ_EXPANSION: Record<string, string[]> = {
     AppPermission.HOMEWORK_SUBMISSIONS_READ,
     AppPermission.GRADE_REQUESTS_READ,
   ],
-  [AppPermission.GAMIFICATION_READ]: [
+  'gamification': [
     AppPermission.GAMIFICATION_BADGES_READ,
     AppPermission.GAMIFICATION_WALLETS_READ,
     AppPermission.GAMIFICATION_COINS_READ,
     AppPermission.GAMIFICATION_COIN_PRESETS_READ,
   ],
-  [AppPermission.FINANCE_READ]: [
+  'finance': [
     AppPermission.FINANCE_CONTRACTS_READ,
     AppPermission.FINANCE_TEACHER_RATES_READ,
     AppPermission.FINANCE_SALARIES_READ,
@@ -1114,24 +1111,24 @@ export const READ_EXPANSION: Record<string, string[]> = {
     AppPermission.TRANSACTION_CATEGORIES_READ,
     AppPermission.TRANSACTION_CHANGE_REQUESTS_READ,
   ],
-  [AppPermission.DOCUMENTS_READ]: [
+  'documents': [
     AppPermission.DOCUMENT_TEMPLATES_READ,
     AppPermission.DOCUMENT_SIGN_REQUESTS_READ,
   ],
-  [AppPermission.ATTENDANCE_READ]: [
+  'attendance': [
     AppPermission.ATTENDANCE_RECORDS_READ,
     AppPermission.TURNSTILE_DEVICES_READ,
     AppPermission.CLASS_SESSIONS_READ,
     AppPermission.SESSION_ATTENDANCE_READ,
     AppPermission.ATTENDANCE_SETTINGS_READ,
   ],
-  [AppPermission.TIMETABLE_READ]: [
+  'timetable': [
     AppPermission.TIMETABLE_TEMPLATES_READ,
     AppPermission.TIMETABLE_SLOTS_READ,
     AppPermission.TIMETABLE_SUBSTITUTIONS_READ,
     AppPermission.TIMETABLE_CONFLICTS_READ,
   ],
-  [AppPermission.HR_READ]: [
+  'hr': [
     AppPermission.HR_BRANCHES_READ,
     AppPermission.HR_DEPARTMENTS_READ,
     AppPermission.HR_POSITIONS_READ,
@@ -1162,14 +1159,10 @@ export const READ_EXPANSION: Record<string, string[]> = {
 };
 
 /**
- * Bitta kodni o'zi + (agar keng kod bo'lsa) yoyilgan granular kodlarga
- * aylantiradi. Keng bo'lmagan kod uchun faqat o'zini qaytaradi.
+ * 1789900000000 migratsiyasi o'chiradigan eski keng kodlar. Ro'yxat migratsiya
+ * ichida qotib qolmasin uchun shu yerda — `WRITE_BUNDLES` kalitlaridan
+ * hosil qilinadi, ya'ni ikkalasi hech qachon ajralib ketmaydi.
  */
-export function expandPermissionCode(code: string): string[] {
-  return [code, ...(MANAGE_EXPANSION[code] ?? []), ...(READ_EXPANSION[code] ?? [])];
-}
-
-/** Kod ro'yxatini yoyadi va takrorlarni olib tashlaydi (rol grantlari uchun). */
-export function expandPermissionCodes(codes: readonly string[]): string[] {
-  return Array.from(new Set(codes.flatMap((code) => expandPermissionCode(code))));
-}
+export const LEGACY_MANAGE_CODES: readonly string[] = Object.keys(WRITE_BUNDLES).map(
+  (module) => `${module}.manage`,
+);

@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { DataScope } from '../../../common/scope/data-scope.enum';
 
 export class PermissionResponseSchema {
   @ApiProperty({ example: 'students.read' })
@@ -29,6 +30,13 @@ export class RoleResponseSchema {
 
   @ApiProperty({ example: false })
   isSystem: boolean;
+
+  @ApiProperty({
+    description: "Ma'lumot doirasi — imtiyozlardan alohida qatlam (qaysi qatorlar).",
+    enum: DataScope,
+    example: DataScope.ALL,
+  })
+  dataScope: DataScope;
 
   @ApiProperty({ example: 77 })
   permissionCount: number;

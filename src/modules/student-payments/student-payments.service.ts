@@ -424,7 +424,7 @@ export class StudentPaymentsService {
 
   /**
    * Yozuvni faqat uni yaratgan xodim yoki super-admin o'zgartira/o'chira oladi.
-   * Egasi noma'lum eski yozuvlar (createdBy=null) — back-compat: `finance.manage`
+   * Egasi noma'lum eski yozuvlar (createdBy=null) — back-compat: `student-payments.update`
    * guard (controller darajasida) yetarli, bu yerda bloklamaymiz.
    */
   private assertCanModify(

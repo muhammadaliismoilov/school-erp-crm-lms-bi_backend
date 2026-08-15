@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { DataScope } from '../../common/scope/data-scope.enum';
 import { AuthenticatedUser } from '../../common/security/authenticated-user.interface';
 import { JwtPayload } from './auth.types';
 import { SessionRegistryService } from './session-registry.service';
@@ -36,6 +37,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
       sessionId: payload.sessionId,
       schoolId: payload.schoolId ?? null,
       branchId: payload.branchId ?? null,
+      // Eski (migratsiyadan oldin berilgan) tokenlarda maydon yo'q — keng holat.
+      dataScope: payload.dataScope ?? DataScope.ALL,
     };
   }
 }

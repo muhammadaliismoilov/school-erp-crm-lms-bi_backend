@@ -1,4 +1,4 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { Repository, SelectQueryBuilder } from 'typeorm';
 import { CommonStatus } from '../src/common/enums/common-status.enum';
 import type { Role } from '../src/modules/identity/entities/role.entity';
@@ -22,6 +22,7 @@ describe('UsersService', () => {
     Pick<Repository<StaffMember>, 'create' | 'save' | 'findOne' | 'count'>
   >;
   let passwords: jest.Mocked<Pick<PasswordService, 'hash'>>;
+  let revokeAllForUser: jest.Mock;
   let service: UsersService;
 
   const teacherRole = { id: 'role-1', name: 'teacher', title: { uz: "O'qituvchi" } } as Role;
@@ -75,15 +76,24 @@ describe('UsersService', () => {
       hash: jest.fn(),
     };
     const tenant = { getSchoolId: () => null, getBranchId: () => null };
+    revokeAllForUser = jest.fn().mockResolvedValue(2);
     service = new UsersService(
       users as unknown as Repository<User>,
       roles as unknown as Repository<Role>,
       staffMembers as unknown as Repository<StaffMember>,
       passwords as unknown as PasswordService,
       tenant as unknown as TenantContextService,
-      { revokeAllForUser: jest.fn().mockResolvedValue(0) } as unknown as SessionRegistryService,
+      { revokeAllForUser } as unknown as SessionRegistryService,
     );
   });
+
+  /** Q2 testlari uchun aktorlar: teacher rolining kodlari bilan taqqoslanadi. */
+  const adminActor = {
+    id: 'actor-admin',
+    username: 'admin1',
+    roles: ['admin'],
+    permissions: ['users.update', 'roles.assign', 'users.reset-password', 'students.read', 'lms.read'],
+  };
 
   it('creates a user from the management form and hides password hash in the response', async () => {
     users.findOne.mockResolvedValue(null);
@@ -235,27 +245,144 @@ describe('UsersService', () => {
     expect(result.items[0]).toMatchObject({ login: 'javohir.aliyev', role: 'teacher' });
   });
 
-  it('updates user identity fields, password, and role', async () => {
+  it('updates identity fields and NEVER touches password or roles (T-02)', async () => {
     users.findOne.mockResolvedValueOnce(savedUser).mockResolvedValueOnce(null);
-    roles.find.mockResolvedValue([teacherRole]);
-    passwords.hash.mockResolvedValue('new-hash');
     users.save.mockImplementation(async (value) => value as User);
 
-    const result = await service.update(userId, {
-      firstName: 'Javoxir',
-      role: 'TEACHER',
-      password: 'New-strong-passphrase!',
+    const result = await service.update(userId, { firstName: 'Javoxir' });
+
+    // Parol va rol bu endpointda umuman mavjud emas — DTO darajasida ham
+    // (whitelist), service darajasida ham.
+    expect(passwords.hash).not.toHaveBeenCalled();
+    expect(roles.find).not.toHaveBeenCalled();
+    expect(result.firstName).toBe('Javoxir');
+  });
+
+  // ------------------------------------------- T-02: imtiyoz oshirish siyosati
+
+  describe('assignRoles (Q2/Q3 siyosati)', () => {
+    const directorRole = {
+      id: 'role-dir',
+      name: 'director',
+      permissions: [{ code: 'finance-contracts.create' }, { code: 'students.read' }],
+    } as unknown as Role;
+    const narrowRole = {
+      id: 'role-narrow',
+      name: 'teacher',
+      permissions: [{ code: 'students.read' }, { code: 'lms.read' }],
+    } as unknown as Role;
+
+    it("aktor o'z ruxsatlaridan oshmaydigan rolni biriktira oladi", async () => {
+      users.findOne.mockResolvedValue(savedUser);
+      roles.find.mockResolvedValue([narrowRole]);
+      users.save.mockImplementation(async (value) => value as User);
+
+      await service.assignRoles(userId, { roleNames: ['teacher'] }, adminActor);
+
+      expect(users.save).toHaveBeenCalledWith(
+        expect.objectContaining({ roles: [narrowRole] }),
+      );
     });
 
-    expect(passwords.hash).toHaveBeenCalledWith('New-strong-passphrase!');
-    expect(users.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        firstName: 'Javoxir',
-        passwordHash: 'new-hash',
-        roles: [teacherRole],
-      }),
-    );
-    expect(result.firstName).toBe('Javoxir');
+    it("aktorда yo'q ruxsatli rol — 403 (Q2 kuchaytirmaslik)", async () => {
+      users.findOne.mockResolvedValue(savedUser);
+      roles.find.mockResolvedValue([directorRole]);
+
+      await expect(
+        service.assignRoles(userId, { roleNames: ['director'] }, adminActor),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(users.save).not.toHaveBeenCalled();
+    });
+
+    it("o'ziga rol yozish — 403 (Q3), hatto rol kichik bo'lsa ham", async () => {
+      users.findOne.mockResolvedValue({ ...savedUser, id: adminActor.id } as User);
+      roles.find.mockResolvedValue([narrowRole]);
+
+      await expect(
+        service.assignRoles(adminActor.id, { roleNames: ['teacher'] }, adminActor),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
+    it("super-admin (`*.*`) cheklovlardan mustasno", async () => {
+      users.findOne.mockResolvedValue(savedUser);
+      roles.find.mockResolvedValue([directorRole]);
+      users.save.mockImplementation(async (value) => value as User);
+
+      await service.assignRoles(
+        userId,
+        { roleNames: ['director'] },
+        { id: 'root', username: 'root', roles: ['super-admin'], permissions: ['*.*'] },
+      );
+
+      expect(users.save).toHaveBeenCalled();
+    });
+  });
+
+  describe('resetPassword (Q2\'/Q3 siyosati)', () => {
+    it('kichik ruxsatli foydalanuvchi parolini tiklaydi va sessiyalarini bekor qiladi', async () => {
+      users.findOne.mockResolvedValue({
+        ...savedUser,
+        roles: [{ name: 'teacher', permissions: [{ code: 'students.read' }] }],
+      } as unknown as User);
+      passwords.hash.mockResolvedValue('new-hash');
+      users.save.mockImplementation(async (value) => value as User);
+
+      const result = await service.resetPassword(userId, 'New-strong-passphrase!', adminActor);
+
+      expect(passwords.hash).toHaveBeenCalledWith('New-strong-passphrase!');
+      expect(revokeAllForUser).toHaveBeenCalledWith(userId);
+      expect(result).toEqual({ changed: true, revokedSessions: 2 });
+    });
+
+    it("aktordan kuchli foydalanuvchi paroli — 403 (akkauntni egallash yo'li yopiq)", async () => {
+      users.findOne.mockResolvedValue({
+        ...savedUser,
+        roles: [{ name: 'director', permissions: [{ code: 'finance-contracts.create' }] }],
+      } as unknown as User);
+
+      await expect(
+        service.resetPassword(userId, 'New-strong-passphrase!', adminActor),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(passwords.hash).not.toHaveBeenCalled();
+      expect(revokeAllForUser).not.toHaveBeenCalled();
+    });
+
+    it("o'z parolini bu yo'l bilan tiklash — 403 (Q3)", async () => {
+      users.findOne.mockResolvedValue({ ...savedUser, id: adminActor.id } as User);
+
+      await expect(
+        service.resetPassword(adminActor.id, 'New-strong-passphrase!', adminActor),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('create (Q2 provisioning)', () => {
+    it("aktor o'zidan kuchli rolli akkaunt yarata olmaydi", async () => {
+      users.findOne.mockResolvedValue(null);
+      roles.find.mockResolvedValue([
+        {
+          id: 'role-dir',
+          name: 'director',
+          permissions: [{ code: 'finance-contracts.create' }],
+        } as unknown as Role,
+      ]);
+
+      await expect(
+        service.create(
+          {
+            firstName: 'Test',
+            firstNameCyrillic: 'Тест',
+            lastName: 'User',
+            lastNameCyrillic: 'Юзер',
+            gender: 'male',
+            roleNames: ['director'],
+          } as never,
+          undefined,
+          adminActor,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(users.save).not.toHaveBeenCalled();
+    });
   });
 
   it('throws NotFoundException when user does not exist', async () => {

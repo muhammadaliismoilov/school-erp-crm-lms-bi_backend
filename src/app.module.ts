@@ -66,6 +66,7 @@ import { TransactionsModule } from "./modules/transactions/transactions.module";
 import { StudentPaymentsModule } from "./modules/student-payments/student-payments.module";
 import { EncryptionModule } from "./common/security/encryption.module";
 import { TenantModule } from "./common/tenant/tenant.module";
+import { ScopeModule } from "./common/scope/scope.module";
 import { DatabaseObservabilityModule } from "./common/database/database-observability.module";
 import { DbPoolMetricsModule } from "./common/database/db-pool-metrics.module";
 import { QueryMetricsLogger } from "./common/database/query-metrics.logger";
@@ -250,6 +251,7 @@ const buildTypeOrmOptions = (
     TransactionsModule,
     StudentPaymentsModule,
     TenantModule,
+    ScopeModule,
   ],
   providers: [
     {

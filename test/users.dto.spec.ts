@@ -70,11 +70,26 @@ describe('UpdateUserDto', () => {
   it('accepts partial user update payload', async () => {
     const errors = await validateDto(UpdateUserDto, {
       phone: '+998991112233',
-      role: 'SUPERMANAGER',
       status: CommonStatus.ACTIVE,
     });
 
     expect(errors).toHaveLength(0);
+  });
+
+  // T-02: rol va parol profil tahriridan chiqarilgan — `users.update` ruxsati
+  // bilan imtiyoz oshirib bo'lmasin. Whitelist ularni noma'lum maydon deb
+  // 400 bilan rad etishi shart (jim e'tiborsiz qoldirish emas).
+  it('rejects role, roleNames and password as unknown fields', async () => {
+    const errors = await validateDto(UpdateUserDto, {
+      role: 'SUPERMANAGER',
+      roleNames: ['director'],
+      password: 'New-strong-passphrase!',
+    });
+
+    const serialized = JSON.stringify(errors);
+    expect(serialized).toContain('role');
+    expect(serialized).toContain('roleNames');
+    expect(serialized).toContain('password');
   });
 });
 

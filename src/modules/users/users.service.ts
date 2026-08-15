@@ -7,9 +7,16 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
-import { Brackets, In, Not, Repository } from 'typeorm';
+import { Brackets, In, IsNull, Not, Repository } from 'typeorm';
 import type { FindOptionsWhere } from 'typeorm';
 import { CommonStatus } from '../../common/enums/common-status.enum';
+import type { AuthenticatedUser } from '../../common/security/authenticated-user.interface';
+import {
+  assertNotSelf,
+  assertPasswordResettable,
+  assertRolesGrantable,
+  isSuperAdmin,
+} from '../../common/security/privilege.policy';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import { applyTenantScope } from '../../common/tenant/tenant-scope.util';
 import { PasswordService } from '../auth/password.service';
@@ -49,6 +56,7 @@ export class UsersService {
   async create(
     dto: CreateUserDto,
     opts?: { skipStaffSync?: boolean },
+    actor?: AuthenticatedUser,
   ): Promise<UserResponseSchema & { generatedPassword: string }> {
     const username = dto.username
       ? this.normalizeUsername(dto.username)
@@ -63,6 +71,13 @@ export class UsersService {
 
     await this.ensureUniqueIdentifiers(identifiers);
     const roles = await this.resolveRoles(dto.roleNames, dto.role);
+    // Q2: yaratuvchi faqat o'z ruxsatlaridan oshmaydigan rolli akkaunt ochadi —
+    // aks holda "o'zimga rol berolmasam, yangi kuchli akkaunt yarataman" yo'li
+    // ochiq qolardi. Aktorsiz (ichki: seed, ota-ona provisioning) chaqiruvlarda
+    // rol server kodida qat'iy — tekshiruv shart emas.
+    if (actor && !isSuperAdmin(actor.permissions)) {
+      assertRolesGrantable(actor.permissions, roles);
+    }
     const password = dto.password ?? randomBytes(18).toString('base64url');
     // Maktab/filial: yaratuvchining aktiv maktabi ustun (boshqa maktabga xodim
     // qo'shishning oldini oladi); kontekst yo'q bo'lsa (super-admin) DTO'dan olinadi.
@@ -398,22 +413,35 @@ export class UsersService {
     if (dto.branchId !== undefined) {
       user.branchId = this.nullableText(dto.branchId);
     }
-    let passwordChanged = false;
-    if (dto.password !== undefined) {
-      user.passwordHash = await this.passwords.hash(dto.password);
-      passwordChanged = true;
-    }
-    if (dto.role !== undefined || dto.roleNames !== undefined) {
-      user.roles = await this.resolveRoles(dto.roleNames, dto.role);
+    // Rol va parol bu yerda ATAYLAB yo'q (T-02): rol — `assignRoles`
+    // (`roles.assign`), parol — `resetPassword` (`users.reset-password`).
+    const saved = await this.users.save(user);
+    return this.toUserResponse(saved);
+  }
+
+  /**
+   * Administrator tomonidan parol tiklash. Q2': nishonning ruxsatlari
+   * aktornikidan oshmasligi shart — parol tiklash o'sha akkaunt nomidan
+   * kirish bilan barobar. Q3: o'z paroli uchun /auth/change-password.
+   * Muvaffaqiyatda nishonning barcha faol sessiyalari bekor qilinadi.
+   */
+  async resetPassword(
+    id: string,
+    password: string,
+    actor: AuthenticatedUser,
+  ): Promise<{ changed: true; revokedSessions: number }> {
+    const user = await this.findUserEntity(id);
+    if (!isSuperAdmin(actor.permissions)) {
+      assertNotSelf(actor.id, id, 'parol');
+      assertPasswordResettable(actor.permissions, user.roles ?? []);
     }
 
-    const saved = await this.users.save(user);
-    if (passwordChanged) {
-      // Parol almashdi — barcha faol sessiyalar (qurilmalar) darhol chiqariladi.
-      // "Parolimni kimdir bilib qoldi" stsenariysining to'g'ridan-to'g'ri davosi.
-      await this.sessionRegistry.revokeAllForUser(saved.id);
-    }
-    return this.toUserResponse(saved);
+    user.passwordHash = await this.passwords.hash(password);
+    await this.users.save(user);
+    // "Parolimni kimdir bilib qoldi" stsenariysining to'g'ridan-to'g'ri davosi:
+    // eski parol bilan ochilgan sessiyalar darhol o'ladi.
+    const revokedSessions = await this.sessionRegistry.revokeAllForUser(user.id);
+    return { changed: true, revokedSessions };
   }
 
   async remove(id: string): Promise<void> {
@@ -421,9 +449,19 @@ export class UsersService {
     await this.users.softDelete(id);
   }
 
-  async assignRoles(id: string, dto: AssignRolesDto): Promise<UserResponseSchema> {
+  async assignRoles(
+    id: string,
+    dto: AssignRolesDto,
+    actor?: AuthenticatedUser,
+  ): Promise<UserResponseSchema> {
     const user = await this.findUserEntity(id);
-    user.roles = await this.resolveRoles(dto.roleNames);
+    const roles = await this.resolveRoles(dto.roleNames);
+    if (actor && !isSuperAdmin(actor.permissions)) {
+      // Q3 avval: o'ziga rol yozish Q2 ni aylanib o'tishning eng qisqa yo'li.
+      assertNotSelf(actor.id, id, 'rol');
+      assertRolesGrantable(actor.permissions, roles);
+    }
+    user.roles = roles;
     return this.toUserResponse(await this.users.save(user));
   }
 
@@ -480,9 +518,21 @@ export class UsersService {
     const resolvedRoles: Role[] = [];
     const missingRoles: string[] = [];
 
+    // Rol qidiruvi tenant chegarasida: global (tizim) rollar + aktiv maktab
+    // rollari. Busiz bir maktab admini boshqa maktabning bir xil nomli rolini
+    // biriktirib yuborishi mumkin edi (RolesService.tenantRoleWhere bilan mos).
+    const schoolId = this.tenant.getSchoolId();
+    const roleWhere = (candidates: string[]): FindOptionsWhere<Role>[] =>
+      schoolId
+        ? [
+            { name: In(candidates), schoolId: IsNull() },
+            { name: In(candidates), schoolId },
+          ]
+        : [{ name: In(candidates) }];
+
     for (const requestedRole of requestedRoles) {
       const candidates = this.getRoleCandidates(requestedRole);
-      const foundRoles = await this.roles.find({ where: { name: In(candidates) } });
+      const foundRoles = await this.roles.find({ where: roleWhere(candidates) });
       const selectedRole = candidates
         .map((candidate) => foundRoles.find((foundRole) => foundRole.name === candidate))
         .find(Boolean);

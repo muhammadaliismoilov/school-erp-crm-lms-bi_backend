@@ -22,13 +22,16 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import { AppPermission } from "../../common/constants/permissions";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Permissions } from "../../common/decorators/permissions.decorator";
 import { UuidParamDto } from "../../common/dto/uuid-param.dto";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../../common/guards/permissions.guard";
 import { ApiLocalizedErrorResponses } from "../../common/swagger/api-localized-error-responses.decorator";
+import type { AuthenticatedUser } from "../../common/security/authenticated-user.interface";
 import { AssignRolesDto } from "./dto/assign-roles.dto";
 import { CreateUserDto } from "./dto/create-user.dto";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { UserQueryDto } from "./dto/user-query.dto";
 import { UserManagementRole } from "./enums/user.enums";
@@ -113,9 +116,9 @@ export class UsersController {
     description: "Foydalanuvchi muvaffaqiyatli yaratildi.",
     type: UserResponseSchema,
   })
-  async create(@Body() dto: CreateUserDto) {
+  async create(@Body() dto: CreateUserDto, @CurrentUser() actor: AuthenticatedUser) {
     try {
-      return await this.usersService.create(dto);
+      return await this.usersService.create(dto, undefined, actor);
     } catch (error) {
       this.handleError(
         error,
@@ -209,7 +212,7 @@ export class UsersController {
   }
 
   @Patch(":id/roles")
-  @Permissions([AppPermission.ROLES_MANAGE])
+  @Permissions([AppPermission.ROLES_ASSIGN])
   @ApiOperation({
     summary: "Foydalanuvchi rollarini almashtirish",
     description:
@@ -225,13 +228,46 @@ export class UsersController {
   async assignRoles(
     @Param() params: UuidParamDto,
     @Body() dto: AssignRolesDto,
+    @CurrentUser() actor: AuthenticatedUser,
   ) {
     try {
-      return await this.usersService.assignRoles(params.id, dto);
+      return await this.usersService.assignRoles(params.id, dto, actor);
     } catch (error) {
       this.handleError(
         error,
         "Foydalanuvchi rollarini yangilashda server xatosi yuz berdi",
+      );
+    }
+  }
+
+  @Post(":id/reset-password")
+  @HttpCode(HttpStatus.OK)
+  @Permissions([AppPermission.USERS_RESET_PASSWORD])
+  @ApiOperation({
+    summary: "Foydalanuvchi parolini tiklash (administrator)",
+    description:
+      "`users.update` dan ataylab ajratilgan amal: parol tiklash o'sha akkaunt " +
+      "nomidan kirish bilan barobar. Faqat ruxsatlari aktornikidan oshmaydigan " +
+      "foydalanuvchi uchun ishlaydi; o'z paroli uchun /auth/change-password. " +
+      "Muvaffaqiyatda nishonning barcha faol sessiyalari bekor qilinadi.",
+  })
+  @ApiParam(uuidParamDocs)
+  @ApiBody({ type: ResetPasswordDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "Parol tiklandi, faol sessiyalar bekor qilindi.",
+  })
+  async resetPassword(
+    @Param() params: UuidParamDto,
+    @Body() dto: ResetPasswordDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    try {
+      return await this.usersService.resetPassword(params.id, dto.password, actor);
+    } catch (error) {
+      this.handleError(
+        error,
+        "Foydalanuvchi parolini tiklashda server xatosi yuz berdi",
       );
     }
   }
