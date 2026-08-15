@@ -13,6 +13,8 @@ import { AppModule } from "./app.module";
 import { GlobalExceptionFilter } from "./common/filters/global-exception.filter";
 import { ResponseEnvelopeInterceptor } from "./common/interceptors/response-envelope.interceptor";
 import { buildValidationException } from "./common/validation/localized-validation.factory";
+import { startMetricsServer } from "./modules/observability/metrics-server";
+import { MetricsService } from "./modules/observability/metrics.service";
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -111,6 +113,12 @@ async function bootstrap(): Promise<void> {
   const port = configService.get<number>("app.port") ?? 3000;
   await app.listen(port, "0.0.0.0");
   logger.log(`API is running on http://localhost:${port}`);
+
+  // Alohida port, asosiy quvurdan tashqarida — sabab: metrics-server.ts izohida.
+  if (configService.get<boolean>("observability.metricsEnabled") ?? true) {
+    const metricsPort = configService.get<number>("observability.metricsPort") ?? 9464;
+    startMetricsServer(app.get(MetricsService), metricsPort, logger);
+  }
 }
 
 void bootstrap();

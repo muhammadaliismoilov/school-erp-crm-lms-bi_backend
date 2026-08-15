@@ -3,8 +3,10 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
+  # `api:9464` — asosiy ilova portidan (3000) ATAYLAB alohida, `METRICS_PORT`
+  # bilan mos. Ichki `backend` tarmog'i orqali to'g'ridan-to'g'ri; nginx bu
+  # portga proksi qilmaydi, shu sabab tashqariga chiqib ketolmaydi (T-03).
   - job_name: yuton-backend
-    metrics_path: /api/metrics
     static_configs:
       - targets:
-          - api:3000
+          - api:9464
