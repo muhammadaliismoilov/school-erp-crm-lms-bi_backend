@@ -76,9 +76,15 @@ describe('ClassLeaderService', () => {
     assignments.createQueryBuilder
       .mockReturnValueOnce(makeQb({ count: 0 })) // sinf bo'sh
       .mockReturnValueOnce(makeQb({ count: 3 })); // o'qituvchida 3 ta faol
-    await expect(
-      service.assign({ teacherId: 't-1', classId: 'c-1', startDate: '2026-09-01' }),
-    ).rejects.toThrow(/3 ta sinfga/);
+    const error = await service
+      .assign({ teacherId: 't-1', classId: 'c-1', startDate: '2026-09-01' })
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(BadRequestException);
+    // GlobalExceptionFilter faqat {uz,ru,en} obyektini o'zgarishsiz o'tkazadi —
+    // oddiy satr bo'lsa umumiy xabarga almashtiriladi (T-05 da topilgan xato).
+    const body = (error as BadRequestException).getResponse() as { message: { uz: string } };
+    expect(body.message.uz).toMatch(/3 ta sinfga/);
   });
 
   it('assign — hammasi joyida bo‘lsa saqlaydi (teacherName/className bilan)', async () => {

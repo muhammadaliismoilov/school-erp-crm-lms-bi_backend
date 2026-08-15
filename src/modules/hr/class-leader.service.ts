@@ -68,19 +68,38 @@ export class ClassLeaderService {
     const teacher = await this.teachers.findOne({
       where: tenantWhere<Teacher>(this.tenant, { id: dto.teacherId }, { branch: true }),
     });
-    if (!teacher) throw new NotFoundException("O'qituvchi topilmadi");
+    if (!teacher) {
+      throw new NotFoundException({
+        message: { uz: "O'qituvchi topilmadi", ru: 'Учитель не найден', en: 'Teacher not found' },
+      });
+    }
 
     const schoolClass = await this.classes.findOne({
       where: tenantWhere<SchoolClass>(this.tenant, { id: dto.classId }, { branch: true }),
     });
-    if (!schoolClass) throw new NotFoundException('Sinf topilmadi');
+    if (!schoolClass) {
+      throw new NotFoundException({
+        message: { uz: 'Sinf topilmadi', ru: 'Класс не найден', en: 'Class not found' },
+      });
+    }
 
     // 1) Sinfda shu davrda boshqa rahbar bo'lmasin.
     const classClash = await this.overlapQb(dto.startDate, dto.endDate ?? null)
       .andWhere('a.class_id = :cid', { cid: dto.classId })
       .getCount();
     if (classClash > 0) {
-      throw new BadRequestException("Bu sinfda tanlangan davrda rahbar allaqachon biriktirilgan");
+      // Aniq matn bo'lishi shart — GlobalExceptionFilter faqat inglizcha satrni
+      // `exactMessageToCode` reestridan tanib oladi, aks holda uni umumiy
+      // "Kiritilgan ma'lumotlar noto'g'ri" ga almashtiradi. Shu sabab bu yerda
+      // (va pastdagi barcha throw'larda) {uz,ru,en} to'g'ridan-to'g'ri beriladi
+      // — xuddi `academic.service.ts`/`crm.service.ts` qilgani kabi.
+      throw new BadRequestException({
+        message: {
+          uz: 'Bu sinfda tanlangan davrda rahbar allaqachon biriktirilgan',
+          ru: 'В этом классе на выбранный период уже назначен руководитель',
+          en: 'This class already has a leader assigned for the selected period',
+        },
+      });
     }
 
     // 2) O'qituvchining bir vaqtdagi rahbarliklari chegaradan oshmasin.
@@ -89,9 +108,15 @@ export class ClassLeaderService {
       .andWhere('a.teacher_id = :tid', { tid: dto.teacherId })
       .getCount();
     if (teacherActive >= settings.maxClassLeaderships) {
-      throw new BadRequestException(
-        `O'qituvchi bir vaqtda ko'pi bilan ${settings.maxClassLeaderships} ta sinfga rahbar bo'la oladi`,
-      );
+      // Son har maktabda boshqacha (PayrollSettings) — shu sabab reestrga
+      // qotirilgan matn sifatida yozib bo'lmaydi, to'g'ridan-to'g'ri beriladi.
+      throw new BadRequestException({
+        message: {
+          uz: `O'qituvchi bir vaqtda ko'pi bilan ${settings.maxClassLeaderships} ta sinfga rahbar bo'la oladi`,
+          ru: `Учитель может одновременно руководить не более ${settings.maxClassLeaderships} классами`,
+          en: `A teacher can lead at most ${settings.maxClassLeaderships} classes at the same time`,
+        },
+      });
     }
 
     const entity = await this.assignments.save(
@@ -139,7 +164,13 @@ export class ClassLeaderService {
 
   private assertRange(startDate: string, endDate: string | null): void {
     if (endDate && endDate < startDate) {
-      throw new BadRequestException('Tugash sanasi boshlanish sanasidan oldin bo‘lishi mumkin emas');
+      throw new BadRequestException({
+        message: {
+          uz: 'Tugash sanasi boshlanish sanasidan oldin bo‘lishi mumkin emas',
+          ru: 'Дата окончания не может быть раньше даты начала',
+          en: 'End date cannot be earlier than start date',
+        },
+      });
     }
   }
 
@@ -148,7 +179,11 @@ export class ClassLeaderService {
       where: tenantWhere<ClassLeaderAssignment>(this.tenant, { id }, { branch: true }),
       relations: { teacher: { staffMember: true }, schoolClass: true },
     });
-    if (!entity) throw new NotFoundException('Biriktiruv topilmadi');
+    if (!entity) {
+      throw new NotFoundException({
+        message: { uz: 'Biriktiruv topilmadi', ru: 'Назначение не найдено', en: 'Assignment not found' },
+      });
+    }
     return entity;
   }
 

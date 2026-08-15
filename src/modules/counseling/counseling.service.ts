@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
+import { User } from "../identity/entities/user.entity";
+import { Student } from "../students/entities/student.entity";
 import { EncryptionService } from "../../common/security/encryption.service";
 import { TenantContextService } from "../../common/tenant/tenant-context.service";
 import { tenantWhere } from "../../common/tenant/tenant-scope.util";
@@ -14,7 +16,9 @@ import { CounselingSession } from "./entities/counseling-session.entity";
 export interface CounselingSessionSummary {
   id: string;
   studentId: string;
+  studentName: string | null;
   counselorId: string;
+  counselorName: string | null;
   sessionDate: string;
   sessionType: string;
   riskLevel?: string | null;
@@ -32,6 +36,10 @@ export class CounselingService {
   constructor(
     @InjectRepository(CounselingSession)
     private readonly sessions: Repository<CounselingSession>,
+    @InjectRepository(Student)
+    private readonly students: Repository<Student>,
+    @InjectRepository(User)
+    private readonly users: Repository<User>,
     private readonly encryption: EncryptionService,
     private readonly tenant: TenantContextService,
   ) {}
@@ -44,7 +52,9 @@ export class CounselingService {
       ...rest,
       notesEncrypted: this.encryption.encrypt(notes),
     });
-    return this.toDetail(await this.sessions.save(entity));
+    const saved = await this.sessions.save(entity);
+    const [names] = await this.resolveNames([saved]);
+    return { ...this.toDetail(saved), ...names };
   }
 
   async update(
@@ -60,12 +70,14 @@ export class CounselingService {
     if (notes !== undefined) {
       entity.notesEncrypted = this.encryption.encrypt(notes);
     }
-    return this.toDetail(await this.sessions.save(entity));
+    const saved = await this.sessions.save(entity);
+    const [names] = await this.resolveNames([saved]);
+    return { ...this.toDetail(saved), ...names };
   }
 
   async findAll(): Promise<CounselingSessionSummary[]> {
     const rows = await this.sessions.find({ where: tenantWhere<CounselingSession>(this.tenant, {}, { branch: true }), order: { sessionDate: "DESC" } });
-    return rows.map((row) => this.toSummary(row));
+    return this.toSummaries(rows);
   }
 
   async findByStudent(
@@ -75,7 +87,7 @@ export class CounselingService {
       where: tenantWhere<CounselingSession>(this.tenant, { studentId }, { branch: true }),
       order: { sessionDate: "DESC" },
     });
-    return rows.map((row) => this.toSummary(row));
+    return this.toSummaries(rows);
   }
 
   async findOne(id: string): Promise<CounselingSessionDetail> {
@@ -83,10 +95,47 @@ export class CounselingService {
     if (!entity) {
       throw new NotFoundException("CounselingSession not found");
     }
-    return this.toDetail(entity);
+    const [names] = await this.resolveNames([entity]);
+    return { ...this.toDetail(entity), ...names };
   }
 
-  private toSummary(entity: CounselingSession): CounselingSessionSummary {
+  /**
+   * `studentId`/`counselorId` — UUID, ekranda foydasiz. Ism resolutsiyasi
+   * xuddi `ClassLeaderAssignmentResponse` dagi kabi SERVERDA qilinadi (bitta
+   * joyda, bitta manba) — frontend N+1 qidiruv qilmasin.
+   */
+  private async toSummaries(
+    rows: CounselingSession[],
+  ): Promise<CounselingSessionSummary[]> {
+    const namesByRow = await this.resolveNames(rows);
+    return rows.map((row, index) => ({ ...this.toSummary(row), ...namesByRow[index] }));
+  }
+
+  private async resolveNames(
+    rows: CounselingSession[],
+  ): Promise<{ studentName: string | null; counselorName: string | null }[]> {
+    const studentIds = [...new Set(rows.map((row) => row.studentId))];
+    const counselorIds = [...new Set(rows.map((row) => row.counselorId))];
+
+    const [students, counselors] = await Promise.all([
+      studentIds.length
+        ? this.students.find({ where: { id: In(studentIds) }, select: { id: true, firstName: true, lastName: true } })
+        : [],
+      counselorIds.length
+        ? this.users.find({ where: { id: In(counselorIds) }, select: { id: true, firstName: true, lastName: true } })
+        : [],
+    ]);
+
+    const studentNames = new Map(students.map((s) => [s.id, `${s.lastName} ${s.firstName}`.trim()]));
+    const counselorNames = new Map(counselors.map((u) => [u.id, `${u.lastName} ${u.firstName}`.trim()]));
+
+    return rows.map((row) => ({
+      studentName: studentNames.get(row.studentId) ?? null,
+      counselorName: counselorNames.get(row.counselorId) ?? null,
+    }));
+  }
+
+  private toSummary(entity: CounselingSession): Omit<CounselingSessionSummary, "studentName" | "counselorName"> {
     return {
       id: entity.id,
       studentId: entity.studentId,
@@ -99,7 +148,7 @@ export class CounselingService {
     };
   }
 
-  private toDetail(entity: CounselingSession): CounselingSessionDetail {
+  private toDetail(entity: CounselingSession): Omit<CounselingSessionDetail, "studentName" | "counselorName"> {
     return {
       ...this.toSummary(entity),
       notes: this.encryption.decrypt(entity.notesEncrypted),

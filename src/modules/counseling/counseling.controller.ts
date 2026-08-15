@@ -44,13 +44,13 @@ export class CounselingController {
   }
 
   @Post("sessions")
-  @Permissions([AppPermission.COUNSELING_MANAGE])
+  @Permissions([AppPermission.COUNSELING_CREATE])
   create(@Body() dto: CreateCounselingSessionDto) {
     return this.service.create(dto);
   }
 
   @Patch("sessions/:id")
-  @Permissions([AppPermission.COUNSELING_MANAGE])
+  @Permissions([AppPermission.COUNSELING_UPDATE])
   update(
     @Param() params: UuidParamDto,
     @Body() dto: UpdateCounselingSessionDto,

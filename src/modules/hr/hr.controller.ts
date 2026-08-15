@@ -38,7 +38,9 @@ export class HrController {
   ) {}
 
   private actor(user: AuthenticatedUser): StaffActor {
-    return { userId: user?.id, username: user?.username };
+    // permissions — rol biriktirish siyosati (Q2/Q3) uchun; audit maydonlari kabi
+    // ixtiyoriy emas, chaqiruvchi haqiqiy foydalanuvchi bo'lsa doim to'ldiriladi.
+    return { userId: user?.id, username: user?.username, permissions: user?.permissions };
   }
 
   @Get('schools/options') @Permissions([AppPermission.HR_BRANCHES_READ]) findSchoolOptions() { return this.branchService.schoolOptions(); }
