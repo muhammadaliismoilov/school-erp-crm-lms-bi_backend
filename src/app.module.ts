@@ -93,6 +93,25 @@ const buildTypeOrmOptions = (
     logger,
     maxQueryExecutionTime:
       configService.get<number>("database.slowQueryMs") ?? 300,
+    /**
+     * Ulanish poolini va sessiya timeout'larini `pg` drayveriga uzatadi
+     * (docs/postgres-senior-plan.md, 2.1-band). `DbPoolMetricsService`
+     * shu pool'ning `total`/`idle`/`waiting` hisoblagichlarini kuzatadi.
+     */
+    extra: {
+      max: configService.get<number>("database.pool.max"),
+      min: configService.get<number>("database.pool.min"),
+      idleTimeoutMillis: configService.get<number>("database.pool.idleTimeoutMillis"),
+      connectionTimeoutMillis: configService.get<number>(
+        "database.pool.connectionTimeoutMillis",
+      ),
+      application_name: `yuton-api@${configService.get<string>("app.env")}`,
+      statement_timeout: configService.get<number>("database.pool.statementTimeoutMs"),
+      idle_in_transaction_session_timeout: configService.get<number>(
+        "database.pool.idleInTransactionSessionTimeoutMs",
+      ),
+      lock_timeout: configService.get<number>("database.pool.lockTimeoutMs"),
+    },
   };
   const master = {
     host: configService.getOrThrow<string>("database.host"),

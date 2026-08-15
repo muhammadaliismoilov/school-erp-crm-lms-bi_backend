@@ -7,7 +7,7 @@ import { CommonStatus } from "../common/enums/common-status.enum";
 import { Permission } from "../modules/identity/entities/permission.entity";
 import { Role } from "../modules/identity/entities/role.entity";
 import { User } from "../modules/identity/entities/user.entity";
-import { defaultRoles } from "../modules/identity/identity-seed.service";
+import { defaultRoles, syncDefaultRoles } from "../modules/identity/identity-role-sync";
 import { PasswordService } from "../modules/auth/password.service";
 import { UserGender } from "../modules/users/enums/user.enums";
 
@@ -53,31 +53,10 @@ async function seed(): Promise<void> {
     );
 
     // 2. Roles
-    for (const definition of defaultRoles) {
-      const permissions = await permissionRepo.find({
-        where: { code: In(definition.permissions) },
-      });
-      const existing = await roleRepo.findOne({
-        where: { name: definition.name },
-        relations: { permissions: true },
-      });
-      if (existing) {
-        existing.title = definition.title;
-        existing.isSystem = true;
-        existing.permissions = permissions;
-        await roleRepo.save(existing);
-      } else {
-        await roleRepo.save(
-          roleRepo.create({
-            name: definition.name,
-            title: definition.title,
-            isSystem: true,
-            permissions,
-          }),
-        );
-      }
-    }
-    console.log(`Roles: ${defaultRoles.length} ensured`);
+    const roleSync = await syncDefaultRoles(roleRepo, permissionRepo);
+    console.log(
+      `Roles: ${defaultRoles.length} ensured (${roleSync.created.length} created, ${roleSync.updated.length} updated, ${roleSync.unchanged.length} unchanged)`,
+    );
 
     // 3. Super-admin user
     const superAdmin = await roleRepo.findOne({

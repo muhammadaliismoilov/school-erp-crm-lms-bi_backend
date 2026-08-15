@@ -2,135 +2,14 @@ import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import {
-  AppPermission,
-  CONFIDENTIAL_PERMISSION_CODES,
-  DEFAULT_PERMISSION_CODES,
-  expandPermissionCodes,
-} from '../../common/constants/permissions';
-import type { LocalizedText } from '../../common/i18n/locale';
+import { DEFAULT_PERMISSION_CODES } from '../../common/constants/permissions';
 import { CommonStatus } from '../../common/enums/common-status.enum';
 import { PasswordService } from '../auth/password.service';
+import { syncDefaultRoles } from './identity-role-sync';
 import { Permission } from './entities/permission.entity';
 import { Role } from './entities/role.entity';
 import { User } from './entities/user.entity';
 import { UserGender } from '../users/enums/user.enums';
-
-export interface DefaultRoleDefinition {
-  name: string;
-  title: LocalizedText;
-  permissions: string[];
-}
-
-export const defaultRoles: DefaultRoleDefinition[] = [
-  {
-    name: 'super-admin',
-    title: { uz: 'Super Admin', ru: 'Супер администратор', en: 'Super Admin' },
-    permissions: [AppPermission.SUPER_ADMIN],
-  },
-  {
-    name: 'director',
-    title: { uz: 'Direktor', ru: 'Директор', en: 'Director' },
-    permissions: DEFAULT_PERMISSION_CODES.filter(
-      (code) =>
-        code !== AppPermission.SUPER_ADMIN &&
-        !CONFIDENTIAL_PERMISSION_CODES.includes(code),
-    ),
-  },
-  {
-    name: 'admin',
-    title: { uz: 'Admin', ru: 'Администратор', en: 'Admin' },
-    permissions: DEFAULT_PERMISSION_CODES.filter(
-      (code) =>
-        code !== AppPermission.SUPER_ADMIN &&
-        !CONFIDENTIAL_PERMISSION_CODES.includes(code),
-    ),
-  },
-  {
-    name: 'supermanager',
-    title: { uz: 'Supermenejer', ru: 'Суперменеджер', en: 'Supermanager' },
-    permissions: DEFAULT_PERMISSION_CODES.filter(
-      (code) =>
-        code !== AppPermission.SUPER_ADMIN &&
-        !CONFIDENTIAL_PERMISSION_CODES.includes(code),
-    ),
-  },
-  {
-    name: 'sales-manager',
-    title: { uz: 'Sotuv menejeri', ru: 'Менеджер продаж', en: 'Sales Manager' },
-    permissions: [
-      AppPermission.CRM_READ,
-      AppPermission.CRM_MANAGE,
-      AppPermission.USERS_READ,
-      AppPermission.STUDENTS_READ,
-      AppPermission.NOTIFICATIONS_READ,
-    ],
-  },
-  {
-    name: 'parent',
-    title: { uz: 'Ota-ona', ru: 'Родитель', en: 'Parent' },
-    permissions: [
-      AppPermission.STUDENTS_READ,
-      AppPermission.ATTENDANCE_READ,
-      AppPermission.NOTIFICATIONS_READ,
-      AppPermission.LMS_READ,
-    ],
-  },
-  {
-    name: 'tutor',
-    title: { uz: 'Tyutor', ru: 'Тьютор', en: 'Tutor' },
-    permissions: [
-      AppPermission.STUDENTS_READ,
-      AppPermission.ACADEMIC_READ,
-      AppPermission.ATTENDANCE_READ,
-      AppPermission.LMS_READ,
-      AppPermission.NOTIFICATIONS_READ,
-    ],
-  },
-  {
-    name: 'manager',
-    title: { uz: 'Menejer', ru: 'Менеджер', en: 'Manager' },
-    permissions: [
-      AppPermission.CRM_READ,
-      AppPermission.CRM_MANAGE,
-      AppPermission.STUDENTS_READ,
-      AppPermission.STUDENTS_MANAGE,
-      AppPermission.ATTENDANCE_READ,
-      AppPermission.NOTIFICATIONS_READ,
-    ],
-  },
-  {
-    name: 'teacher',
-    title: { uz: "O'qituvchi", ru: 'Учитель', en: 'Teacher' },
-    permissions: [
-      AppPermission.STUDENTS_READ,
-      AppPermission.ACADEMIC_READ,
-      AppPermission.ATTENDANCE_READ,
-      AppPermission.ATTENDANCE_MANAGE,
-      AppPermission.LMS_READ,
-      AppPermission.LMS_MANAGE,
-    ],
-  },
-  {
-    name: 'accountant',
-    title: { uz: 'Buxgalter', ru: 'Бухгалтер', en: 'Accountant' },
-    permissions: [AppPermission.FINANCE_READ, AppPermission.FINANCE_MANAGE],
-  },
-  {
-    name: 'psychologist',
-    title: { uz: 'Psixolog', ru: 'Психолог', en: 'Psychologist' },
-    permissions: [
-      AppPermission.COUNSELING_READ,
-      AppPermission.COUNSELING_MANAGE,
-      AppPermission.STUDENTS_READ,
-    ],
-  },
-  {
-    name: 'student',
-    title: { uz: "O'quvchi", ru: 'Ученик', en: 'Student' },
-    permissions: [AppPermission.LMS_READ],
-  },
-];
 
 @Injectable()
 export class IdentitySeedService implements OnApplicationBootstrap {
@@ -178,32 +57,10 @@ export class IdentitySeedService implements OnApplicationBootstrap {
   }
 
   private async seedRoles(): Promise<void> {
-    for (const roleDefinition of defaultRoles) {
-      const existing = await this.roles.findOne({
-        where: { name: roleDefinition.name },
-        relations: { permissions: true },
-      });
-      // Eski keng kodlarni (`.manage`/`.read`) granular sub-resurs kodlariga
-      // yoyamiz — tor tizim rollari ham granular endpointlarga kirishni saqlaydi.
-      const permissions = await this.permissions.find({
-        where: { code: In(expandPermissionCodes(roleDefinition.permissions)) },
-      });
-
-      if (existing) {
-        existing.title = roleDefinition.title;
-        existing.isSystem = true;
-        existing.permissions = permissions;
-        await this.roles.save(existing);
-        continue;
-      }
-
-      await this.roles.save(
-        this.roles.create({
-          name: roleDefinition.name,
-          title: roleDefinition.title,
-          isSystem: true,
-          permissions,
-        }),
+    const result = await syncDefaultRoles(this.roles, this.permissions);
+    if (result.created.length > 0 || result.updated.length > 0) {
+      this.logger.log(
+        `Rollar sinxronlandi: ${result.created.length} yaratildi, ${result.updated.length} yangilandi, ${result.unchanged.length} o'zgarishsiz`,
       );
     }
   }

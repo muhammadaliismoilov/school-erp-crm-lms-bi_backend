@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Not, Repository, type FindOptionsWhere } from 'typeorm';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import type { LocalizedText } from '../../common/i18n/locale';
+import { DataScope } from '../../common/scope/data-scope.enum';
 import { normalizeOptionalLocalizedText } from '../../common/i18n/localized-text.util';
 import {
   PERMISSION_CATEGORIES,
@@ -152,6 +153,7 @@ export class RolesService {
         title,
         description: normalizeOptionalLocalizedText(dto.description),
         isSystem: false,
+        dataScope: dto.dataScope ?? DataScope.ALL,
         permissions,
       }),
     );
@@ -186,6 +188,9 @@ export class RolesService {
     if (dto.permissionCodes !== undefined) {
       role.permissions = await this.resolvePermissions(dto.permissionCodes);
     }
+    if (dto.dataScope !== undefined) {
+      role.dataScope = dto.dataScope;
+    }
 
     return this.toRoleResponse(await this.roles.save(role));
   }
@@ -218,10 +223,21 @@ export class RolesService {
   }
 
   private async findRoleEntity(id: string): Promise<Role> {
-    const role = await this.roles.findOne({
-      where: this.tenantRoleWhere({ id }),
-      relations: { permissions: true },
-    });
+    // QueryBuilder + leftJoinAndSelect ATAYLAB ishlatiladi, `findOne({relations})`
+    // EMAS: `Role.permissions` `eager:true` bo'lgani uchun, `relations:{permissions:true}`
+    // yana qo'shilsa TypeORM hydration bosqichida o'lchanmagan darajada sekinlashadi
+    // (o'lchov: director — 434 ruxsat — `findOne+relations` ~5.4s, QueryBuilder ~ms
+    // darajasida). `tenantRoleWhere`dagi OR mantig'i shu yerda qo'lda takrorlanadi.
+    const schoolId = this.tenant.getSchoolId();
+    const qb = this.roles
+      .createQueryBuilder('role')
+      .leftJoinAndSelect('role.permissions', 'permission')
+      .where('role.id = :id', { id });
+    if (schoolId) {
+      qb.andWhere('(role.schoolId IS NULL OR role.schoolId = :schoolId)', { schoolId });
+    }
+
+    const role = await qb.getOne();
 
     if (!role) {
       throw new NotFoundException('Role not found');
@@ -266,6 +282,7 @@ export class RolesService {
       title: role.title?.uz ?? role.title?.en ?? role.name,
       description: role.description?.uz ?? role.description?.en ?? null,
       isSystem: role.isSystem,
+      dataScope: role.dataScope ?? DataScope.ALL,
       permissionCount: permissions.length,
       permissions,
       createdAt: role.createdAt?.toISOString(),

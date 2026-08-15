@@ -58,6 +58,7 @@ export const validateEnv = (
 ): Record<string, unknown> => {
   const nodeEnv = String(config.NODE_ENV ?? "development");
   const port = parseInteger(config.PORT, "3000");
+  const metricsPort = parseInteger(config.METRICS_PORT, "9464");
   const databasePort = parseInteger(config.DATABASE_PORT, "5432");
   const databaseReplicaPort = config.DATABASE_REPLICA_PORT
     ? parseInteger(config.DATABASE_REPLICA_PORT, "5432")
@@ -65,11 +66,19 @@ export const validateEnv = (
   const redisPort = config.REDIS_PORT ? parseInteger(config.REDIS_PORT, "6379") : undefined;
   const rateLimitTtlMs = parseInteger(config.RATE_LIMIT_TTL_MS, "60000");
   const rateLimitLimit = parseInteger(config.RATE_LIMIT_LIMIT, "120");
+  const databasePoolMax = parseInteger(config.DATABASE_POOL_MAX, "10");
+  const databasePoolMin = parseInteger(config.DATABASE_POOL_MIN, "2");
   const bcryptSaltRounds = config.BCRYPT_SALT_ROUNDS
     ? parseInteger(config.BCRYPT_SALT_ROUNDS, "12")
     : undefined;
 
   assertTcpPort("PORT", port);
+  assertTcpPort("METRICS_PORT", metricsPort);
+  if (metricsPort === port) {
+    // Ikkalasi bir portda tursa, metrikalar yana asosiy (nginx orqali ochiq)
+    // ilova bilan bitta quvurga tushib qoladi — T-03 tuzatishi bekor bo'ladi.
+    throw new Error("METRICS_PORT must differ from PORT");
+  }
   assertTcpPort("DATABASE_PORT", databasePort);
   if (databaseReplicaPort !== undefined) {
     assertTcpPort("DATABASE_REPLICA_PORT", databaseReplicaPort);
@@ -79,6 +88,11 @@ export const validateEnv = (
   }
   assertPositiveInteger("RATE_LIMIT_TTL_MS", rateLimitTtlMs);
   assertPositiveInteger("RATE_LIMIT_LIMIT", rateLimitLimit);
+  assertPositiveInteger("DATABASE_POOL_MAX", databasePoolMax);
+  assertPositiveInteger("DATABASE_POOL_MIN", databasePoolMin);
+  if (databasePoolMin > databasePoolMax) {
+    throw new Error("DATABASE_POOL_MIN must not exceed DATABASE_POOL_MAX");
+  }
   assertBodyLimit(config.BODY_LIMIT ?? "1mb");
   if (
     bcryptSaltRounds !== undefined &&

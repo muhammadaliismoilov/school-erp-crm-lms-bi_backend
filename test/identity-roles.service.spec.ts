@@ -22,9 +22,26 @@ describe('RolesService', () => {
     updatedAt: new Date('2026-06-08T00:00:00.000Z'),
     version: 1,
   } as Role;
-  let roles: jest.Mocked<Pick<Repository<Role>, 'create' | 'save' | 'find' | 'findOne' | 'count' | 'softDelete'>>;
+  let roles: jest.Mocked<
+    Pick<Repository<Role>, 'create' | 'save' | 'find' | 'findOne' | 'count' | 'softDelete' | 'createQueryBuilder'>
+  >;
   let permissions: jest.Mocked<Pick<Repository<Permission>, 'find' | 'count'>>;
   let service: RolesService;
+
+  /**
+   * `findRoleEntity` (RolesService ichida) `createQueryBuilder().leftJoinAndSelect().where().getOne()`
+   * ishlatadi — `findOne({relations})` EMAS (sabab: identity-role-sync.ts dagi izohga qarang,
+   * TypeORM hydration'da eager+explicit-relations kombinatsiyasi o'lchanmagan darajada sekin).
+   */
+  const mockQueryBuilder = (result: Role | null) => {
+    const qb = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(result),
+    };
+    return qb as unknown as ReturnType<Repository<Role>['createQueryBuilder']>;
+  };
 
   beforeEach(() => {
     roles = {
@@ -34,6 +51,7 @@ describe('RolesService', () => {
       findOne: jest.fn(),
       count: jest.fn(),
       softDelete: jest.fn(),
+      createQueryBuilder: jest.fn(),
     };
     permissions = {
       find: jest.fn(),
@@ -135,7 +153,8 @@ describe('RolesService', () => {
   });
 
   it('updates custom role permissions', async () => {
-    roles.findOne.mockResolvedValueOnce(role).mockResolvedValueOnce(null);
+    roles.createQueryBuilder.mockReturnValue(mockQueryBuilder(role));
+    roles.findOne.mockResolvedValue(null); // ensureRoleNameIsAvailable — nom band emas
     permissions.find.mockResolvedValue([permissionsList[0]]);
     roles.save.mockImplementation(async (value) => value as Role);
 
@@ -154,14 +173,44 @@ describe('RolesService', () => {
   });
 
   it('does not delete system roles', async () => {
-    roles.findOne.mockResolvedValue({ ...role, isSystem: true } as Role);
+    roles.createQueryBuilder.mockReturnValue(mockQueryBuilder({ ...role, isSystem: true } as Role));
 
     await expect(service.remove(roleId)).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('throws NotFoundException when role is missing', async () => {
-    roles.findOne.mockResolvedValue(null);
+    roles.createQueryBuilder.mockReturnValue(mockQueryBuilder(null));
 
     await expect(service.findOne(roleId)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('scopes the role lookup to global-or-own-school when a tenant context is active', async () => {
+    const qb = mockQueryBuilder(role);
+    roles.createQueryBuilder.mockReturnValue(qb);
+    const tenant = new TenantContextService();
+    service = new RolesService(
+      roles as unknown as Repository<Role>,
+      permissions as unknown as Repository<Permission>,
+      tenant,
+    );
+
+    await tenant.run(async () => {
+      tenant.set({ schoolId: 'school-1' });
+      await service.findOne(roleId);
+    });
+
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      '(role.schoolId IS NULL OR role.schoolId = :schoolId)',
+      { schoolId: 'school-1' },
+    );
+  });
+
+  it('does not scope the role lookup when there is no tenant context (super-admin)', async () => {
+    const qb = mockQueryBuilder(role);
+    roles.createQueryBuilder.mockReturnValue(qb);
+
+    await service.findOne(roleId);
+
+    expect(qb.andWhere).not.toHaveBeenCalled();
   });
 });
