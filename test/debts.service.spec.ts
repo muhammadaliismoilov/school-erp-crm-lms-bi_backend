@@ -148,6 +148,74 @@ describe('DebtsService', () => {
       expect(res.total.expected).toBe(10000000);
       expect(res.total.collected).toBe(1500000);
     });
+
+    it('o‘qi (axis) ni faol o‘quvchilar ro‘yxatidan JS’da hisoblaydi — alohida MIN so‘rovisiz (T-07)', async () => {
+      // Ikkita talaba, ikkita xil billing_start_date — eng ertasi (avgust)
+      // o'qi boshini akademik yil (sentyabr) dan oldinga suradi.
+      const earlier = makeStudent({ id: 'stu-2', billingStartDate: '2020-08-01' });
+      const later = makeStudent({ id: 'stu-1', billingStartDate: '2020-09-15' });
+      const studentsRepo = { createQueryBuilder: jest.fn(() => qbMock([earlier, later])) };
+      const paymentsRepo = { createQueryBuilder: jest.fn(() => qbMock([], true)) };
+      const plans = { getContext: jest.fn(async () => ({ config, academic })) };
+      const svc = new DebtsService(studentsRepo as never, paymentsRepo as never, plans as never, null as never);
+
+      const res = await svc.getOverview();
+
+      // Avgust ham o'qga kirgan — 10 oylik akademik oynadan bittasi ortiq.
+      expect(res.monthly).toHaveLength(11);
+      expect(res.monthly[0].month).toBe(8);
+      // `resolveAxis()`ning o'zi (alohida MIN(COALESCE(...)) so'rovi) endi
+      // bu yo'lda chaqirilmaydi — o'quvchilar ro'yxati BIR marta o'qiladi.
+      expect(studentsRepo.createQueryBuilder).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('kesh (T-08)', () => {
+    function buildCachedService(students: unknown[], paidRaw: unknown[]) {
+      const studentsRepo = { createQueryBuilder: jest.fn(() => qbMock(students)) };
+      const paymentsRepo = { createQueryBuilder: jest.fn(() => qbMock(paidRaw, true)) };
+      const plans = { getContext: jest.fn(async () => ({ config, academic })) };
+      const service = new DebtsService(
+        studentsRepo as never,
+        paymentsRepo as never,
+        plans as never,
+        null as never,
+      );
+      return { service, studentsRepo, paymentsRepo };
+    }
+
+    it('getOverview — TTL ichida ikkinchi chaqiruv qayta so‘ramaydi (kesh hit)', async () => {
+      const { service, studentsRepo } = buildCachedService([makeStudent()], []);
+      const first = await service.getOverview();
+      const second = await service.getOverview();
+      expect(second).toEqual(first); // bir xil obyekt — qayta hisoblanmagan
+      expect(studentsRepo.createQueryBuilder).toHaveBeenCalledTimes(1);
+    });
+
+    it('getStudents — bir xil query ikkinchi marta keshdan qaytadi', async () => {
+      // Har haqiqiy chaqiriq `studentsRepo.createQueryBuilder`ni 2 marta ishlatadi
+      // (resolveAxis()ning MIN so'rovi + asosiy ro'yxat so'rovi) — kesh hit bo'lsa
+      // ikkinchi `getStudents()` bittasini ham qo'shmaydi.
+      const { service, studentsRepo } = buildCachedService([makeStudent()], []);
+      await service.getStudents({ page: 1, limit: 20 });
+      await service.getStudents({ page: 1, limit: 20 });
+      expect(studentsRepo.createQueryBuilder).toHaveBeenCalledTimes(2);
+    });
+
+    it('getStudents — boshqa query (masalan sahifa) keshni bo‘lishmaydi, qayta so‘raydi', async () => {
+      const { service, studentsRepo } = buildCachedService([makeStudent()], []);
+      await service.getStudents({ page: 1, limit: 20 });
+      await service.getStudents({ page: 2, limit: 20 });
+      expect(studentsRepo.createQueryBuilder).toHaveBeenCalledTimes(4);
+    });
+
+    it('invalidateCache() — to‘lov yozilgach keshni bosh so‘rov bilan darhol yangilaydi', async () => {
+      const { service, studentsRepo } = buildCachedService([makeStudent()], []);
+      await service.getOverview();
+      service.invalidateCache();
+      await service.getOverview();
+      expect(studentsRepo.createQueryBuilder).toHaveBeenCalledTimes(2);
+    });
   });
 });
 

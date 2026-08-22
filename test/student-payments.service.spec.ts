@@ -10,6 +10,7 @@ import {
   StudentPaymentStatus,
 } from '../src/modules/student-payments/entities/student-payment.entity';
 import { StudentPaymentsService } from '../src/modules/student-payments/student-payments.service';
+import type { DebtsService } from '../src/modules/student-payments/debts.service';
 import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 const spId = '11111111-1111-1111-1111-111111111111';
@@ -75,6 +76,7 @@ describe('StudentPaymentsService', () => {
   let classes: { findOne: jest.Mock };
   let paymentTypes: { find: jest.Mock; findOne: jest.Mock };
   let audit: { log: jest.Mock };
+  let debtsService: { invalidateCache: jest.Mock };
   let dataSource: { transaction: jest.Mock };
   let qb: ReturnType<typeof makeQb>;
   let service: StudentPaymentsService;
@@ -119,6 +121,7 @@ describe('StudentPaymentsService', () => {
       findOne: jest.fn().mockResolvedValue({ id: ptId, name: 'Naqd', code: 'cash' }),
     };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
+    debtsService = { invalidateCache: jest.fn() };
 
     service = new StudentPaymentsService(
       payments as never as Repository<StudentPayment>,
@@ -128,6 +131,7 @@ describe('StudentPaymentsService', () => {
       audit as never as AuditService,
       dataSource as never as DataSource,
       { getSchoolId: () => null, getBranchId: () => null } as unknown as TenantContextService,
+      debtsService as never as DebtsService,
     );
   });
 
@@ -151,6 +155,8 @@ describe('StudentPaymentsService', () => {
       expect(audit.log).toHaveBeenCalledWith(
         expect.objectContaining({ action: 'student_payment.created', entity: 'student_payment' }),
       );
+      // Qarzlar sahifasi keshi yangi to'lov bilan darhol eskiradi (T-08).
+      expect(debtsService.invalidateCache).toHaveBeenCalledTimes(1);
     });
 
     it('derives PARTIAL status when amount is below the plan', async () => {
@@ -285,6 +291,7 @@ describe('StudentPaymentsService', () => {
       expect(saved.updatedBy).toBe('admin-1');
       expect(saved.updatedByName).toBe('Asad Admin');
       expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'student_payment.updated' }));
+      expect(debtsService.invalidateCache).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -326,6 +333,7 @@ describe('StudentPaymentsService', () => {
       await service.remove(spId, actor);
       expect(payments.softDelete).toHaveBeenCalledWith(spId);
       expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'student_payment.deleted' }));
+      expect(debtsService.invalidateCache).toHaveBeenCalledTimes(1);
     });
 
     it('soft-deletes the linked finance projection in the same transaction', async () => {

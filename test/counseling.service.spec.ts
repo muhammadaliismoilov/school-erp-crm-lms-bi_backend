@@ -18,6 +18,7 @@ const fakeEncryption = {
 describe("CounselingService", () => {
   let sessions: {
     find: jest.Mock;
+    findAndCount: jest.Mock;
     findOne: jest.Mock;
     create: jest.Mock;
     save: jest.Mock;
@@ -43,6 +44,7 @@ describe("CounselingService", () => {
   beforeEach(() => {
     sessions = {
       find: jest.fn().mockResolvedValue([row]),
+      findAndCount: jest.fn().mockResolvedValue([[row], 1]),
       findOne: jest.fn().mockResolvedValue(row),
       create: jest.fn().mockImplementation((v) => v),
       save: jest.fn().mockImplementation(async (v) => ({ ...row, ...v })),
@@ -58,16 +60,20 @@ describe("CounselingService", () => {
     );
   });
 
-  it("findAll — ismlarni bitta partiyada (batch) hal qiladi, N+1 emas", async () => {
-    const result = await service.findAll();
+  it("findAll — sahifalangan, ismlarni bitta partiyada (batch) hal qiladi, N+1 emas", async () => {
+    const result = await service.findAll({ page: 1, limit: 20, search: undefined });
 
-    expect(result).toEqual([
+    expect(result.items).toEqual([
       expect.objectContaining({
         id: "sess-1",
         studentName: "Aliyev Vali",
         counselorName: "Karimova Dilnoza",
       }),
     ]);
+    expect(result.meta).toEqual({ page: 1, limit: 20, total: 1, pageCount: 1 });
+    expect(sessions.findAndCount).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 0, take: 20 }),
+    );
     // Ro'yxatda nechta yozuv bo'lishidan qat'iy nazar — talab/psixolog jadvaliga
     // BIR martagina murojaat (N+1 emas).
     expect(students.find).toHaveBeenCalledTimes(1);
@@ -75,7 +81,7 @@ describe("CounselingService", () => {
   });
 
   it("findAll — hech qanday izoh (notes) qaytarmaydi, faqat metama'lumot", async () => {
-    const [summary] = await service.findAll();
+    const { items: [summary] } = await service.findAll({ page: 1, limit: 20, search: undefined });
     expect(summary).not.toHaveProperty("notes");
   });
 
@@ -129,7 +135,7 @@ describe("CounselingService", () => {
 
   it("ism topilmasa null qaytaradi (o'chirilgan/topilmagan foydalanuvchi)", async () => {
     students.find.mockResolvedValue([]);
-    const [summary] = await service.findAll();
+    const { items: [summary] } = await service.findAll({ page: 1, limit: 20, search: undefined });
     expect(summary.studentName).toBeNull();
   });
 });

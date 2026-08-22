@@ -19,6 +19,7 @@ export interface ExtraDocumentsFlags {
 @Index("idx_students_current_class", ["currentClassId"])
 @Index("idx_students_school", ["schoolId"])
 @Index("idx_students_filial", ["filialId"])
+@Index("idx_students_school_filial_created", ["schoolId", "filialId", "createdAt"])
 export class Student extends UuidAuditEntity {
   /** Maktab (qattiq tenant chegarasi) — ko'p-maktabli ajratish uchun. */
   @Column({ name: "school_id", type: "uuid", nullable: true })

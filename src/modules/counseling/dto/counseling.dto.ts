@@ -7,9 +7,13 @@ import {
   IsUUID,
   MaxLength,
 } from "class-validator";
+import { PaginationQueryDto } from "../../../common/dto/pagination-query.dto";
 
 const SESSION_TYPES = ["individual", "group", "assessment", "follow_up"];
 const RISK_LEVELS = ["low", "medium", "high"];
+
+/** `GET /counseling/sessions` — sahifalash uchun (`search` ishlatilmaydi). */
+export class QuerySessionsDto extends PaginationQueryDto {}
 
 export class CreateCounselingSessionDto {
   @ApiProperty()

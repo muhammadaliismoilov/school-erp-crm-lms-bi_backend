@@ -150,9 +150,26 @@ export class ClassListStatsDto {
   languages: ClassLanguageCountsDto;
 }
 
+export class ClassPageMetaDto {
+  @ApiProperty({ example: 1 })
+  page: number;
+
+  @ApiProperty({ example: 100 })
+  limit: number;
+
+  @ApiProperty({ example: 42 })
+  total: number;
+
+  @ApiProperty({ example: 1 })
+  pageCount: number;
+}
+
 export class ClassListResultDto {
   @ApiProperty({ type: [ClassResponseDto] })
   items: ClassResponseDto[];
+
+  @ApiProperty({ type: ClassPageMetaDto })
+  meta: ClassPageMetaDto;
 
   @ApiProperty({ type: ClassListStatsDto })
   stats: ClassListStatsDto;

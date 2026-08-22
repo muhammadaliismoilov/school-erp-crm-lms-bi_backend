@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { AppPermission } from "../../common/constants/permissions";
 import { Permissions } from "../../common/decorators/permissions.decorator";
@@ -9,6 +9,7 @@ import { ApiLocalizedErrorResponses } from "../../common/swagger/api-localized-e
 import { CounselingService } from "./counseling.service";
 import {
   CreateCounselingSessionDto,
+  QuerySessionsDto,
   UpdateCounselingSessionDto,
 } from "./dto/counseling.dto";
 
@@ -27,8 +28,8 @@ export class CounselingController {
 
   @Get("sessions")
   @Permissions([AppPermission.COUNSELING_READ])
-  findAll() {
-    return this.service.findAll();
+  findAll(@Query() query: QuerySessionsDto) {
+    return this.service.findAll(query);
   }
 
   @Get("sessions/:id")

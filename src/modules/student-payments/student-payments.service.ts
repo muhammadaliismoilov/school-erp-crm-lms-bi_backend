@@ -17,6 +17,7 @@ import { PaymentType } from '../transactions/entities/payment-type.entity';
 import { CreateStudentPaymentDto } from './dto/create-student-payment.dto';
 import { StudentPaymentQueryDto } from './dto/student-payment-query.dto';
 import { UpdateStudentPaymentDto } from './dto/update-student-payment.dto';
+import { DebtsService } from './debts.service';
 import { StudentPayment, StudentPaymentStatus } from './entities/student-payment.entity';
 import {
   StudentPaymentListResponseSchema,
@@ -63,6 +64,7 @@ export class StudentPaymentsService {
     private readonly auditService: AuditService,
     private readonly dataSource: DataSource,
     private readonly tenant: TenantContextService,
+    private readonly debtsService: DebtsService,
   ) {}
 
   // ─── O'qish ───────────────────────────────────────────────────────────────
@@ -250,6 +252,7 @@ export class StudentPaymentsService {
       receiptNumber: entity.receiptNumber,
     }, actor?.ipAddress);
 
+    this.debtsService.invalidateCache();
     return this.findOne(entity.id);
   }
 
@@ -309,6 +312,7 @@ export class StudentPaymentsService {
     await this.recordAudit(actor?.userId, 'student_payment.updated', entity.id, {
       changed: Object.keys(dto),
     }, actor?.ipAddress);
+    this.debtsService.invalidateCache();
     return this.findOne(entity.id);
   }
 
@@ -325,6 +329,7 @@ export class StudentPaymentsService {
       receiptNumber: entity.receiptNumber,
       amount: entity.amount,
     }, actor?.ipAddress);
+    this.debtsService.invalidateCache();
   }
 
   // ─── Moliya defteri bilan sinxronlash ──────────────────────────────────────

@@ -123,13 +123,25 @@ export class DashboardOverviewService {
       actionCenter: [],
     };
 
+    // Avval 3 ta mustaqil blok (o'quvchilar KPI, bugungi davomat, davomat
+    // trendi) shu bir xil hisobni 3 marta alohida so'rar edi. Endi bitta
+    // memoized promise — birinchi chaqiruv so'raydi, qolganlari shunga
+    // qo'shiladi (T-07).
+    let activeStudentCountPromise: Promise<number> | null = null;
+    const activeStudentCount = (): Promise<number> => {
+      if (!activeStudentCountPromise) {
+        activeStudentCountPromise = this.students.count({
+          where: tenantWhere<Student>(this.tenant, { status: StudentStatus.ACTIVE }, { branch: true }),
+        });
+      }
+      return activeStudentCountPromise;
+    };
+
     // ─── O'quvchilar KPI ────────────────────────────────────────────────────
     if (can(AppPermission.STUDENTS_READ)) {
       tasks.push(
         (async () => {
-          const active = await this.students.count({
-            where: tenantWhere<Student>(this.tenant, { status: StudentStatus.ACTIVE }, { branch: true }),
-          });
+          const active = await activeStudentCount();
           const sparkQb = this.students
             .createQueryBuilder('st')
             .select("to_char(st.created_at, 'YYYY-MM')", 'ym')
@@ -165,9 +177,7 @@ export class DashboardOverviewService {
           const late = by.get(AttendanceStatus.LATE) ?? 0;
           const absent = by.get(AttendanceStatus.ABSENT) ?? 0;
           const totalActive = can(AppPermission.STUDENTS_READ)
-            ? await this.students.count({
-                where: tenantWhere<Student>(this.tenant, { status: StudentStatus.ACTIVE }, { branch: true }),
-              })
+            ? await activeStudentCount()
             : present + late + absent;
           const seen = present + late;
           result.attendanceToday = {
@@ -268,26 +278,42 @@ export class DashboardOverviewService {
           const weeks = await weekQb.getRawMany<{ wk: string; cnt: string }>();
           const spark = weeks.map((w) => Number(w.cnt));
 
-          const [newThisWeek, prevWeek, total, contracts] = await Promise.all([
-            this.scopedLeadCount("l.created_at >= date_trunc('week', CURRENT_DATE)"),
-            this.scopedLeadCount(
-              "l.created_at >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days' AND l.created_at < date_trunc('week', CURRENT_DATE)",
-            ),
-            this.scopedLeadCount('TRUE'),
-            this.scopedLeadCount('l.status = :st', { st: LeadStatus.CONTRACT }),
-          ]);
+          // Avval 4 ta alohida COUNT + 1 ta "eskirgan" hisoblovchi (5 so'rov)
+          // edi — endi bitta qatorda 5 ta FILTER'langan agregat (T-07).
+          const countsQb = this.leads
+            .createQueryBuilder('l')
+            .select('COUNT(*)', 'total')
+            .addSelect("COUNT(*) FILTER (WHERE l.created_at >= date_trunc('week', CURRENT_DATE))", 'newThisWeek')
+            .addSelect(
+              "COUNT(*) FILTER (WHERE l.created_at >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days' AND l.created_at < date_trunc('week', CURRENT_DATE))",
+              'prevWeek',
+            )
+            .addSelect('COUNT(*) FILTER (WHERE l.status = :contract)', 'contracts')
+            .addSelect(
+              "COUNT(*) FILTER (WHERE l.status = :new AND l.created_at < (NOW() - INTERVAL '48 hours'))",
+              'stale',
+            )
+            .where('l.deleted_at IS NULL')
+            .setParameters({ contract: LeadStatus.CONTRACT, new: LeadStatus.NEW });
+          applyTenantScope(countsQb, 'l', this.tenant, { branch: true });
+          const counts = await countsQb.getRawOne<{
+            total: string;
+            newThisWeek: string;
+            prevWeek: string;
+            contracts: string;
+            stale: string;
+          }>();
+          const total = Number(counts?.total ?? 0);
+          const contracts = Number(counts?.contracts ?? 0);
           result.leads = {
-            newThisWeek,
-            prevWeek,
+            newThisWeek: Number(counts?.newThisWeek ?? 0),
+            prevWeek: Number(counts?.prevWeek ?? 0),
             conversionRate: total > 0 ? Math.round((contracts / total) * 1000) / 10 : null,
             spark,
           };
 
           // 48 soatdan beri "yangi" holatda qolgan lidlar — qabul bo'limi ogohlantirishi.
-          const stale = await this.scopedLeadCount(
-            "l.status = :new AND l.created_at < (NOW() - INTERVAL '48 hours')",
-            { new: LeadStatus.NEW },
-          );
+          const stale = Number(counts?.stale ?? 0);
           if (stale > 0) result.actionCenter.push({ key: 'stale_leads', count: stale });
         })(),
       );
@@ -369,9 +395,7 @@ export class DashboardOverviewService {
           applyTenantScope(qb, 'ar', this.tenant, { branch: true });
           const rows = await qb.getRawMany<{ d: string; came: string }>();
           const byDate = new Map(rows.map((r) => [r.d, Number(r.came)]));
-          const totalActive = await this.students.count({
-            where: tenantWhere<Student>(this.tenant, { status: StudentStatus.ACTIVE }, { branch: true }),
-          });
+          const totalActive = await activeStudentCount();
           const trend: Array<{ date: string; came: number; pct: number | null }> = [];
           for (let i = 29; i >= 0; i -= 1) {
             const d = new Date();
@@ -562,12 +586,6 @@ export class DashboardOverviewService {
 
     rows.sort((a, b) => b.students - a.students);
     result.branches = rows;
-  }
-
-  private async scopedLeadCount(where: string, params?: Record<string, unknown>): Promise<number> {
-    const qb = this.leads.createQueryBuilder('l').where('l.deleted_at IS NULL').andWhere(where, params);
-    applyTenantScope(qb, 'l', this.tenant, { branch: true });
-    return qb.getCount();
   }
 }
 

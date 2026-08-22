@@ -9,6 +9,7 @@ import { UuidAuditEntity } from "../../../common/entities/abstract.entity";
 @Entity("counseling_sessions")
 @Index("idx_counseling_sessions_student", ["studentId"])
 @Index("idx_counseling_sessions_counselor", ["counselorId"])
+@Index("idx_counseling_sessions_school_date", ["schoolId", "sessionDate"])
 export class CounselingSession extends UuidAuditEntity {
   /** Ko'p-maktabli ajratish (tenant). */
   @Column({ name: 'school_id', type: 'uuid', nullable: true })

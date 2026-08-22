@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
+import { PageDto, createPage } from "../../common/dto/page.dto";
 import { User } from "../identity/entities/user.entity";
 import { Student } from "../students/entities/student.entity";
 import { EncryptionService } from "../../common/security/encryption.service";
@@ -8,6 +9,7 @@ import { TenantContextService } from "../../common/tenant/tenant-context.service
 import { tenantWhere } from "../../common/tenant/tenant-scope.util";
 import {
   CreateCounselingSessionDto,
+  QuerySessionsDto,
   UpdateCounselingSessionDto,
 } from "./dto/counseling.dto";
 import { CounselingSession } from "./entities/counseling-session.entity";
@@ -75,9 +77,15 @@ export class CounselingService {
     return { ...this.toDetail(saved), ...names };
   }
 
-  async findAll(): Promise<CounselingSessionSummary[]> {
-    const rows = await this.sessions.find({ where: tenantWhere<CounselingSession>(this.tenant, {}, { branch: true }), order: { sessionDate: "DESC" } });
-    return this.toSummaries(rows);
+  async findAll(query: QuerySessionsDto): Promise<PageDto<CounselingSessionSummary>> {
+    const [rows, total] = await this.sessions.findAndCount({
+      where: tenantWhere<CounselingSession>(this.tenant, {}, { branch: true }),
+      order: { sessionDate: "DESC" },
+      skip: (query.page - 1) * query.limit,
+      take: query.limit,
+    });
+    const items = await this.toSummaries(rows);
+    return createPage(items, total, query.page, query.limit);
   }
 
   async findByStudent(
@@ -122,7 +130,13 @@ export class CounselingService {
         ? this.students.find({ where: { id: In(studentIds) }, select: { id: true, firstName: true, lastName: true } })
         : [],
       counselorIds.length
-        ? this.users.find({ where: { id: In(counselorIds) }, select: { id: true, firstName: true, lastName: true } })
+        ? this.users.find({
+            where: { id: In(counselorIds) },
+            select: { id: true, firstName: true, lastName: true },
+            // User.roles → Role.permissions eager zanjiri bu yerda keraksiz
+            // (faqat ism kerak) — uni bosib qo'ymasak har chaqiriqda tortiladi.
+            loadEagerRelations: false,
+          })
         : [],
     ]);
 

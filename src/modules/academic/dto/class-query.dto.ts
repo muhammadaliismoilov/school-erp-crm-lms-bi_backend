@@ -59,4 +59,24 @@ export class ClassQueryDto {
   @Length(1, 80)
   @Matches(/^[A-Za-z0-9\- ]+$/)
   search?: string;
+
+  @ApiPropertyOptional({ description: 'Page number', minimum: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page = 1;
+
+  @ApiPropertyOptional({
+    description: 'Items per page',
+    minimum: 1,
+    maximum: 200,
+    default: 100,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  limit = 100;
 }

@@ -830,11 +830,18 @@ export class AcademicService {
     return this.toClassResponse(schoolClass, [], new Map());
   }
 
-  async findClasses(query: ClassQueryDto = {}): Promise<ClassListResultDto> {
-    const schoolClasses = await this.classes.find({
+  async findClasses(query: ClassQueryDto = new ClassQueryDto()): Promise<ClassListResultDto> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 100;
+    const [schoolClasses, total] = await this.classes.findAndCount({
       where: this.buildClassWhere(query),
       relations: { academicYear: true, room: true, curator: true },
+      // `curator` (User) o'zining eager `roles→permissions` zanjirini
+      // keraksiz tortmasin — faqat id/fullName/phone kerak (T-07).
+      loadEagerRelations: false,
       order: { gradeLevel: "ASC", section: "ASC" },
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
     const studentsByClass = await this.findStudentsForClasses(schoolClasses.map((schoolClass) => schoolClass.id));
@@ -845,7 +852,11 @@ export class AcademicService {
       this.toClassResponse(schoolClass, studentsByClass.get(schoolClass.id) ?? [], metrics),
     );
 
-    return { items, stats: this.buildClassListStats(items) };
+    return {
+      items,
+      meta: { page, limit, total, pageCount: Math.ceil(total / limit) || 1 },
+      stats: this.buildClassListStats(items),
+    };
   }
 
   async findClass(id: string): Promise<ClassDetailResponseDto> {
@@ -1853,26 +1864,43 @@ export class AcademicService {
       metrics.set(id, { attendance: 0, mastery: 0 });
     }
 
+    // Ikkalasi ham faqat `uniqueIds`ga muhtoj, bir-biriga bog'liq emas —
+    // ketma-ket emas, parallel bajariladi (T-07).
     const attendanceRepo = this.attendanceRecords;
-    if (attendanceRepo) {
-      const rows = await attendanceRepo
-        .createQueryBuilder("a")
-        .select("a.student_id", "studentId")
-        .addSelect("COUNT(*)", "total")
-        .addSelect(
-          "COUNT(*) FILTER (WHERE a.status IN (:...present))",
-          "present",
-        )
-        .where("a.student_id IN (:...ids)", { ids: uniqueIds })
-        .setParameter("present", [
-          AttendanceStatus.PRESENT,
-          AttendanceStatus.LATE,
-          AttendanceStatus.EXCUSED,
-        ])
-        .groupBy("a.student_id")
-        .getRawMany<{ studentId: string; total: string; present: string }>();
+    const journalRepo = this.journalEntries;
+    const [attendanceRows, journalRows] = await Promise.all([
+      attendanceRepo
+        ? attendanceRepo
+            .createQueryBuilder("a")
+            .select("a.student_id", "studentId")
+            .addSelect("COUNT(*)", "total")
+            .addSelect(
+              "COUNT(*) FILTER (WHERE a.status IN (:...present))",
+              "present",
+            )
+            .where("a.student_id IN (:...ids)", { ids: uniqueIds })
+            .setParameter("present", [
+              AttendanceStatus.PRESENT,
+              AttendanceStatus.LATE,
+              AttendanceStatus.EXCUSED,
+            ])
+            .groupBy("a.student_id")
+            .getRawMany<{ studentId: string; total: string; present: string }>()
+        : Promise.resolve([]),
+      journalRepo
+        ? journalRepo
+            .createQueryBuilder("j")
+            .select("j.student_id", "studentId")
+            .addSelect("AVG(j.grade)", "avgGrade")
+            .where("j.student_id IN (:...ids)", { ids: uniqueIds })
+            .andWhere("j.grade IS NOT NULL")
+            .groupBy("j.student_id")
+            .getRawMany<{ studentId: string; avgGrade: string | null }>()
+        : Promise.resolve([]),
+    ]);
 
-      for (const row of rows) {
+    if (attendanceRepo) {
+      for (const row of attendanceRows) {
         const total = Number(row.total);
         const present = Number(row.present);
         const metric = metrics.get(row.studentId);
@@ -1882,18 +1910,8 @@ export class AcademicService {
       }
     }
 
-    const journalRepo = this.journalEntries;
     if (journalRepo) {
-      const rows = await journalRepo
-        .createQueryBuilder("j")
-        .select("j.student_id", "studentId")
-        .addSelect("AVG(j.grade)", "avgGrade")
-        .where("j.student_id IN (:...ids)", { ids: uniqueIds })
-        .andWhere("j.grade IS NOT NULL")
-        .groupBy("j.student_id")
-        .getRawMany<{ studentId: string; avgGrade: string | null }>();
-
-      for (const row of rows) {
+      for (const row of journalRows) {
         const metric = metrics.get(row.studentId);
         if (metric && row.avgGrade !== null) {
           metric.mastery = this.round1(Number(row.avgGrade));

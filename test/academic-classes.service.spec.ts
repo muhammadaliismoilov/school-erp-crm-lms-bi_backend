@@ -46,7 +46,7 @@ describe('AcademicService classes CRUD', () => {
 
   let academicYears: jest.Mocked<Pick<Repository<AcademicYear>, 'findOne'>>;
   let classes: jest.Mocked<
-    Pick<Repository<SchoolClass>, 'create' | 'save' | 'find' | 'findOne' | 'softDelete'>
+    Pick<Repository<SchoolClass>, 'create' | 'save' | 'find' | 'findAndCount' | 'findOne' | 'softDelete'>
   >;
   let rooms: jest.Mocked<Pick<Repository<Room>, 'findOne'>>;
   let users: jest.Mocked<Pick<Repository<User>, 'findOne'>>;
@@ -59,6 +59,7 @@ describe('AcademicService classes CRUD', () => {
       create: jest.fn(),
       save: jest.fn(),
       find: jest.fn(),
+      findAndCount: jest.fn(),
       findOne: jest.fn(),
       softDelete: jest.fn(),
     };
@@ -252,6 +253,20 @@ describe('AcademicService classes CRUD', () => {
       service.transferClassStudents(classId, { academicYearId, targetClassId }),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(students.update).not.toHaveBeenCalled();
+  });
+
+  it('findClasses — sahifalaydi (skip/take) va curator uchun eager kaskadni bosadi (T-07)', async () => {
+    const schoolClass = { id: classId, gradeLevel: 1, section: 'A', academicYearId } as SchoolClass;
+    classes.findAndCount.mockResolvedValue([[schoolClass], 42]);
+    students.find.mockResolvedValue([]);
+
+    const result = await service.findClasses({ page: 2, limit: 10 } as never);
+
+    expect(classes.findAndCount).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 10, take: 10, loadEagerRelations: false }),
+    );
+    expect(result.meta).toEqual({ page: 2, limit: 10, total: 42, pageCount: 5 });
+    expect(result.items).toHaveLength(1);
   });
 });
 

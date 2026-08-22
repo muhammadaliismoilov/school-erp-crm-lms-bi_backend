@@ -97,6 +97,20 @@ interface StudentExpected {
   plan: PlanCode | null;
 }
 
+interface CacheEntry<T> {
+  at: number;
+  data: T;
+}
+
+/**
+ * Har so'rov 450+ faol o'quvchi uchun oylik katakcha matritsasini qaytadan
+ * hisoblardi (254ms) — `dashboard-overview.service.ts`dagi bilan bir xil TTL
+ * kesh (T-08). Qisqa TTL ataylab: bu moliyaviy ma'lumot, to'lov yozilgach
+ * darhol yangi bo'lishi kerak — shu sabab `StudentPaymentsService` har
+ * create/update/remove'dan keyin `invalidateCache()` chaqiradi (pastda).
+ */
+const CACHE_TTL_MS = 20_000;
+
 /**
  * Qarzlar (debts) — oylik matritsa, oylik taqsimot, KPI va balans xulosasi.
  * Kutilgan summa reja jadvalidan (`billing.util`), to'langan summa
@@ -105,6 +119,9 @@ interface StudentExpected {
  */
 @Injectable()
 export class DebtsService {
+  private readonly overviewCache = new Map<string, CacheEntry<DebtsOverviewResponse>>();
+  private readonly studentsCache = new Map<string, CacheEntry<DebtsStudentsResponse>>();
+
   constructor(
     @InjectRepository(Student)
     private readonly students: Repository<Student>,
@@ -114,15 +131,34 @@ export class DebtsService {
     private readonly tenant: TenantContextService,
   ) {}
 
+  /** To'lov yozilgan/o'zgargan/o'chirilganda `StudentPaymentsService` chaqiradi. */
+  invalidateCache(): void {
+    this.overviewCache.clear();
+    this.studentsCache.clear();
+  }
+
+  /** `tenantWhere`/`applyTenantScope` bilan bir xil naqsh — kontekst yo'q (worker/test) bo'lsa ham chidamli. */
+  private tenantCacheKey(): string {
+    return `${this.tenant?.getSchoolId() ?? '-'}|${this.tenant?.getBranchId() ?? '-'}`;
+  }
+
   // ─── Umumiy ko'rinish (KPI + chart + oylik taqsimot) ────────────────────────
 
-  async getOverview(): Promise<DebtsOverviewResponse> {
-    const now = new Date();
-    const ctx = await this.plans.getContext();
-    const axis = await this.resolveAxis(ctx.academic);
+async getOverview(): Promise<DebtsOverviewResponse> {
+  const cacheKey = this.tenantCacheKey();
+  const cached = this.overviewCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.data;
 
-    const students = await this.activeStudentsQb().getMany();
-    const paidMap = await this.paidByStudentMonth(axis);
+  const now = new Date();
+  const ctx = await this.plans.getContext();
+
+  // `resolveAxis()`ning o'zi MIN(billing_start_date) uchun alohida so'rov
+  // yuborardi — shu yerda baribir TO'LIQ faol o'quvchilar ro'yxati kerak
+  // bo'lgani uchun, o'qini o'sha ro'yxatdan JS'da hisoblab, bitta so'rovni
+  // tejaymiz (T-07).
+  const students = await this.activeStudentsQb().getMany();
+  const axis = this.axisFromEarliest(this.earliestBillingDate(students), ctx.academic);
+  const paidMap = await this.paidByStudentMonth(axis);
 
     // Har o'quvchi → oylik katakchalar.
     const allCells: DebtCell[][] = students.map((s) =>
@@ -144,7 +180,7 @@ export class DebtsService {
     const curKey: MonthKey = { year: now.getUTCFullYear(), month: now.getUTCMonth() + 1 };
     const curRow = monthly.find((m) => m.year === curKey.year && m.month === curKey.month);
 
-    return {
+    const result: DebtsOverviewResponse = {
       academic: ctx.academic,
       kpi: {
         totalOutstanding,
@@ -156,6 +192,8 @@ export class DebtsService {
       monthly,
       total,
     };
+    this.overviewCache.set(cacheKey, { at: Date.now(), data: result });
+    return result;
   }
 
   // ─── O'quvchilar qarzlari matritsasi ────────────────────────────────────────
@@ -163,6 +201,10 @@ export class DebtsService {
   async getStudents(query: DebtsQuery = {}): Promise<DebtsStudentsResponse> {
     const page = Math.max(query.page ?? 1, 1);
     const limit = query.limit ?? 20;
+    const cacheKey = `${this.tenantCacheKey()}|${JSON.stringify({ ...query, page, limit })}`;
+    const cached = this.studentsCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.data;
+
     const now = new Date();
     const ctx = await this.plans.getContext();
     const axis = await this.resolveAxis(ctx.academic);
@@ -227,7 +269,9 @@ export class DebtsService {
     const pageCount = Math.ceil(total / limit) || 1;
     const items = rows.slice((page - 1) * limit, (page - 1) * limit + limit);
 
-    return { axis, items, meta: { page, limit, total, pageCount }, summary };
+    const result: DebtsStudentsResponse = { axis, items, meta: { page, limit, total, pageCount }, summary };
+    this.studentsCache.set(cacheKey, { at: Date.now(), data: result });
+    return result;
   }
 
   // ─── Helperlar ──────────────────────────────────────────────────────────────
@@ -261,11 +305,19 @@ export class DebtsService {
     const row = await this.activeStudentsQb()
       .select('MIN(COALESCE(s.billing_start_date, s.created_at))', 'earliest')
       .getRawOne<{ earliest: string | null }>();
+    return this.axisFromEarliest(row?.earliest ?? null, academic);
+  }
 
+  /**
+   * `resolveAxis`dan ajratilgan sof mantiq — `earliest` allaqachon boshqa
+   * joyda (masalan, faol o'quvchilar ro'yxatidan JS'da) hisoblangan bo'lsa,
+   * qayta so'rov yubormasdan shu yerdan foydalanish mumkin (T-07).
+   */
+  private axisFromEarliest(earliest: string | null, academic: AcademicWindow): MonthKey[] {
     const acStart = new Date(`${academic.start.slice(0, 10)}T00:00:00Z`);
     let startOrd = acStart.getUTCFullYear() * 12 + (acStart.getUTCMonth() + 1);
-    if (row?.earliest) {
-      const e = new Date(`${String(row.earliest).slice(0, 10)}T00:00:00Z`);
+    if (earliest) {
+      const e = new Date(`${String(earliest).slice(0, 10)}T00:00:00Z`);
       if (!Number.isNaN(e.getTime())) {
         const eOrd = e.getUTCFullYear() * 12 + (e.getUTCMonth() + 1);
         if (eOrd < startOrd) startOrd = eOrd;
@@ -275,6 +327,17 @@ export class DebtsService {
     const startMonth = startOrd - startYear * 12;
     const start = `${startYear}-${String(startMonth).padStart(2, '0')}-01`;
     return buildMonthAxis(start, academic.end);
+  }
+
+  /** Faol o'quvchilar ro'yxatidan (allaqachon olingan) eng erta billing sanasi — JS'da, so'rovsiz. */
+  private earliestBillingDate(students: Student[]): string | null {
+    let earliest: string | null = null;
+    for (const s of students) {
+      const raw = s.billingStartDate ?? s.createdAt;
+      const str = raw instanceof Date ? raw.toISOString().slice(0, 10) : String(raw).slice(0, 10);
+      if (earliest === null || str < earliest) earliest = str;
+    }
+    return earliest;
   }
 
   /**
