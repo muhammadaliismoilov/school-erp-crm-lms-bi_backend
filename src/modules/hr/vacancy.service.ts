@@ -5,7 +5,7 @@ import { CreateVacancyDto, UpdateVacancyDto, VacancyQueryDto } from './dto/vacan
 import { Vacancy } from './entities/vacancy.entity';
 import { VacancyStatus } from './enums/hr.enums';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
-import { applyTenantScope } from '../../common/tenant/tenant-scope.util';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 export interface PageMeta {
   page: number;
@@ -125,7 +125,7 @@ export class VacancyService {
 
   private async findEntity(id: string): Promise<Vacancy> {
     const entity = await this.vacancies.findOne({
-      where: { id },
+      where: tenantWhere<Vacancy>(this.tenant, { id }, { branch: true }),
       relations: { department: true, position: true, recruiter: true },
     });
     if (!entity) throw new NotFoundException('Vakansiya topilmadi');
