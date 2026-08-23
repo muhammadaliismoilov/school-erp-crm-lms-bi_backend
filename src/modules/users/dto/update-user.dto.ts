@@ -15,9 +15,17 @@ import { CreateUserDto } from './create-user.dto';
  * Global ValidationPipe `forbidNonWhitelisted` bilan ishlaydi, shuning uchun
  * eski `{ roleNames: [...] }` yuborgan chaqiruv jim e'tiborsiz qolmaydi —
  * aniq 400 oladi (buzilish ko'rinadigan bo'ladi).
+ *
+ * `schoolId`/`branchId` ham xuddi shu sababga ko'ra ATAYLAB chiqarib
+ * tashlangan: bular ilgari shu endpoint orqali yozilardi, ya'ni
+ * `users.update` ruxsati bor har qanday school-scoped admin/direktor boshqa
+ * maktabdagi foydalanuvchini o'z maktabiga (yoki istalgan maktabga)
+ * "ko'chirib qo'yishi" mumkin edi — tenant chegarasini butunlay chetlab
+ * o'tib. Endi maktab/filial ko'chirish faqat
+ * `PATCH /users/:id/school` (`users.reassign-school`, faqat super-admin).
  */
 export class UpdateUserDto extends PartialType(
-  OmitType(CreateUserDto, ['role', 'roleNames', 'password'] as const),
+  OmitType(CreateUserDto, ['role', 'roleNames', 'password', 'schoolId', 'branchId'] as const),
 ) {
   @ApiPropertyOptional({
     description: 'Foydalanuvchi statusi.',
