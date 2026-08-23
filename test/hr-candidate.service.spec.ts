@@ -77,4 +77,21 @@ describe('CandidateService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
+
+  // Tenant izolyatsiya tuzatishi: `findEntity` ilgari `school_id` filtrisiz
+  // edi — boshqa maktabning nomzod yozuvini ID orqali topish mumkin edi.
+  it('scopes the candidate lookup to the active school (tenant izolyatsiyasi)', async () => {
+    const tenant = new TenantContextService();
+    service = new CandidateService(candidates as unknown as Repository<Candidate>, tenant);
+    candidates.findOne.mockResolvedValue(makeCandidate());
+
+    await tenant.run(async () => {
+      tenant.set({ schoolId: 'school-1' });
+      await service.getCandidate('c-1');
+    });
+
+    expect(candidates.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: 'c-1', schoolId: 'school-1' }) }),
+    );
+  });
 });
