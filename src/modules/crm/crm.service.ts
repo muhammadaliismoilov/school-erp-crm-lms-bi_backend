@@ -57,7 +57,7 @@ import { LeadTag } from "./entities/lead-tag.entity";
 import { LeadStatus } from "./enums/lead-status.enum";
 import { LeadTaskFilter } from "./enums/lead-task-filter.enum";
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
-import { tenantWhere } from '../../common/tenant/tenant-scope.util';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 /** Who performed the action — used for the CRM audit trail. */
 export interface CrmActor {
@@ -137,9 +137,12 @@ export class CrmService {
   /**
    * Apply the shared lead filters (search/source/assignee/date/tags/task) to a
    * query builder. Tag and task filters use sub-queries (no JOINs) so the same
-   * builder stays valid for the GROUP BY stats aggregate.
+   * builder stays valid for the GROUP BY stats aggregate. Tenant scope is
+   * applied here too, so every caller (list + kanban stats) is covered by a
+   * single fix.
    */
   private applyLeadFilters(qb: SelectQueryBuilder<Lead>, query: LeadQueryDto): SelectQueryBuilder<Lead> {
+    applyTenantScope(qb, "lead", this.tenant, { branch: true });
     if (query.search) {
       qb.andWhere(
         "(lead.firstName ILIKE :search OR lead.lastName ILIKE :search OR lead.phone ILIKE :search)",
@@ -1102,7 +1105,7 @@ export class CrmService {
 
   private async findLeadEntity(id: string): Promise<Lead> {
     const lead = await this.leads.findOne({
-      where: { id },
+      where: tenantWhere<Lead>(this.tenant, { id }, { branch: true }),
       relations: { source: true, assignedTo: true, tags: true },
     });
     if (!lead) {
