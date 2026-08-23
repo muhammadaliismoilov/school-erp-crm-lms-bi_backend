@@ -290,6 +290,13 @@ export const AppPermission = {
    * (T-02 imtiyoz oshirish tuzatishi, 1790100000000 migratsiyasi).
    */
   USERS_RESET_PASSWORD: 'users.reset-password',
+  /**
+   * Foydalanuvchini boshqa maktabga/filialga ko'chirish — tenant chegarasini
+   * kesib o'tuvchi yagona amal, shuning uchun `users.update`dan alohida va
+   * `CONFIDENTIAL_PERMISSION_CODES`da: hech qanday standart director/admin
+   * rolига avtomatik berilmaydi, faqat super-admin (`'*.*'`) ishlata oladi.
+   */
+  USERS_REASSIGN_SCHOOL: 'users.reassign-school',
   FILES_READ: 'files.read',
   FILES_UPLOAD: 'files.upload',
   ROLES_READ: 'roles.read',
@@ -592,6 +599,10 @@ export const CONFIDENTIAL_PERMISSION_CODES: readonly string[] = [
   AppPermission.COUNSELING_READ,
   AppPermission.COUNSELING_CREATE,
   AppPermission.COUNSELING_UPDATE,
+  // Tenant chegarasini kesib o'tadi (foydalanuvchini boshqa maktabga
+  // ko'chirish) — director/admin darajasidagi rol ham bunga ega bo'lmasligi
+  // kerak, faqat super-admin wildcard.
+  AppPermission.USERS_REASSIGN_SCHOOL,
 ];
 
 /**
