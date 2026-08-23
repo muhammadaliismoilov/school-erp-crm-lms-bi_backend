@@ -6,6 +6,7 @@ import type { LessonPeriod } from '../src/modules/academic/entities/lesson-perio
 import type { Quarter } from '../src/modules/academic/entities/quarter.entity';
 import type { SchoolClass } from '../src/modules/academic/entities/school-class.entity';
 import type { Subject } from '../src/modules/academic/entities/subject.entity';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 
 const emptyRepository = <T extends object>(): Repository<T> => ({} as Repository<T>);
 const yearId = '8cf35a94-92b4-4f1a-8a7a-90a78003892d';
@@ -156,5 +157,79 @@ describe('AcademicService academic years', () => {
     expect(result.stats.totalCount).toBe(1);
     expect(result.stats.currentYearName).toBe('2025/2026');
     expect(result.stats.currentCalendarYear).toBe(new Date().getFullYear());
+  });
+
+  // Tenant izolyatsiya tuzatishi: `ensureNameAvailable`/`ensureNoOverlap`
+  // ilgari BARCHA maktablar bo'ylab global tekshirilardi — bir maktabning
+  // "2026-2027" nomli yoki sanasi kesishgan yili borligi boshqa MAKTABDA
+  // xuddi shu nom/sanadagi yil yaratishga to'sqinlik qilardi (409). Bu
+  // testlar `where`ga aktiv maktab filtri qo'shilganini ushlab turadi.
+  it('scopes name/overlap uniqueness checks to the active school (tenant izolyatsiyasi)', async () => {
+    const tenant = new TenantContextService();
+    service = new AcademicService(
+      academicYears as unknown as Repository<AcademicYear>,
+      quarters as unknown as Repository<Quarter>,
+      emptyRepository<LessonPeriod>(),
+      emptyRepository<Subject>(),
+      emptyRepository<SchoolClass>(),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      tenant,
+    );
+    academicYears.findOne.mockResolvedValue(null); // name free + no overlap
+    academicYears.count.mockResolvedValue(0);
+
+    await tenant.run(async () => {
+      tenant.set({ schoolId: 'school-1' });
+      await service.createAcademicYear({
+        name: '2026-2027',
+        startDate: '2026-09-01',
+        endDate: '2027-05-31',
+      });
+    });
+
+    // 1-chaqiruv — ensureNameAvailable, 2-chaqiruv — ensureNoOverlap.
+    expect(academicYears.findOne).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ where: expect.objectContaining({ name: '2026-2027', schoolId: 'school-1' }) }),
+    );
+    expect(academicYears.findOne).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ where: expect.objectContaining({ schoolId: 'school-1' }) }),
+    );
+  });
+
+  // Tenant izolyatsiya tuzatishi: `listAcademicYears` umuman `where` shartisiz
+  // edi — BARCHA maktablarning o'quv yillarini (jumladan "joriy" yilni ham)
+  // qaytarardi. Bu haqiqiy production'da qo'lda topilgan (Elegant School
+  // uchun so'ralganda Uno'ning "joriy" o'quv yili qaytgan edi).
+  it('scopes the academic-years list to the active school (tenant izolyatsiyasi)', async () => {
+    const tenant = new TenantContextService();
+    service = new AcademicService(
+      academicYears as unknown as Repository<AcademicYear>,
+      quarters as unknown as Repository<Quarter>,
+      emptyRepository<LessonPeriod>(),
+      emptyRepository<Subject>(),
+      emptyRepository<SchoolClass>(),
+      undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+      tenant,
+    );
+    academicYears.find.mockResolvedValue([sampleYear({ isCurrent: true })]);
+
+    await tenant.run(async () => {
+      tenant.set({ schoolId: 'school-1' });
+      await service.listAcademicYears();
+    });
+
+    expect(academicYears.find).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ schoolId: 'school-1' }) }),
+    );
   });
 });
