@@ -171,7 +171,7 @@ export class TimesheetService {
 
   private async loadResponse(id: string): Promise<TimesheetResponse> {
     const entity = await this.timesheets.findOne({
-      where: { id },
+      where: tenantWhere<Timesheet>(this.tenant, { id }, { branch: true }),
       relations: { department: true, lines: { staffMember: true } },
     });
     if (!entity) throw new NotFoundException('Taqvim topilmadi');
