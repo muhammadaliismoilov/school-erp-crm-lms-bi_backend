@@ -6,6 +6,7 @@ import type { JournalEntry } from '../src/modules/lms/entities/journal-entry.ent
 import type { CommunicationService } from '../src/modules/communication/communication.service';
 import { CampaignStatus } from '../src/modules/communication/enums/communication.enums';
 import type { AuditService } from '../src/modules/audit/audit.service';
+import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
 import type { AcademicYear } from '../src/modules/academic/entities/academic-year.entity';
 import type { LessonPeriod } from '../src/modules/academic/entities/lesson-period.entity';
 import type { Quarter } from '../src/modules/academic/entities/quarter.entity';
@@ -419,5 +420,103 @@ describe('AcademicService classes hardening', () => {
     await expect(service.sendClassSms(classId, { body: 'Salom' })).rejects.toBeInstanceOf(
       BadRequestException,
     );
+  });
+});
+
+// --------------------------------------- Tenant izolyatsiya tuzatishi (2026)
+//
+// `findRoomEntity`/`findUserEntity`/`findAcademicYear` (va boshqa xuddi shu
+// naqshdagi private topuvchilar) ilgari tenant filtri qo'shmasdi — bu testlar
+// tuzatish (`tenantWhere`) haqiqatan `createClass` orqali chaqirilayotganini
+// va boshqa maktabga tegishli yozuv topilmasligini (NotFoundException) ushlab
+// turadi. Vakillik namunasi sifatida bitta oqim (createClass) yetarli, chunki
+// qolgan finder'lar bir xil bir qatorlik tuzatish.
+describe('AcademicService tenant izolyatsiyasi', () => {
+  const academicYearId = '5c617a45-57a4-4864-89c8-96e299173908';
+  const roomId = '42f35a94-92b4-4f1a-8a7a-90a78003892d';
+  const curatorId = '77f35a94-92b4-4f1a-8a7a-90a78003892d';
+  const academicYear = { id: academicYearId, name: '2025/2026', startDate: '2025-09-01', endDate: '2026-06-15' } as AcademicYear;
+  const room = { id: roomId, floor: 1, roomNumber: '101', normalizedRoomNumber: '101' } as Room;
+  const curator = { id: curatorId, firstName: 'Aziz', lastName: 'Toshmatov', username: 'aziz' } as User;
+
+  let academicYears: jest.Mocked<Pick<Repository<AcademicYear>, 'findOne'>>;
+  let classes: jest.Mocked<Pick<Repository<SchoolClass>, 'create' | 'save' | 'findOne'>>;
+  let rooms: jest.Mocked<Pick<Repository<Room>, 'findOne'>>;
+  let users: jest.Mocked<Pick<Repository<User>, 'findOne'>>;
+  let tenant: { getSchoolId: jest.Mock; getBranchId: jest.Mock };
+  let service: AcademicService;
+
+  beforeEach(() => {
+    academicYears = { findOne: jest.fn() };
+    classes = { create: jest.fn(), save: jest.fn(), findOne: jest.fn() };
+    rooms = { findOne: jest.fn() };
+    users = { findOne: jest.fn() };
+    tenant = { getSchoolId: jest.fn().mockReturnValue('school-A'), getBranchId: jest.fn().mockReturnValue(null) };
+
+    service = new AcademicService(
+      academicYears as unknown as Repository<AcademicYear>,
+      emptyRepository<Quarter>(),
+      emptyRepository<LessonPeriod>(),
+      emptyRepository<Subject>(),
+      classes as unknown as Repository<SchoolClass>,
+      rooms as unknown as Repository<Room>,
+      users as unknown as Repository<User>,
+      emptyRepository<Student>(),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      tenant as unknown as TenantContextService,
+    );
+  });
+
+  it('school-scoped tenant bilan har uchala topuvchi (year/room/curator) filtrni qo‘shadi', async () => {
+    academicYears.findOne.mockResolvedValue(academicYear);
+    rooms.findOne.mockResolvedValue(room);
+    users.findOne.mockResolvedValue(curator);
+    classes.findOne.mockResolvedValue(null);
+    classes.create.mockImplementation((value) => value as SchoolClass);
+    classes.save.mockImplementation(async (value) => ({ id: 'new-class', ...value }) as SchoolClass);
+
+    await service.createClass({
+      gradeLevel: 1,
+      section: 'a',
+      language: ClassLanguage.UZ,
+      roomId,
+      curatorId,
+      academicYearId,
+      capacity: 30,
+    });
+
+    expect(academicYears.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: academicYearId, schoolId: 'school-A' }) }),
+    );
+    expect(rooms.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: roomId, schoolId: 'school-A' }) }),
+    );
+    expect(users.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: curatorId, schoolId: 'school-A' }) }),
+    );
+  });
+
+  it('boshqa maktabga tegishli xona (rooms.findOne → null) — NotFoundException', async () => {
+    academicYears.findOne.mockResolvedValue(academicYear);
+    // Real DB'da `WHERE id = :id AND school_id = :tenantSchoolId` hech narsa
+    // qaytarmaydi — buni repository mock orqali simulyatsiya qilamiz.
+    rooms.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.createClass({
+        gradeLevel: 1,
+        section: 'a',
+        language: ClassLanguage.UZ,
+        roomId,
+        curatorId,
+        academicYearId,
+        capacity: 30,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });
