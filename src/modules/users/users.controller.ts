@@ -31,6 +31,7 @@ import { ApiLocalizedErrorResponses } from "../../common/swagger/api-localized-e
 import type { AuthenticatedUser } from "../../common/security/authenticated-user.interface";
 import { AssignRolesDto } from "./dto/assign-roles.dto";
 import { CreateUserDto } from "./dto/create-user.dto";
+import { ReassignSchoolDto } from "./dto/reassign-school.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { UserQueryDto } from "./dto/user-query.dto";
@@ -268,6 +269,37 @@ export class UsersController {
       this.handleError(
         error,
         "Foydalanuvchi parolini tiklashda server xatosi yuz berdi",
+      );
+    }
+  }
+
+  @Patch(":id/school")
+  @Permissions([AppPermission.USERS_REASSIGN_SCHOOL])
+  @ApiOperation({
+    summary: "Foydalanuvchini boshqa maktab/filialga ko'chirish",
+    description:
+      "`users.update` dan ataylab ajratilgan amal: tenant chegarasini kesib " +
+      "o'tuvchi yagona amal bo'lgani uchun faqat super-admin ishlata oladi. " +
+      "Har bir chaqiruv audit-logga yoziladi.",
+  })
+  @ApiParam(uuidParamDocs)
+  @ApiBody({ type: ReassignSchoolDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "Foydalanuvchi yangi maktabga/filialga ko'chirildi.",
+    type: UserResponseSchema,
+  })
+  async reassignSchool(
+    @Param() params: UuidParamDto,
+    @Body() dto: ReassignSchoolDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    try {
+      return await this.usersService.reassignSchool(params.id, dto, actor);
+    } catch (error) {
+      this.handleError(
+        error,
+        "Foydalanuvchini boshqa maktabga ko'chirishda server xatosi yuz berdi",
       );
     }
   }
