@@ -112,6 +112,66 @@ describe('CrmService', () => {
     expect(result.meta).toMatchObject({ page: 1, limit: 20, total: 3 });
   });
 
+  // Tenant izolyatsiya tuzatishi: `applyLeadFilters` (list + kanban stats)
+  // va `findLeadEntity` (ID bo'yicha) ilgari `school_id` filtri qo'shmasdi —
+  // haqiqiy production DB'da tasdiqlangan: bir maktab uchun so'ralganda
+  // boshqa maktab lidlari ham qaytardi. Bu testlar tuzatishni ushlab turadi.
+  it('scopes findLeads to the active school (tenant izolyatsiyasi)', async () => {
+    const tenant = new TenantContextService();
+    service = new CrmService(
+      leads as unknown as Repository<Lead>,
+      sources as unknown as Repository<LeadSource>,
+      comments as unknown as Repository<LeadComment>,
+      tags as unknown as Repository<LeadTag>,
+      studentsService as unknown as StudentsService,
+      tenant,
+      audit as unknown as AuditService,
+    );
+    const qb = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    };
+    leads.createQueryBuilder.mockReturnValue(qb as never);
+
+    await tenant.run(async () => {
+      tenant.set({ schoolId: 'school-1' });
+      await service.findLeads({ page: 1, limit: 20 });
+    });
+
+    expect(qb.andWhere).toHaveBeenCalledWith('lead.school_id = :tenantSchoolId', { tenantSchoolId: 'school-1' });
+  });
+
+  it('scopes findLead (by id) to the active school (tenant izolyatsiyasi)', async () => {
+    const tenant = new TenantContextService();
+    service = new CrmService(
+      leads as unknown as Repository<Lead>,
+      sources as unknown as Repository<LeadSource>,
+      comments as unknown as Repository<LeadComment>,
+      tags as unknown as Repository<LeadTag>,
+      studentsService as unknown as StudentsService,
+      tenant,
+      audit as unknown as AuditService,
+    );
+    leads.findOne.mockResolvedValue(leadEntity());
+
+    await tenant.run(async () => {
+      tenant.set({ schoolId: 'school-1' });
+      await service.findLead('lead-1');
+    });
+
+    expect(leads.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: 'lead-1', schoolId: 'school-1' }) }),
+    );
+  });
+
   it('changes a lead status and audits status_changed', async () => {
     leads.findOne.mockResolvedValue(leadEntity({ status: LeadStatus.NEW }));
 
