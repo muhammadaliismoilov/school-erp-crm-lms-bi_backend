@@ -87,4 +87,26 @@ describe('TimesheetService', () => {
       await expect(service.approveTimesheet('x')).rejects.toBeInstanceOf(NotFoundException);
     });
   });
+
+  // Tenant izolyatsiya tuzatishi: `loadResponse` (shu orqali `getTimesheet`)
+  // ilgari `school_id` filtrisiz edi — boshqa maktabning tabelini ID orqali
+  // topish mumkin edi.
+  it('scopes getTimesheet to the active school (tenant izolyatsiyasi)', async () => {
+    const tenant = new TenantContextService();
+    service = new TimesheetService(
+      timesheets as unknown as Repository<Timesheet>,
+      lines as unknown as Repository<TimesheetLine>,
+      tenant,
+    );
+    timesheets.findOne.mockResolvedValue(makeTimesheet());
+
+    await tenant.run(async () => {
+      tenant.set({ schoolId: 'school-1' });
+      await service.getTimesheet('ts-1');
+    });
+
+    expect(timesheets.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: 'ts-1', schoolId: 'school-1' }) }),
+    );
+  });
 });
