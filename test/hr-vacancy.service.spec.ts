@@ -78,4 +78,21 @@ describe('VacancyService', () => {
       await expect(service.updateVacancy('x', { title: 'Z' })).rejects.toBeInstanceOf(NotFoundException);
     });
   });
+
+  // Tenant izolyatsiya tuzatishi: `findEntity` ilgari `school_id` filtrisiz
+  // edi — boshqa maktabning vakansiyasini ID orqali topish mumkin edi.
+  it('scopes the vacancy lookup to the active school (tenant izolyatsiyasi)', async () => {
+    const tenant = new TenantContextService();
+    service = new VacancyService(vacancies as unknown as Repository<Vacancy>, tenant);
+    vacancies.findOne.mockResolvedValue(makeVacancy());
+
+    await tenant.run(async () => {
+      tenant.set({ schoolId: 'school-1' });
+      await service.getVacancy('v-1');
+    });
+
+    expect(vacancies.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: 'v-1', schoolId: 'school-1' }) }),
+    );
+  });
 });
