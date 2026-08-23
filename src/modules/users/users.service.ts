@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -18,7 +19,8 @@ import {
   isSuperAdmin,
 } from '../../common/security/privilege.policy';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
-import { applyTenantScope } from '../../common/tenant/tenant-scope.util';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
+import { AuditService } from '../audit/audit.service';
 import { PasswordService } from '../auth/password.service';
 import { Role } from '../identity/entities/role.entity';
 import { StaffMember } from '../hr/entities/staff-member.entity';
@@ -26,6 +28,7 @@ import { EmploymentStatus } from '../hr/enums/hr.enums';
 import { User } from './entities/user.entity';
 import { AssignRolesDto } from './dto/assign-roles.dto';
 import { CreateUserDto } from './dto/create-user.dto';
+import { ReassignSchoolDto } from './dto/reassign-school.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
 import { SessionRegistryService } from '../auth/session-registry.service';
@@ -51,6 +54,7 @@ export class UsersService {
     private readonly passwords: PasswordService,
     private readonly tenant: TenantContextService,
     private readonly sessionRegistry: SessionRegistryService,
+    private readonly audit: AuditService,
   ) {}
 
   async create(
@@ -407,14 +411,10 @@ export class UsersService {
     if (dto.status !== undefined) {
       user.status = dto.status;
     }
-    if (dto.schoolId !== undefined) {
-      user.schoolId = this.nullableText(dto.schoolId);
-    }
-    if (dto.branchId !== undefined) {
-      user.branchId = this.nullableText(dto.branchId);
-    }
-    // Rol va parol bu yerda ATAYLAB yo'q (T-02): rol — `assignRoles`
-    // (`roles.assign`), parol — `resetPassword` (`users.reset-password`).
+    // Rol, parol va maktab/filial bu yerda ATAYLAB yo'q (T-02 + tenant
+    // izolyatsiya tuzatishi): rol — `assignRoles` (`roles.assign`), parol —
+    // `resetPassword` (`users.reset-password`), maktab ko'chirish —
+    // `reassignSchool` (`users.reassign-school`, faqat super-admin).
     const saved = await this.users.save(user);
     return this.toUserResponse(saved);
   }
@@ -441,6 +441,12 @@ export class UsersService {
     // "Parolimni kimdir bilib qoldi" stsenariysining to'g'ridan-to'g'ri davosi:
     // eski parol bilan ochilgan sessiyalar darhol o'ladi.
     const revokedSessions = await this.sessionRegistry.revokeAllForUser(user.id);
+    await this.audit.log({
+      userId: actor.id,
+      action: 'user.password_reset',
+      entity: 'user',
+      entityId: user.id,
+    });
     return { changed: true, revokedSessions };
   }
 
@@ -462,12 +468,63 @@ export class UsersService {
       assertRolesGrantable(actor.permissions, roles);
     }
     user.roles = roles;
-    return this.toUserResponse(await this.users.save(user));
+    const saved = await this.users.save(user);
+    if (actor) {
+      await this.audit.log({
+        userId: actor.id,
+        action: 'user.roles_assigned',
+        entity: 'user',
+        entityId: user.id,
+        details: { roles: dto.roleNames },
+      });
+    }
+    return this.toUserResponse(saved);
+  }
+
+  /**
+   * Foydalanuvchini boshqa maktab/filialga ko'chirish — tenant chegarasini
+   * kesib o'tuvchi yagona amal. Faqat super-admin (ikki qavat himoya:
+   * `@Permissions([USERS_REASSIGN_SCHOOL])` controller darajasida — bu kod
+   * hech qanday standart rolga berilmaydi — va bu yerda `isSuperAdmin`
+   * qo'shimcha tekshiruvi, agar kimdir maxsus rolga shu kodni qo'lda
+   * biriktirib qo'ysa ham). `findUserEntity` emas — nishon ATAYLAB
+   * tenant filtrisiz izlanadi, chunki super-admin har qanday maktabdagi
+   * foydalanuvchini ko'chira olishi kerak.
+   */
+  async reassignSchool(
+    id: string,
+    dto: ReassignSchoolDto,
+    actor: AuthenticatedUser,
+  ): Promise<UserResponseSchema> {
+    if (!isSuperAdmin(actor.permissions)) {
+      throw new ForbiddenException(
+        'Foydalanuvchini boshqa maktabga faqat super-admin ko\'chira oladi.',
+      );
+    }
+    const user = await this.users.findOne({ where: { id }, relations: { roles: true } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const fromSchoolId = user.schoolId;
+    user.schoolId = this.nullableText(dto.schoolId);
+    user.branchId = dto.branchId !== undefined ? this.nullableText(dto.branchId) : null;
+    const saved = await this.users.save(user);
+
+    await this.audit.log({
+      userId: actor.id,
+      action: 'user.school_reassigned',
+      entity: 'user',
+      entityId: user.id,
+      details: { fromSchoolId, toSchoolId: dto.schoolId, toBranchId: dto.branchId ?? null },
+    });
+
+    return this.toUserResponse(saved);
   }
 
   private async findUserEntity(id: string): Promise<User> {
     const user = await this.users.findOne({
-      where: { id },
+      where: tenantWhere<User>(this.tenant, { id }, { branch: true }),
       relations: { roles: true },
     });
 
