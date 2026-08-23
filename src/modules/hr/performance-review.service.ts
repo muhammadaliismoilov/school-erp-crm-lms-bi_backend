@@ -147,7 +147,7 @@ export class PerformanceReviewService {
 
   private async findEntity(id: string): Promise<PerformanceReview> {
     const entity = await this.reviews.findOne({
-      where: { id },
+      where: tenantWhere<PerformanceReview>(this.tenant, { id }, { branch: true }),
       relations: { staffMember: true, reviewer: true },
     });
     if (!entity) throw new NotFoundException('Baholash topilmadi');
