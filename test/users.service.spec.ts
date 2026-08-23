@@ -6,6 +6,7 @@ import type { User } from '../src/modules/identity/entities/user.entity';
 import type { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
 import type { PasswordService } from '../src/modules/auth/password.service';
 import { UsersService } from '../src/modules/users/users.service';
+import type { AuditService } from '../src/modules/audit/audit.service';
 import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
 import type { SessionRegistryService } from '../src/modules/auth/session-registry.service';
 
@@ -23,6 +24,8 @@ describe('UsersService', () => {
   >;
   let passwords: jest.Mocked<Pick<PasswordService, 'hash'>>;
   let revokeAllForUser: jest.Mock;
+  let auditLog: jest.Mock;
+  let tenant: { getSchoolId: jest.Mock; getBranchId: jest.Mock };
   let service: UsersService;
 
   const teacherRole = { id: 'role-1', name: 'teacher', title: { uz: "O'qituvchi" } } as Role;
@@ -75,8 +78,9 @@ describe('UsersService', () => {
     passwords = {
       hash: jest.fn(),
     };
-    const tenant = { getSchoolId: () => null, getBranchId: () => null };
+    tenant = { getSchoolId: jest.fn().mockReturnValue(null), getBranchId: jest.fn().mockReturnValue(null) };
     revokeAllForUser = jest.fn().mockResolvedValue(2);
+    auditLog = jest.fn().mockResolvedValue(undefined);
     service = new UsersService(
       users as unknown as Repository<User>,
       roles as unknown as Repository<Role>,
@@ -84,6 +88,7 @@ describe('UsersService', () => {
       passwords as unknown as PasswordService,
       tenant as unknown as TenantContextService,
       { revokeAllForUser } as unknown as SessionRegistryService,
+      { log: auditLog } as unknown as AuditService,
     );
   });
 
@@ -398,6 +403,104 @@ describe('UsersService', () => {
     await service.remove(userId);
 
     expect(users.softDelete).toHaveBeenCalledWith(userId);
+  });
+
+  // ------------------------------------- Tenant izolyatsiya tuzatishi (2026)
+  //
+  // Ilgari `findUserEntity` tenant filtri qo'shmasdi — `users.update` ruxsati
+  // bor har qanday school-scoped admin boshqa maktabdagi foydalanuvchini ID
+  // orqali topib, o'qiy/tahrirlay/parolini tiklay olardi. Bu testlar shu
+  // teshikning yopilganini ushlab turadi.
+  describe('tenant izolyatsiyasi (findUserEntity)', () => {
+    it('school-scoped aktor uchun findOne so‘rovi aktiv maktab filtrini qo‘shadi', async () => {
+      tenant.getSchoolId.mockReturnValue('school-A');
+      users.findOne.mockResolvedValue(savedUser);
+
+      await service.findOne(userId);
+
+      expect(users.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id: userId, schoolId: 'school-A' }),
+        }),
+      );
+    });
+
+    it('boshqa maktabga tegishli foydalanuvchi topilmaydi — NotFoundException (404)', async () => {
+      // Real DB'da `WHERE id = :id AND school_id = :tenantSchoolId` hech
+      // narsa qaytarmaydi — buni repository mock orqali simulyatsiya qilamiz.
+      tenant.getSchoolId.mockReturnValue('school-A');
+      users.findOne.mockResolvedValue(null);
+
+      await expect(service.findOne(userId)).rejects.toBeInstanceOf(NotFoundException);
+      await expect(
+        service.update(userId, { firstName: 'X' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(
+        service.resetPassword(userId, 'New-strong-passphrase!', adminActor),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('super-admin (schoolId=null) uchun filtrsiz — istalgan maktabdagi user topiladi', async () => {
+      tenant.getSchoolId.mockReturnValue(null);
+      users.findOne.mockResolvedValue(savedUser);
+
+      await service.findOne(userId);
+
+      const where = users.findOne.mock.calls[0][0]?.where as Record<string, unknown>;
+      expect(where).not.toHaveProperty('schoolId');
+    });
+  });
+
+  describe('reassignSchool (faqat super-admin)', () => {
+    const superAdminActor = {
+      id: 'root',
+      username: 'root',
+      roles: ['super-admin'],
+      permissions: ['*.*'],
+    };
+
+    it('oddiy admin (super-admin emas) — 403, save chaqirilmaydi', async () => {
+      await expect(
+        service.reassignSchool(userId, { schoolId: 'school-B' }, adminActor),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(users.findOne).not.toHaveBeenCalled();
+      expect(users.save).not.toHaveBeenCalled();
+    });
+
+    it('super-admin foydalanuvchini boshqa maktabga ko‘chiradi va audit-log yozadi', async () => {
+      // Tenant kontekstidan qat'i nazar (masalan aktor o'z maktabida ishlayotgan
+      // bo'lsa ham) — nishon tenant filtrisiz topilishi kerak.
+      tenant.getSchoolId.mockReturnValue('school-A');
+      users.findOne.mockResolvedValue({ ...savedUser, schoolId: 'school-A' } as User);
+      users.save.mockImplementation(async (value) => value as User);
+
+      const result = await service.reassignSchool(
+        userId,
+        { schoolId: 'school-B', branchId: 'branch-9' },
+        superAdminActor,
+      );
+
+      expect(users.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: userId } }),
+      );
+      expect(result.schoolId).toBe('school-B');
+      expect(auditLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'user.school_reassigned',
+          entity: 'user',
+          entityId: userId,
+          details: expect.objectContaining({ fromSchoolId: 'school-A', toSchoolId: 'school-B' }),
+        }),
+      );
+    });
+
+    it('nishon topilmasa — NotFoundException', async () => {
+      users.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.reassignSchool(userId, { schoolId: 'school-B' }, superAdminActor),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
   });
 });
 
