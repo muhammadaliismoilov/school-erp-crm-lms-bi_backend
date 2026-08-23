@@ -234,7 +234,10 @@ export class AcademicService {
   }
 
   async listAcademicYears(): Promise<AcademicYearListResult> {
-    const items = await this.academicYears.find({ order: { startDate: "DESC" } });
+    const items = await this.academicYears.find({
+      where: tenantWhere<AcademicYear>(this.tenant, {}, { branch: true }),
+      order: { startDate: "DESC" },
+    });
     const current = items.find((year) => year.isCurrent) ?? null;
     return {
       items,
@@ -247,7 +250,9 @@ export class AcademicService {
   }
 
   async findAcademicYear(id: string): Promise<AcademicYear> {
-    const academicYear = await this.academicYears.findOne({ where: { id } });
+    const academicYear = await this.academicYears.findOne({
+      where: tenantWhere<AcademicYear>(this.tenant, { id }, { branch: true }),
+    });
     if (!academicYear) {
       throw new NotFoundException("Academic year not found");
     }
@@ -322,21 +327,29 @@ export class AcademicService {
 
   private async ensureNameAvailable(name: string, excludeId?: string): Promise<void> {
     const existing = await this.academicYears.findOne({
-      where: { name: name.trim(), ...(excludeId ? { id: Not(excludeId) } : {}) },
+      where: tenantWhere<AcademicYear>(
+        this.tenant,
+        { name: name.trim(), ...(excludeId ? { id: Not(excludeId) } : {}) },
+        { branch: true },
+      ),
     });
     if (existing) {
       throw new ConflictException("Bunday nomli o‘quv yili allaqachon mavjud");
     }
   }
 
-  /** Rejects a date range that intersects any other (non-deleted) academic year. */
+  /** Rejects a date range that intersects any other (non-deleted) academic year IN THE SAME SCHOOL. */
   private async ensureNoOverlap(startDate: string, endDate: string, excludeId?: string): Promise<void> {
     const overlap = await this.academicYears.findOne({
-      where: {
-        startDate: LessThanOrEqual(endDate),
-        endDate: MoreThanOrEqual(startDate),
-        ...(excludeId ? { id: Not(excludeId) } : {}),
-      },
+      where: tenantWhere<AcademicYear>(
+        this.tenant,
+        {
+          startDate: LessThanOrEqual(endDate),
+          endDate: MoreThanOrEqual(startDate),
+          ...(excludeId ? { id: Not(excludeId) } : {}),
+        },
+        { branch: true },
+      ),
     });
     if (overlap) {
       throw new ConflictException("O‘quv yili sanasi mavjud yil bilan ustma-ust tushadi");
@@ -1152,7 +1165,9 @@ export class AcademicService {
   }
 
   private async findLessonPeriodEntity(id: string): Promise<LessonPeriod> {
-    const lessonPeriod = await this.lessonPeriods.findOne({ where: { id } });
+    const lessonPeriod = await this.lessonPeriods.findOne({
+      where: tenantWhere<LessonPeriod>(this.tenant, { id }, { branch: true }),
+    });
     if (!lessonPeriod) {
       throw new NotFoundException("Lesson period not found");
     }
@@ -1276,7 +1291,9 @@ export class AcademicService {
   }
 
   private async findSubjectEntity(id: string): Promise<Subject> {
-    const subject = await this.subjects.findOne({ where: { id } });
+    const subject = await this.subjects.findOne({
+      where: tenantWhere<Subject>(this.tenant, { id }, { branch: true }),
+    });
 
     if (!subject) {
       throw new NotFoundException("Subject not found");
@@ -1527,7 +1544,7 @@ export class AcademicService {
 
   private async findCourseEntity(id: string): Promise<Course> {
     const course = await this.getCoursesRepository().findOne({
-      where: { id },
+      where: tenantWhere<Course>(this.tenant, { id }, { branch: true }),
       relations: this.courseRelations(),
     });
 
@@ -1745,7 +1762,9 @@ export class AcademicService {
   }
 
   private async findRoomEntity(id: string): Promise<Room> {
-    const room = await this.getRoomsRepository().findOne({ where: { id } });
+    const room = await this.getRoomsRepository().findOne({
+      where: tenantWhere<Room>(this.tenant, { id }, { branch: true }),
+    });
     if (!room) {
       throw new NotFoundException("Room not found");
     }
@@ -1754,7 +1773,9 @@ export class AcademicService {
   }
 
   private async findUserEntity(id: string): Promise<User> {
-    const user = await this.getUsersRepository().findOne({ where: { id } });
+    const user = await this.getUsersRepository().findOne({
+      where: tenantWhere<User>(this.tenant, { id }, { branch: true }),
+    });
     if (!user) {
       throw new NotFoundException("User not found");
     }
