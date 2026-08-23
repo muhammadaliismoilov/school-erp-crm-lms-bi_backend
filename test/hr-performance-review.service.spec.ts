@@ -80,4 +80,25 @@ describe('PerformanceReviewService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
+
+  // Tenant izolyatsiya tuzatishi: `findEntity` ilgari `school_id` filtrisiz
+  // edi — boshqa maktabning baholash yozuvini ID orqali topish mumkin edi.
+  it('scopes the review lookup to the active school (tenant izolyatsiyasi)', async () => {
+    const tenant = new TenantContextService();
+    service = new PerformanceReviewService(
+      reviews as unknown as Repository<PerformanceReview>,
+      staff as unknown as Repository<StaffMember>,
+      tenant,
+    );
+    reviews.findOne.mockResolvedValue(makeReview());
+
+    await tenant.run(async () => {
+      tenant.set({ schoolId: 'school-1' });
+      await service.getReview('r-1');
+    });
+
+    expect(reviews.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ id: 'r-1', schoolId: 'school-1' }) }),
+    );
+  });
 });
