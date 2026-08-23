@@ -10,7 +10,7 @@ import {
 import { Candidate } from './entities/candidate.entity';
 import { CandidateStage } from './enums/hr.enums';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
-import { applyTenantScope } from '../../common/tenant/tenant-scope.util';
+import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 
 export interface PageMeta {
   page: number;
@@ -138,7 +138,7 @@ export class CandidateService {
 
   private async findEntity(id: string): Promise<Candidate> {
     const entity = await this.candidates.findOne({
-      where: { id },
+      where: tenantWhere<Candidate>(this.tenant, { id }, { branch: true }),
       relations: { vacancy: true, recruiter: true },
     });
     if (!entity) throw new NotFoundException('Nomzod topilmadi');
