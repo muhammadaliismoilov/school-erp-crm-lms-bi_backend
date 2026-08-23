@@ -186,4 +186,30 @@ describe('TeacherService', () => {
       expect(teachers.softDelete).toHaveBeenCalledWith('t-1');
     });
   });
+
+  // Tenant izolyatsiya tuzatishi: `getTeacherByStaff` ilgari `school_id`
+  // filtrisiz edi — boshqa maktab xodimining o'qituvchi kartochkasini
+  // `staffMemberId` orqali topish mumkin edi.
+  it('scopes getTeacherByStaff to the active school (tenant izolyatsiyasi)', async () => {
+    const tenant = new TenantContextService();
+    service = new TeacherService(
+      teachers as unknown as Repository<Teacher>,
+      staff as unknown as Repository<StaffMember>,
+      subjects as unknown as Repository<Subject>,
+      staffService as unknown as StaffService,
+      tenant,
+    );
+    teachers.findOne.mockResolvedValue(makeTeacher());
+
+    await tenant.run(async () => {
+      tenant.set({ schoolId: 'school-1' });
+      await service.getTeacherByStaff('sm-1');
+    });
+
+    expect(teachers.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ staffMemberId: 'sm-1', schoolId: 'school-1' }),
+      }),
+    );
+  });
 });
