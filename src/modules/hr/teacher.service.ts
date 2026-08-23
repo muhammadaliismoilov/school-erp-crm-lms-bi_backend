@@ -144,7 +144,7 @@ export class TeacherService {
    */
   async getTeacherByStaff(staffMemberId: string): Promise<TeacherResponse | null> {
     const entity = await this.teachers.findOne({
-      where: { staffMemberId },
+      where: tenantWhere<Teacher>(this.tenant, { staffMemberId }, { branch: true }),
       relations: { staffMember: true, subjects: true },
     });
     return entity ? this.toResponse(entity) : null;
