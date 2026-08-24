@@ -95,9 +95,9 @@ export class UsersService {
       phone: identifiers.phone,
       passwordHash: await this.passwords.hash(password),
       firstName: this.normalizeText(dto.firstName),
-      firstNameCyrillic: this.normalizeText(dto.firstNameCyrillic),
+      firstNameCyrillic: this.nullableText(dto.firstNameCyrillic),
       lastName: this.normalizeText(dto.lastName),
-      lastNameCyrillic: this.normalizeText(dto.lastNameCyrillic),
+      lastNameCyrillic: this.nullableText(dto.lastNameCyrillic),
       middleName: this.nullableText(dto.middleName),
       middleNameCyrillic: this.nullableText(dto.middleNameCyrillic),
       birthDate: this.nullableText(dto.birthDate),
@@ -373,13 +373,13 @@ export class UsersService {
       user.firstName = this.normalizeText(dto.firstName);
     }
     if (dto.firstNameCyrillic !== undefined) {
-      user.firstNameCyrillic = this.normalizeText(dto.firstNameCyrillic);
+      user.firstNameCyrillic = this.nullableText(dto.firstNameCyrillic);
     }
     if (dto.lastName !== undefined) {
       user.lastName = this.normalizeText(dto.lastName);
     }
     if (dto.lastNameCyrillic !== undefined) {
-      user.lastNameCyrillic = this.normalizeText(dto.lastNameCyrillic);
+      user.lastNameCyrillic = this.nullableText(dto.lastNameCyrillic);
     }
     if (dto.middleName !== undefined) {
       user.middleName = this.nullableText(dto.middleName);

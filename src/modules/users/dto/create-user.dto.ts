@@ -93,14 +93,15 @@ export class CreateUserDto {
   @Length(1, 80, { message: 'Ism 1 dan 80 belgigacha bo‘lishi kerak' })
   firstName: string;
 
-  @ApiProperty({ description: 'Ism kirill yozuvida.', example: 'Жавоҳир', minLength: 1, maxLength: 80 })
+  @ApiPropertyOptional({ description: 'Ism kirill yozuvida.', example: 'Жавоҳир', minLength: 1, maxLength: 80 })
+  @IsOptional()
   @Transform(trim)
   @IsString({ message: 'Ism kirillchada matn bo‘lishi kerak' })
   @Length(1, 80, { message: 'Ism kirillchada 1 dan 80 belgigacha bo‘lishi kerak' })
   @Matches(/^[\p{Script=Cyrillic}\s'’‘-]+$/u, {
     message: 'Ism kirillchada kirill harflari bilan yozilishi kerak',
   })
-  firstNameCyrillic: string;
+  firstNameCyrillic?: string;
 
   @ApiProperty({ description: 'Familiya lotin yozuvida.', example: 'Aliyev', minLength: 1, maxLength: 80 })
   @Transform(trim)
@@ -108,14 +109,15 @@ export class CreateUserDto {
   @Length(1, 80, { message: 'Familiya 1 dan 80 belgigacha bo‘lishi kerak' })
   lastName: string;
 
-  @ApiProperty({ description: 'Familiya kirill yozuvida.', example: 'Алиев', minLength: 1, maxLength: 80 })
+  @ApiPropertyOptional({ description: 'Familiya kirill yozuvida.', example: 'Алиев', minLength: 1, maxLength: 80 })
+  @IsOptional()
   @Transform(trim)
   @IsString({ message: 'Familiya kirillchada matn bo‘lishi kerak' })
   @Length(1, 80, { message: 'Familiya kirillchada 1 dan 80 belgigacha bo‘lishi kerak' })
   @Matches(/^[\p{Script=Cyrillic}\s'’‘-]+$/u, {
     message: 'Familiya kirillchada kirill harflari bilan yozilishi kerak',
   })
-  lastNameCyrillic: string;
+  lastNameCyrillic?: string;
 
   @ApiPropertyOptional({
     description: 'Otasining ismi lotin yozuvida.',
