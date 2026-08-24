@@ -37,7 +37,10 @@ export class CreateTeacherDto {
   @IsOptional() @IsString() @Length(1, 32) documentNumber?: string;
   @ApiPropertyOptional({ description: 'JSHSHIR (PINFL) — 14 raqam.' })
   @IsOptional() @Matches(/^\d{14}$/, { message: 'pinfl 14 ta raqamdan iborat bo‘lishi kerak' }) pinfl?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 20) phone?: string;
+  @ApiPropertyOptional({ example: '+998901234567' })
+  @IsOptional()
+  @Matches(/^\+998\d{9}$/, { message: 'Telefon raqami +998XXXXXXXXX formatida bo‘lishi kerak' })
+  phone?: string;
   @ApiPropertyOptional() @IsOptional() @IsEmail() email?: string;
   @ApiPropertyOptional({ description: 'Fotosurat havolasi (FaceID davomati uchun) — xodim yozuviga saqlanadi.' })
   @IsOptional() @IsString() @Length(1, 2000) photoUrl?: string;

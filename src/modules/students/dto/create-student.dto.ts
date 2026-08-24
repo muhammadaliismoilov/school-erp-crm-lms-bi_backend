@@ -175,10 +175,9 @@ export class CreateStudentDto {
   @Length(1, 500)
   address?: string;
 
-  @ApiPropertyOptional({ example: "+998901112233", maxLength: 32 })
+  @ApiPropertyOptional({ example: "+998901112233" })
   @IsOptional()
-  @IsString()
-  @Length(3, 32)
+  @Matches(/^\+998\d{9}$/, { message: 'Telefon raqami +998XXXXXXXXX formatida bo‘lishi kerak' })
   personalPhone?: string;
 
   // --- Qiziqishlar ---
@@ -208,9 +207,8 @@ export class CreateStudentDto {
   @Length(1, 40)
   guardianRelation?: string;
 
-  @ApiPropertyOptional({ example: "+998909066628", maxLength: 32 })
+  @ApiPropertyOptional({ example: "+998909066628" })
   @IsOptional()
-  @IsString()
-  @Length(3, 32)
+  @Matches(/^\+998\d{9}$/, { message: 'Telefon raqami +998XXXXXXXXX formatida bo‘lishi kerak' })
   guardianPhone?: string;
 }

@@ -109,7 +109,10 @@ export class CreateStaffMemberDto {
   @ApiPropertyOptional({ example: 'Akmalovich' }) @IsOptional() @IsString() @Length(1, 80) middleName?: string;
   @ApiPropertyOptional({ example: 'Акмалович' }) @IsOptional() @IsString() @Length(1, 80) middleNameCyrillic?: string;
 
-  @ApiPropertyOptional() @IsOptional() @IsString() @Length(5, 20) phone?: string;
+  @ApiPropertyOptional({ example: '+998901234567' })
+  @IsOptional()
+  @Matches(/^\+998\d{9}$/, { message: 'Telefon raqami +998XXXXXXXXX formatida bo‘lishi kerak' })
+  phone?: string;
   @ApiPropertyOptional() @IsOptional() @IsEmail() email?: string;
   @ApiPropertyOptional({ description: 'Xodim fotosurati havolasi (FaceID davomati uchun).' })
   @IsOptional() @IsString() @Length(1, 2000) photoUrl?: string;

@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEmail, IsOptional, IsString, Length, ValidateNested } from 'class-validator';
+import { IsEmail, IsOptional, IsString, Length, Matches, ValidateNested } from 'class-validator';
 import { LocalizedTextInputDto } from '../../../common/i18n/dto/localized-text.dto';
 
 export class UpsertSchoolDto {
@@ -23,10 +23,9 @@ export class UpsertSchoolDto {
   @IsEmail()
   contactEmail?: string;
 
-  @ApiPropertyOptional({ example: '+998901234567', minLength: 1, maxLength: 32 })
+  @ApiPropertyOptional({ example: '+998901234567' })
   @IsOptional()
-  @IsString()
-  @Length(1, 32)
+  @Matches(/^\+998\d{9}$/, { message: 'Telefon raqami +998XXXXXXXXX formatida bo‘lishi kerak' })
   contactPhone?: string;
 
   @ApiPropertyOptional({ example: 'UZS', minLength: 3, maxLength: 3 })

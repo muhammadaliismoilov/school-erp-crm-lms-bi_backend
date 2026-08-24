@@ -1,13 +1,16 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEmail, IsEnum, IsInt, IsOptional, IsString, IsUUID, Length, Max, Min } from 'class-validator';
+import { IsEmail, IsEnum, IsInt, IsOptional, IsString, IsUUID, Length, Matches, Max, Min } from 'class-validator';
 import { CandidateStage } from '../enums/hr.enums';
 
 export class CreateCandidateDto {
   @ApiProperty({ example: 'Aziz' }) @IsString() @Length(1, 80) firstName: string;
   @ApiProperty({ example: 'Karimov' }) @IsString() @Length(1, 80) lastName: string;
   @ApiProperty({ example: 'aziz@example.com' }) @IsEmail() email: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() @Length(1, 20) phone?: string;
+  @ApiPropertyOptional({ example: '+998901234567' })
+  @IsOptional()
+  @Matches(/^\+998\d{9}$/, { message: 'Telefon raqami +998XXXXXXXXX formatida bo‘lishi kerak' })
+  phone?: string;
   @ApiPropertyOptional({ format: 'uuid' }) @IsOptional() @IsUUID() vacancyId?: string;
   @ApiPropertyOptional({ format: 'uuid' }) @IsOptional() @IsUUID() recruiterId?: string;
   @ApiPropertyOptional({ enum: CandidateStage, default: CandidateStage.NEW })

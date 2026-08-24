@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsISO8601, IsOptional, IsString, Length } from 'class-validator';
+import { IsEnum, IsISO8601, IsOptional, IsString, Length, Matches } from 'class-validator';
 import { Gender } from '../enums/student-status.enum';
 
 /**
@@ -93,9 +93,8 @@ export class EnrollStudentDto {
   @Length(1, 32)
   guardianJshshir?: string;
 
-  @ApiProperty({ example: '+998909066628', description: 'Vasiy telefon raqami', maxLength: 32 })
-  @IsString()
-  @Length(3, 32)
+  @ApiProperty({ example: '+998909066628', description: 'Vasiy telefon raqami' })
+  @Matches(/^\+998\d{9}$/, { message: 'Telefon raqami +998XXXXXXXXX formatida bo‘lishi kerak' })
   guardianPhone: string;
 
   // --- Yashash manzili ---
@@ -118,9 +117,8 @@ export class EnrollStudentDto {
   address?: string;
 
   // --- Bog'lanish uchun ---
-  @ApiPropertyOptional({ example: '+998901112233', description: 'Shaxsiy telefon raqami', maxLength: 32 })
+  @ApiPropertyOptional({ example: '+998901112233', description: 'Shaxsiy telefon raqami' })
   @IsOptional()
-  @IsString()
-  @Length(3, 32)
+  @Matches(/^\+998\d{9}$/, { message: 'Telefon raqami +998XXXXXXXXX formatida bo‘lishi kerak' })
   personalPhone?: string;
 }
