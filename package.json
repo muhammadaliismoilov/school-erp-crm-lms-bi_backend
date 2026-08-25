@@ -21,6 +21,7 @@
     "migration:revert": "typeorm-ts-node-commonjs -d src/database/data-source.ts migration:revert",
     "migration:run:prod": "node dist/src/database/migrate-prod.js",
     "migration:hotfix:prod": "node dist/src/database/migrate-prod-hotfix.js",
+    "migration:baseline:prod": "node dist/src/database/baseline-migrations.js",
     "seed": "ts-node --transpile-only -r tsconfig-paths/register src/database/seed.ts",
     "backfill:student-payments": "ts-node --transpile-only -r tsconfig-paths/register src/database/backfill-student-payment-transactions.ts"
   },
