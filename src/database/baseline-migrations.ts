@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { readdirSync } from 'fs';
 import { join } from 'path';
 import { DataSource } from 'typeorm';
+import { migrationConnection } from './migration-connection';
 
 /**
  * Migratsiya tarixini BASELINE qilish (bir martalik xizmat amali).
@@ -157,20 +158,16 @@ async function main(): Promise<void> {
     return;
   }
 
-  const dataSource = new DataSource({
-    type: 'postgres',
-    host: process.env.DATABASE_HOST ?? 'localhost',
-    port: Number.parseInt(process.env.DATABASE_PORT ?? '5432', 10),
-    username: process.env.DATABASE_USER ?? 'yuton',
-    password: process.env.DATABASE_PASSWORD ?? 'yuton',
-    database: process.env.DATABASE_NAME ?? 'yuton_school',
-    ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false,
-  });
+  const { options, tavsif, alohidaUlanish } = migrationConnection();
+  const dataSource = new DataSource(options);
 
   await dataSource.initialize();
   try {
     console.log(apply ? '=== BASELINE (--apply: YOZADI) ===' : '=== BASELINE (dry-run) ===');
-    console.log(`Baza: ${process.env.DATABASE_NAME} @ ${process.env.DATABASE_HOST}\n`);
+    console.log(
+      `Ulanish: ${tavsif}` +
+        (alohidaUlanish ? ' (alohida MIGRATION_DATABASE_URL)\n' : ' (ilova ulanishi)\n'),
+    );
 
     // 1) Qorovul: sxema kutilgan holatdami?
     console.log('1) Sxema qorovuli:');

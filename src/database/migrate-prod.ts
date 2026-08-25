@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import 'dotenv/config';
 import { join } from 'path';
 import { DataSource } from 'typeorm';
+import { migrationConnection } from './migration-connection';
 
 /**
  * Production-uchun migratsiya ishga tushiruvchi — `npm run migration:run`dan
@@ -16,23 +17,22 @@ import { DataSource } from 'typeorm';
  * (build allaqachon shu faylni ham `dist/src/database/migrate-prod.js`ga
  * kompilyatsiya qiladi — alohida sozlash shart emas.)
  */
-const databaseSsl = process.env.DATABASE_SSL === 'true';
-
 async function main(): Promise<void> {
-  const dataSource = new DataSource({
-    type: 'postgres',
-    host: process.env.DATABASE_HOST ?? 'localhost',
-    port: Number.parseInt(process.env.DATABASE_PORT ?? '5432', 10),
-    username: process.env.DATABASE_USER ?? 'yuton',
-    password: process.env.DATABASE_PASSWORD ?? 'yuton',
-    database: process.env.DATABASE_NAME ?? 'yuton_school',
+  // Migratsiya ulanishi ilovanikidan alohida bo'lishi mumkin
+  // (`MIGRATION_DATABASE_URL`) — sabab: migration-connection.ts izohiga qarang.
+  const { options, tavsif, alohidaUlanish } = migrationConnection({
     synchronize: false,
     logging: true,
     entities: [join(__dirname, '..', '**/*.entity.js')],
     migrations: [join(__dirname, 'migrations/*.js')],
     migrationsTransactionMode: 'each',
-    ssl: databaseSsl ? { rejectUnauthorized: false } : false,
   });
+  console.log(
+    `Migratsiya ulanishi: ${tavsif}` +
+      (alohidaUlanish ? ' (alohida MIGRATION_DATABASE_URL)' : ' (ilova ulanishi)'),
+  );
+
+  const dataSource = new DataSource(options);
 
   await dataSource.initialize();
   try {
