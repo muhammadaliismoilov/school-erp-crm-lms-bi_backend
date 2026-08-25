@@ -25,8 +25,15 @@ import { DataSource } from 'typeorm';
  *    o'chirmaydi va mavjud qatorni o'zgartirmaydi. Qayta ishga tushirish xavfsiz.
  *
  * Ishga tushirish:
- *   node dist/src/database/baseline-migrations.js            # dry-run
- *   node dist/src/database/baseline-migrations.js --apply    # yozadi
+ *   node dist/src/database/baseline-migrations.js             # dry-run
+ *   node dist/src/database/baseline-migrations.js --apply     # yozadi
+ *   node dist/src/database/baseline-migrations.js --print-sql # SQL chiqaradi
+ *
+ * `--print-sql` — bazaga ULANMAYDI: qorovuli va idempotentligi ichiga
+ * o'rnatilgan yagona SQL blokini chiqaradi. Konteynerga kira olmaganda
+ * (masalan Render Free tarifida shell yo'q) shu SQL'ni bevosita baza
+ * konsolida (Supabase SQL Editor) bajarish mumkin — mantiq bu fayldan
+ * chiqqani uchun ikkinchi "haqiqat manbasi" paydo bo'lmaydi.
  */
 
 /** Sxema haqiqatan kutilgan holatdami — baseline'dan oldingi qorovul. */
@@ -88,8 +95,67 @@ function migratsiyalarniOqi(katalog: string): MigrationFayl[] {
   return natija.sort((a, b) => a.timestamp - b.timestamp);
 }
 
+/** SQL matnidagi apostrofni ekranlash. */
+const sqlLiteral = (value: string): string => `'${value.replace(/'/g, "''")}'`;
+
+/**
+ * Bazaga ulanmasdan, o'z-o'zini himoya qiladigan SQL blokini chiqaradi:
+ *  - DO bloki sxema qorovulini bajaradi va mos kelmasa EXCEPTION beradi
+ *    (tranzaksiya butunlay bekor bo'ladi — yarim yozilgan holat bo'lmaydi);
+ *  - INSERT ... WHERE NOT EXISTS — idempotent, takroran bajarish xavfsiz.
+ */
+function sqlChiqar(migratsiyalar: MigrationFayl[]): string {
+  const values = migratsiyalar
+    .map((m) => `  (${m.timestamp}, ${sqlLiteral(m.name)})`)
+    .join(',\n');
+
+  return `-- Migratsiya tarixini BASELINE qilish (${migratsiyalar.length} ta yozuv).
+-- Manba: src/database/baseline-migrations.ts --print-sql
+-- HECH QANDAY sxema o'zgarishi yo'q: faqat "bu migratsiyalar allaqachon
+-- qo'llangan" degan qatorlar yoziladi. Takroran bajarish xavfsiz.
+BEGIN;
+
+-- Qorovul: sxema kutilgan holatda bo'lmasa, butun blok bekor bo'ladi.
+DO $$
+BEGIN
+  IF to_regclass('public.roles') IS NULL THEN
+    RAISE EXCEPTION 'Qorovul: "roles" jadvali yo''q — bu kutilgan baza emas';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'roles' AND column_name = 'is_privileged'
+  ) THEN
+    RAISE EXCEPTION 'Qorovul: "roles.is_privileged" yo''g''i — eng yangi migratsiya qo''llanmagan, baseline noto''g''ri bo''lardi';
+  END IF;
+  IF to_regclass('public.permissions') IS NULL THEN
+    RAISE EXCEPTION 'Qorovul: "permissions" jadvali yo''q — bu kutilgan baza emas';
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS "migrations" (
+  "id" SERIAL NOT NULL,
+  "timestamp" bigint NOT NULL,
+  "name" character varying NOT NULL,
+  CONSTRAINT "PK_migrations_id" PRIMARY KEY ("id")
+);
+
+INSERT INTO "migrations" ("timestamp", "name")
+SELECT v.ts, v.nm
+FROM (VALUES
+${values}
+) AS v(ts, nm)
+WHERE NOT EXISTS (SELECT 1 FROM "migrations" m WHERE m."name" = v.nm);
+
+COMMIT;`;
+}
+
 async function main(): Promise<void> {
   const apply = process.argv.includes('--apply');
+
+  if (process.argv.includes('--print-sql')) {
+    console.log(sqlChiqar(migratsiyalarniOqi(join(__dirname, 'migrations'))));
+    return;
+  }
 
   const dataSource = new DataSource({
     type: 'postgres',
