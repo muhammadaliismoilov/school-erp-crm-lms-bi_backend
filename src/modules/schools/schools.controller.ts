@@ -90,7 +90,7 @@ export class SchoolsController {
           region: "Toshkent shahri",
           district: "Yunusobod tumani",
           address: "Yunusobod tumani, 4-mavze, 15-uy",
-          websiteUrl: "https://intellekt.example.uz",
+          websiteUrl: "https://intellekt.crm.uz",
           schoolType: SchoolType.PRIVATE,
           email: "info@example.uz",
           phone: "+998712345678",

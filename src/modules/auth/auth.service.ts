@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -27,6 +28,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AuthTokens, JwtPayload, RequestMeta, TwoFactorChallenge } from './auth.types';
 import { PasswordService } from './password.service';
+import { SchoolsService } from '../schools/schools.service';
 
 @Injectable()
 export class AuthService {
@@ -42,6 +44,7 @@ export class AuthService {
     private readonly passwords: PasswordService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly schoolsService: SchoolsService,
   ) {}
 
   async register(dto: RegisterDto, meta: RequestMeta = {}): Promise<AuthTokens> {
@@ -72,7 +75,11 @@ export class AuthService {
     return this.issueTokens(savedUser, meta);
   }
 
-  async login(dto: LoginDto, meta: RequestMeta = {}): Promise<AuthTokens | TwoFactorChallenge> {
+  async login(
+    dto: LoginDto,
+    meta: RequestMeta = {},
+    tenantHostname?: string,
+  ): Promise<AuthTokens | TwoFactorChallenge> {
     const user = await this.users
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
@@ -92,6 +99,8 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    await this.assertSchoolMatchesTenant(user.schoolId ?? null, tenantHostname);
+
     // 2FA yoqilgan bo'lsa — token o'rniga qisqa muddatli chaqiriq qaytariladi.
     if (user.twoFactorEnabled) {
       const twoFactorToken = await this.jwtService.signAsync(
@@ -108,7 +117,12 @@ export class AuthService {
   }
 
   /** 2FA ikkinchi bosqichi: chaqiriq tokeni + authenticator kodi → haqiqiy tokenlar. */
-  async verifyTwoFactorLogin(twoFactorToken: string, code: string, meta: RequestMeta = {}): Promise<AuthTokens> {
+  async verifyTwoFactorLogin(
+    twoFactorToken: string,
+    code: string,
+    meta: RequestMeta = {},
+    tenantHostname?: string,
+  ): Promise<AuthTokens> {
     let payload: { sub?: string; purpose?: string };
     try {
       payload = await this.jwtService.verifyAsync(twoFactorToken, {
@@ -135,9 +149,45 @@ export class AuthService {
       throw new UnauthorizedException("Kod noto'g'ri yoki eskirgan");
     }
 
+    await this.assertSchoolMatchesTenant(user.schoolId ?? null, tenantHostname);
+
     user.lastLoginAt = new Date();
     await this.users.save(user);
     return this.issueTokens(user, meta);
+  }
+
+  /**
+   * Foydalanuvchi kirayotgan subdomain (masalan elegantschool.crm.uz) uning
+   * o'z maktabiga tegishli ekanini tekshiradi. `tenantHostname` berilmasa
+   * (masalan to'g'ridan-to'g'ri API chaqiruvi) tekshiruv o'tkazilmaydi —
+   * bu faqat brauzer orqali kirishda subdomain-adashishini oldini oladi,
+   * haqiqiy izolyatsiya JWT'dagi schoolId orqali ta'minlanadi.
+   * Superadmin (schoolId=null) istalgan maktab subdomeniga kira oladi.
+   */
+  private async assertSchoolMatchesTenant(userSchoolId: string | null, tenantHostname?: string): Promise<void> {
+    if (!tenantHostname) {
+      return;
+    }
+
+    if (this.isAdminHostname(tenantHostname)) {
+      if (userSchoolId !== null) {
+        throw new ForbiddenException('Bu hisob boshqa maktabga tegishli');
+      }
+      return;
+    }
+
+    if (userSchoolId === null) {
+      return;
+    }
+
+    const resolved = await this.schoolsService.resolveByHostname(tenantHostname);
+    if (!resolved || resolved.schoolId !== userSchoolId) {
+      throw new ForbiddenException('Bu hisob boshqa maktabga tegishli');
+    }
+  }
+
+  private isAdminHostname(hostname: string): boolean {
+    return hostname.trim().toLowerCase().split('.')[0] === 'admin';
   }
 
   // ─── 2FA sozlash (o'z hisobida) ───────────────────────────────────────────

@@ -13,7 +13,7 @@ describe('CreateSchoolDto', () => {
       region: 'Toshkent shahri',
       district: 'Yunusobod tumani',
       address: 'Yunusobod tumani, 4-mavze, 15-uy',
-      websiteUrl: 'https://intellekt.example.uz',
+      websiteUrl: 'https://intellekt.crm.uz',
       schoolType: SchoolType.PRIVATE,
       email: 'info@example.uz',
       phone: '+998712345678',
@@ -63,6 +63,34 @@ describe('CreateSchoolDto', () => {
     expect(serialized).toContain('upperCapacity');
     expect(serialized).toContain('logoFileId');
     expect(serialized).toContain('extra');
+  });
+
+  const validBase = {
+    name: 'Imkon School',
+    schoolType: SchoolType.PRIVATE,
+    monthlyPayment: 1000000,
+    paymentStartStrategy: PaymentStartStrategy.FULL_ACADEMIC_YEAR,
+    paymentPeriodUnit: PaymentPeriodUnit.YEAR,
+    workDays: WorkDays.FIVE_DAYS,
+    totalCapacity: 400,
+    elementaryCapacity: 140,
+    upperCapacity: 260,
+  };
+
+  it.each([
+    ['https://elegantschool.crm.uz', true],
+    ['http://elegantschool.crm.uz', true],
+    ['https://elegantschool.crm.uz/', true],
+    ['https://elegantschool.example.uz', false],
+    ['https://admin.crm.uz', false],
+    ['https://api.crm.uz', false],
+    ['https://www.crm.uz', false],
+    ['https://crm.uz', false],
+    ['https://e.crm.uz', false],
+  ])('websiteUrl %s -> valid: %s', async (websiteUrl, expectedValid) => {
+    const errors = await validateDto(CreateSchoolDto, { ...validBase, websiteUrl });
+    const hasWebsiteUrlError = errors.some((e) => e.property === 'websiteUrl');
+    expect(!hasWebsiteUrlError).toBe(expectedValid);
   });
 });
 

@@ -7,6 +7,7 @@ import type { LocalizedText } from '../../common/i18n/locale';
 import { School } from '../settings/entities/school.entity';
 import { CreateSchoolDto } from './dto/create-school.dto';
 import { GroupMonthlyPaymentDto } from './dto/group-monthly-payment.dto';
+import { ResolveSchoolResponseDto } from './dto/resolve-school-response.dto';
 import { SchoolQueryDto } from './dto/school-query.dto';
 import { SchoolListResponseDto, SchoolResponseDto, SchoolStatsDto } from './dto/school-response.dto';
 import { UpdateSchoolDto } from './dto/update-school.dto';
@@ -38,8 +39,18 @@ interface SchoolSaveInput {
   status: CommonStatus;
 }
 
+interface HostnameCacheEntry {
+  subdomain: string;
+  schoolId: string;
+  schoolName: string;
+  logoUrl: string | null;
+}
+
 @Injectable()
 export class SchoolsService {
+  private static readonly HOSTNAME_CACHE_TTL_MS = 5 * 60 * 1000;
+  private hostnameCache: { expiresAt: number; entries: HostnameCacheEntry[] } | null = null;
+
   constructor(
     @InjectRepository(School)
     private readonly schools: Repository<School>,
@@ -51,8 +62,35 @@ export class SchoolsService {
     await this.ensureSchoolCanBeSaved(input);
 
     const school = await this.schools.save(this.schools.create(input));
+    this.invalidateHostnameCache();
 
     return this.toSchoolResponse(school);
+  }
+
+  /**
+   * Subdomain-tenant login (frontend/middleware.ts, auth.service.ts) buni
+   * hostname qaysi maktabga tegishli ekanini aniqlash uchun chaqiradi.
+   * `website_url` maydonidan ajratib olinadi, alohida subdomain ustuni yo'q
+   * (kelishilgan qaror). Solishtirish FAQAT birinchi label (subdomain)
+   * bo'yicha — root domendan qat'i nazar (`elegantschool.crm.uz` va
+   * `elegantschool.localhost` bir xil "elegantschool" labeliga tushadi),
+   * shunday qilib lokal/staging muhitlar production DB yozuvlari bilan ham
+   * ishlaydi.
+   */
+  async resolveByHostname(hostname: string): Promise<ResolveSchoolResponseDto | null> {
+    const label = this.extractSubdomainLabel(hostname);
+    if (!label) {
+      return null;
+    }
+
+    const entries = await this.getHostnameCacheEntries();
+    const match = entries.find((entry) => entry.subdomain === label);
+
+    if (!match) {
+      return null;
+    }
+
+    return { schoolId: match.schoolId, schoolName: match.schoolName, logoUrl: match.logoUrl };
   }
 
   async findSchools(query: SchoolQueryDto = {}): Promise<SchoolListResponseDto> {
@@ -118,12 +156,16 @@ export class SchoolsService {
     await this.ensureSchoolCanBeSaved(input, id);
     Object.assign(school, input);
 
-    return this.toSchoolResponse(await this.schools.save(school));
+    const saved = await this.schools.save(school);
+    this.invalidateHostnameCache();
+
+    return this.toSchoolResponse(saved);
   }
 
   async deleteSchool(id: string): Promise<void> {
     await this.findSchoolEntity(id);
     await this.schools.softDelete(id);
+    this.invalidateHostnameCache();
   }
 
   private buildSchoolInput(dto: CreateSchoolDto, status = CommonStatus.ACTIVE): SchoolSaveInput {
@@ -307,5 +349,60 @@ export class SchoolsService {
 
     const normalized = this.normalizeText(value);
     return normalized.length > 0 ? normalized : null;
+  }
+
+  private async getHostnameCacheEntries(): Promise<HostnameCacheEntry[]> {
+    const now = Date.now();
+    if (this.hostnameCache && this.hostnameCache.expiresAt > now) {
+      return this.hostnameCache.entries;
+    }
+
+    const activeSchools = await this.schools.find({ where: { status: CommonStatus.ACTIVE } });
+    const entries = activeSchools
+      .map((school) => {
+        const subdomain = this.extractSubdomainLabelFromUrl(school.websiteUrl);
+        if (!subdomain) {
+          return null;
+        }
+
+        const name = this.ensureLocalizedName(school.name, school.normalizedName ?? '');
+        return { subdomain, schoolId: school.id, schoolName: name.uz, logoUrl: school.logoUrl ?? null };
+      })
+      .filter((entry): entry is HostnameCacheEntry => entry !== null);
+
+    this.hostnameCache = { expiresAt: now + SchoolsService.HOSTNAME_CACHE_TTL_MS, entries };
+    return entries;
+  }
+
+  private invalidateHostnameCache(): void {
+    this.hostnameCache = null;
+  }
+
+  /** `website_url` maydonidan (masalan `http://elegantschool.crm.uz`) subdomain labelini oladi. */
+  private extractSubdomainLabelFromUrl(websiteUrl?: string | null): string | null {
+    if (!websiteUrl) {
+      return null;
+    }
+
+    try {
+      const withProtocol = /^https?:\/\//i.test(websiteUrl) ? websiteUrl : `https://${websiteUrl}`;
+      return this.extractSubdomainLabel(new URL(withProtocol).hostname);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Har qanday hostname'dan (port bo'lsa kesiladi) birinchi labelni oladi —
+   * `www.` prefiksi bo'lsa o'tkazib yuboriladi. Root domendan qat'i nazar
+   * ishlaydi: `elegantschool.crm.uz`, `elegantschool.localhost:3000` va
+   * `www.elegantschool.crm.uz` barchasi "elegantschool"ga tushadi.
+   */
+  private extractSubdomainLabel(hostname: string): string {
+    const labels = hostname.trim().toLowerCase().split(':')[0].split('.');
+    if (labels[0] === 'www' && labels.length > 1) {
+      return labels[1] ?? '';
+    }
+    return labels[0] ?? '';
   }
 }

@@ -164,4 +164,79 @@ describe('SchoolsService', () => {
 
     expect(schools.softDelete).toHaveBeenCalledWith(schoolId);
   });
+
+  describe('resolveByHostname', () => {
+    const activeSchool = {
+      id: schoolId,
+      name: { uz: 'Elegant School', ru: 'Elegant School', en: 'Elegant School' },
+      normalizedName: 'elegant school',
+      websiteUrl: 'http://elegantschool.crm.uz',
+      logoUrl: 'https://cdn.example.uz/elegant-logo.png',
+      status: CommonStatus.ACTIVE,
+    } as School;
+
+    it('resolves a school by its website_url hostname', async () => {
+      schools.find.mockResolvedValue([activeSchool]);
+
+      const result = await service.resolveByHostname('elegantschool.crm.uz');
+
+      expect(result).toEqual({
+        schoolId,
+        schoolName: 'Elegant School',
+        logoUrl: 'https://cdn.example.uz/elegant-logo.png',
+      });
+    });
+
+    it('matches case-insensitively and ignores a leading www.', async () => {
+      schools.find.mockResolvedValue([activeSchool]);
+
+      const result = await service.resolveByHostname('WWW.ElegantSchool.CRM.UZ');
+
+      expect(result?.schoolId).toBe(schoolId);
+    });
+
+    it('matches by subdomain label regardless of root domain (local dev *.localhost)', async () => {
+      schools.find.mockResolvedValue([activeSchool]);
+
+      const result = await service.resolveByHostname('elegantschool.localhost:3000');
+
+      expect(result?.schoolId).toBe(schoolId);
+    });
+
+    it('returns null for an unknown hostname', async () => {
+      schools.find.mockResolvedValue([activeSchool]);
+
+      const result = await service.resolveByHostname('unknown.crm.uz');
+
+      expect(result).toBeNull();
+    });
+
+    it('skips schools with a missing or malformed website_url', async () => {
+      schools.find.mockResolvedValue([
+        { ...activeSchool, websiteUrl: null },
+        { ...activeSchool, id: 'other-id', websiteUrl: 'not a url' },
+      ] as School[]);
+
+      const result = await service.resolveByHostname('elegantschool.crm.uz');
+
+      expect(result).toBeNull();
+    });
+
+    it('caches resolved entries and only re-queries after invalidation', async () => {
+      schools.find.mockResolvedValue([activeSchool]);
+
+      await service.resolveByHostname('elegantschool.crm.uz');
+      await service.resolveByHostname('elegantschool.crm.uz');
+
+      expect(schools.find).toHaveBeenCalledTimes(1);
+
+      schools.findOne.mockResolvedValueOnce(activeSchool).mockResolvedValueOnce(null);
+      schools.save.mockImplementation(async (value) => value as School);
+      await service.updateSchool(schoolId, { name: 'Elegant School' });
+
+      await service.resolveByHostname('elegantschool.crm.uz');
+
+      expect(schools.find).toHaveBeenCalledTimes(2);
+    });
+  });
 });

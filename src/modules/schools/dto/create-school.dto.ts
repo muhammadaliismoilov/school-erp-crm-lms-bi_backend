@@ -19,6 +19,7 @@ import {
 } from 'class-validator';
 import { GroupMonthlyPaymentDto } from './group-monthly-payment.dto';
 import { PaymentPeriodUnit, PaymentStartStrategy, SchoolType, WorkDays } from '../enums/school.enums';
+import { SCHOOL_WEBSITE_URL_MESSAGE, SCHOOL_WEBSITE_URL_PATTERN } from '../website-url.constants';
 
 const trimText = (value: unknown): unknown =>
   typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : value;
@@ -65,10 +66,15 @@ export class CreateSchoolDto {
   @Length(1, 255)
   address?: string;
 
-  @ApiPropertyOptional({ description: 'Maktab veb-sayt manzili.', example: 'https://intellekt.example.uz' })
+  @ApiPropertyOptional({
+    description:
+      "Maktab veb-sayt manzili — subdomain-tenant login manbai (masalan https://elegantschool.crm.uz).",
+    example: 'https://elegantschool.crm.uz',
+  })
   @IsOptional()
   @Transform(({ value }) => trimText(value))
   @IsUrl({ require_protocol: true })
+  @Matches(SCHOOL_WEBSITE_URL_PATTERN, { message: SCHOOL_WEBSITE_URL_MESSAGE })
   websiteUrl?: string;
 
   @ApiProperty({ description: 'Maktab turi.', enum: SchoolType, example: SchoolType.PRIVATE })

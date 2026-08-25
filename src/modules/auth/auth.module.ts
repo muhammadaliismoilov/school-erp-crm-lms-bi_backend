@@ -11,6 +11,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { PasswordService } from './password.service';
 import { SessionRegistryService } from './session-registry.service';
 import { NotificationsDeliveryModule } from '../notifications-delivery/notifications-delivery.module';
+import { SchoolsModule } from '../schools/schools.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { NotificationsDeliveryModule } from '../notifications-delivery/notificat
     JwtModule.register({}),
     TypeOrmModule.forFeature([User, Role, UserSession]),
     NotificationsDeliveryModule,
+    SchoolsModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, PasswordService, JwtStrategy, SessionRegistryService],

@@ -9,6 +9,7 @@ import type { User } from '../src/modules/identity/entities/user.entity';
 import type { Role } from '../src/modules/identity/entities/role.entity';
 import type { UserSession } from '../src/modules/identity/entities/user-session.entity';
 import type { SecurityNotifierService } from '../src/modules/notifications-delivery/security-notifier.service';
+import type { SchoolsService } from '../src/modules/schools/schools.service';
 
 describe('AuthService — sessiya boshqaruvi (S2)', () => {
   let users: { createQueryBuilder: jest.Mock; save: jest.Mock };
@@ -34,6 +35,7 @@ describe('AuthService — sessiya boshqaruvi (S2)', () => {
       passwords as unknown as PasswordService,
       {} as unknown as JwtService,
       { get: () => undefined, getOrThrow: () => 'secret' } as unknown as ConfigService,
+      { resolveByHostname: jest.fn() } as unknown as SchoolsService,
     );
   });
 

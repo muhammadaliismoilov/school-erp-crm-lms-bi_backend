@@ -1,5 +1,19 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import { ApiLocalizedErrorResponses } from '../../common/swagger/api-localized-error-responses.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -27,10 +41,17 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  // Global limitdan (120/daq) qattiqroq — "bu hisob boshqa maktabga tegishli"
+  // kabi aniq xato xabari tanlangani uchun login/qo'pol-kuch cheklovi muhim.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiOperation({ summary: 'Username, email yoki telefon orqali tizimga kirish' })
   @ApiOkResponse({ description: 'Tizimga kirish muvaffaqiyatli, token juftligi qaytarildi.' })
-  login(@Body() dto: LoginDto, @Req() request: Request) {
-    return this.authService.login(dto, this.getRequestMeta(request));
+  login(
+    @Body() dto: LoginDto,
+    @Req() request: Request,
+    @Headers('x-tenant-subdomain') tenantHostname?: string,
+  ) {
+    return this.authService.login(dto, this.getRequestMeta(request), tenantHostname);
   }
 
   @Post('refresh')
@@ -90,9 +111,20 @@ export class AuthController {
 
   @Post('2fa/verify')
   @HttpCode(HttpStatus.OK)
+  // 6 xonali kodni qo'pol-kuch bilan sinashning oldini olish.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: "Login 2-bosqichi: 2FA kodi bilan token olish" })
-  verifyTwoFactor(@Body() dto: TwoFactorVerifyDto, @Req() request: Request) {
-    return this.authService.verifyTwoFactorLogin(dto.twoFactorToken, dto.code, this.getRequestMeta(request));
+  verifyTwoFactor(
+    @Body() dto: TwoFactorVerifyDto,
+    @Req() request: Request,
+    @Headers('x-tenant-subdomain') tenantHostname?: string,
+  ) {
+    return this.authService.verifyTwoFactorLogin(
+      dto.twoFactorToken,
+      dto.code,
+      this.getRequestMeta(request),
+      tenantHostname,
+    );
   }
 
   @Get('2fa/status')
