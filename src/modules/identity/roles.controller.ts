@@ -22,10 +22,12 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import { AppPermission } from "../../common/constants/permissions";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Permissions } from "../../common/decorators/permissions.decorator";
 import { UuidParamDto } from "../../common/dto/uuid-param.dto";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../../common/guards/permissions.guard";
+import type { AuthenticatedUser } from "../../common/security/authenticated-user.interface";
 import { ApiLocalizedErrorResponses } from "../../common/swagger/api-localized-error-responses.decorator";
 import { CreateRoleDto } from "./dto/create-role.dto";
 import { RoleQueryDto } from "./dto/role-query.dto";
@@ -103,9 +105,9 @@ export class RolesController {
     description: "Rol muvaffaqiyatli yaratildi.",
     type: RoleResponseSchema,
   })
-  async create(@Body() dto: CreateRoleDto) {
+  async create(@Body() dto: CreateRoleDto, @CurrentUser() actor: AuthenticatedUser) {
     try {
-      return await this.rolesService.create(dto);
+      return await this.rolesService.create(dto, actor);
     } catch (error) {
       this.handleError(error, "Rol yaratishda server xatosi yuz berdi");
     }
@@ -142,9 +144,13 @@ export class RolesController {
     description: "Rol muvaffaqiyatli yangilandi.",
     type: RoleResponseSchema,
   })
-  async update(@Param() params: UuidParamDto, @Body() dto: UpdateRoleDto) {
+  async update(
+    @Param() params: UuidParamDto,
+    @Body() dto: UpdateRoleDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
     try {
-      return await this.rolesService.update(params.id, dto);
+      return await this.rolesService.update(params.id, dto, actor);
     } catch (error) {
       this.handleError(error, "Rolni yangilashda server xatosi yuz berdi");
     }
@@ -163,9 +169,9 @@ export class RolesController {
     status: HttpStatus.NO_CONTENT,
     description: "Rol arxivlandi. Body qaytmaydi.",
   })
-  async remove(@Param() params: UuidParamDto) {
+  async remove(@Param() params: UuidParamDto, @CurrentUser() actor: AuthenticatedUser) {
     try {
-      await this.rolesService.remove(params.id);
+      await this.rolesService.remove(params.id, actor);
     } catch (error) {
       this.handleError(error, "Rolni arxivlashda server xatosi yuz berdi");
     }

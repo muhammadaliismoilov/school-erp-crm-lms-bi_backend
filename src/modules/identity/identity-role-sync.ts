@@ -15,6 +15,8 @@ export interface DefaultRoleDefinition {
   name: string;
   title: LocalizedText;
   permissions: string[];
+  /** Himoyalangan rol (faqat `roles.manage-privileged` egasi tahrirlay/tayinlay oladi). */
+  isPrivileged?: boolean;
 }
 
 export const defaultRoles: DefaultRoleDefinition[] = [
@@ -24,6 +26,12 @@ export const defaultRoles: DefaultRoleDefinition[] = [
     permissions: [AppPermission.SUPER_ADMIN],
   },
   {
+    /**
+     * Tepadan ikkinchi pog'ona: direktorning barcha operatsion huquqlari,
+     * lekin maxfiy kodlarsiz (psixolog yozuvlari, maktablararo ko'chirish)
+     * va `roles.manage-privileged`siz — shuning uchun direktor o'zini yoki
+     * yana bir direktorni tahrirlay/tayinlay olmaydi, buni faqat CEO qiladi.
+     */
     name: 'director',
     title: { uz: 'Direktor', ru: 'Директор', en: 'Director' },
     permissions: DEFAULT_PERMISSION_CODES.filter(
@@ -31,22 +39,43 @@ export const defaultRoles: DefaultRoleDefinition[] = [
         code !== AppPermission.SUPER_ADMIN &&
         !CONFIDENTIAL_PERMISSION_CODES.includes(code),
     ),
+    isPrivileged: true,
   },
   {
+    /**
+     * Eng yuqori operatsion pog'ona (super-admin'dan keyingi): direktorning
+     * hammasi PLUS maxfiy kodlar (`counseling.*`, `users.reassign-school`) va
+     * `roles.manage-privileged` — ya'ni faqat CEO (va texnik super-admin)
+     * direktor/CEO rollarini tahrirlashi yoki birovga tayinlashi mumkin.
+     */
+    name: 'ceo',
+    title: { uz: 'Bosh direktor (CEO)', ru: 'Генеральный директор (CEO)', en: 'CEO' },
+    permissions: DEFAULT_PERMISSION_CODES.filter((code) => code !== AppPermission.SUPER_ADMIN),
+    isPrivileged: true,
+  },
+  {
+    /**
+     * Rol/imtiyoz boshqaruvida umuman ishtirok etmaydi (RBAC ierarxiya
+     * rejasi, 5-bosqich): `WRITE_BUNDLES.roles` (create/update/delete/assign)
+     * formuladan chiqarilgan — qolgan barcha operatsion huquqlar saqlanadi.
+     */
     name: 'admin',
     title: { uz: 'Admin', ru: 'Администратор', en: 'Admin' },
     permissions: DEFAULT_PERMISSION_CODES.filter(
       (code) =>
         code !== AppPermission.SUPER_ADMIN &&
-        !CONFIDENTIAL_PERMISSION_CODES.includes(code),
+        !CONFIDENTIAL_PERMISSION_CODES.includes(code) &&
+        !WRITE_BUNDLES.roles.includes(code),
     ),
   },
   {
+    /** admin bilan bir xil sabab: rol/imtiyoz boshqaruvi endi faqat director/ceo/super-admin. */
     name: 'supermanager',
     title: { uz: 'Supermenejer', ru: 'Суперменеджер', en: 'Supermanager' },
     permissions: DEFAULT_PERMISSION_CODES.filter(
       (code) =>
         code !== AppPermission.SUPER_ADMIN &&
+        !WRITE_BUNDLES.roles.includes(code) &&
         !CONFIDENTIAL_PERMISSION_CODES.includes(code),
     ),
   },
@@ -205,6 +234,7 @@ export async function syncDefaultRoles(
           name: definition.name,
           title: definition.title,
           isSystem: true,
+          isPrivileged: definition.isPrivileged ?? false,
           permissions: wantedPermissions,
         }),
       );
@@ -217,14 +247,16 @@ export async function syncDefaultRoles(
       currentCodes.size !== wantedCodes.length || wantedCodes.some((code) => !currentCodes.has(code));
     const titleChanged = !localizedTextEquals(existing.title, definition.title);
     const isSystemChanged = existing.isSystem !== true;
+    const isPrivilegedChanged = existing.isPrivileged !== (definition.isPrivileged ?? false);
 
-    if (!titleChanged && !isSystemChanged && !permissionsChanged) {
+    if (!titleChanged && !isSystemChanged && !isPrivilegedChanged && !permissionsChanged) {
       result.unchanged.push(definition.name);
       continue;
     }
 
     existing.title = definition.title;
     existing.isSystem = true;
+    existing.isPrivileged = definition.isPrivileged ?? false;
     if (permissionsChanged) {
       existing.permissions = wantedCodes
         .map((code) => permissionByCode.get(code))

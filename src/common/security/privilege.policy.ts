@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import { CONFIDENTIAL_PERMISSION_CODES } from '../constants/permissions';
+import { AppPermission, CONFIDENTIAL_PERMISSION_CODES } from '../constants/permissions';
 import { permissionMatches } from './permission.matcher';
 
 /**
@@ -120,4 +120,38 @@ export function assertNotSelf(
 /** Texnik super-admin — siyosat cheklovlaridan mustasno. */
 export function isSuperAdmin(actorPermissions: readonly string[]): boolean {
   return actorPermissions.some((code) => code.split('.')[0] === '*');
+}
+
+/** Himoyalangan-rol tekshiruviga kerak bo'lgan minimal shakl. */
+export interface PrivilegedRoleCheck {
+  name: string;
+  isPrivileged: boolean;
+}
+
+/**
+ * RBAC ierarxiyasi — himoyalangan qatlam (T-02 uchligidan ALOHIDA qoida).
+ *
+ * `isPrivileged=true` rol (direktor, CEO) ustida uchta amal — tahrirlash,
+ * o'chirish, birovga biriktirish — faqat `roles.manage-privileged`ga ega
+ * aktorga (CEO, super-admin) ruxsat etiladi. Bu Q2'dan farqli: Q2 aktor
+ * nishon rolning KODLARINI qoplashini talab qiladi (masalan, direktor o'z
+ * kodlarini to'liq qoplaydi), lekin bu "yana bir direktor yaratish" yo'lini
+ * yopmaydi — ierarxiya darajasi kod to'plamidan alohida o'lchov.
+ */
+export function assertPrivilegedRolesManageable(
+  actorPermissions: readonly string[],
+  roles: readonly PrivilegedRoleCheck[],
+): void {
+  const privileged = roles.filter((role) => role.isPrivileged);
+  if (privileged.length === 0) return;
+
+  const covered = actorPermissions.some((code) =>
+    permissionMatches(code, AppPermission.ROLES_MANAGE_PRIVILEGED),
+  );
+  if (!covered) {
+    const names = privileged.map((role) => role.name).join(', ');
+    throw new ForbiddenException(
+      `'${names}' himoyalangan rol(lar): faqat CEO yoki super-admin tahrirlashi, o'chirishi yoki birovga biriktirishi mumkin.`,
+    );
+  }
 }

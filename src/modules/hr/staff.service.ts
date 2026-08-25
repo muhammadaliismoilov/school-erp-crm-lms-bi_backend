@@ -6,6 +6,7 @@ import type { AuthenticatedUser } from '../../common/security/authenticated-user
 import { permissionMatches } from '../../common/security/permission.matcher';
 import {
   assertNotSelf,
+  assertPrivilegedRolesManageable,
   assertRolesGrantable,
   isSuperAdmin,
 } from '../../common/security/privilege.policy';
@@ -330,6 +331,7 @@ export class StaffService {
       }
       assertNotSelf(actor.userId, user.id, 'rol');
       assertRolesGrantable(actor.permissions, [role]);
+      assertPrivilegedRolesManageable(actor.permissions, [role]);
     }
 
     user.roles = [role];

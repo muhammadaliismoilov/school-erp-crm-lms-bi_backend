@@ -321,6 +321,41 @@ describe('UsersService', () => {
 
       expect(users.save).toHaveBeenCalled();
     });
+
+    it("himoyalangan rol (isPrivileged) — Q2 qoplansa ham roles.manage-privileged'siz 403", async () => {
+      const privilegedDirectorRole = {
+        id: 'role-dir-priv',
+        name: 'director',
+        isPrivileged: true,
+        permissions: [{ code: 'students.read' }],
+      } as unknown as Role;
+      users.findOne.mockResolvedValue(savedUser);
+      roles.find.mockResolvedValue([privilegedDirectorRole]);
+
+      await expect(
+        service.assignRoles(userId, { roleNames: ['director'] }, adminActor),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(users.save).not.toHaveBeenCalled();
+    });
+
+    it("roles.manage-privileged'ga ega aktor himoyalangan rolni biriktira oladi", async () => {
+      const privilegedDirectorRole = {
+        id: 'role-dir-priv',
+        name: 'director',
+        isPrivileged: true,
+        permissions: [{ code: 'students.read' }],
+      } as unknown as Role;
+      users.findOne.mockResolvedValue(savedUser);
+      roles.find.mockResolvedValue([privilegedDirectorRole]);
+      users.save.mockImplementation(async (value) => value as User);
+
+      await service.assignRoles(userId, { roleNames: ['director'] }, {
+        ...adminActor,
+        permissions: [...adminActor.permissions, 'roles.manage-privileged'],
+      });
+
+      expect(users.save).toHaveBeenCalled();
+    });
   });
 
   describe('resetPassword (Q2\'/Q3 siyosati)', () => {

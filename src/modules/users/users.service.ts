@@ -15,6 +15,7 @@ import type { AuthenticatedUser } from '../../common/security/authenticated-user
 import {
   assertNotSelf,
   assertPasswordResettable,
+  assertPrivilegedRolesManageable,
   assertRolesGrantable,
   isSuperAdmin,
 } from '../../common/security/privilege.policy';
@@ -81,6 +82,7 @@ export class UsersService {
     // rol server kodida qat'iy — tekshiruv shart emas.
     if (actor && !isSuperAdmin(actor.permissions)) {
       assertRolesGrantable(actor.permissions, roles);
+      assertPrivilegedRolesManageable(actor.permissions, roles);
     }
     const password = dto.password ?? randomBytes(18).toString('base64url');
     // Maktab/filial: yaratuvchining aktiv maktabi ustun (boshqa maktabga xodim
@@ -466,6 +468,7 @@ export class UsersService {
       // Q3 avval: o'ziga rol yozish Q2 ni aylanib o'tishning eng qisqa yo'li.
       assertNotSelf(actor.id, id, 'rol');
       assertRolesGrantable(actor.permissions, roles);
+      assertPrivilegedRolesManageable(actor.permissions, roles);
     }
     user.roles = roles;
     const saved = await this.users.save(user);

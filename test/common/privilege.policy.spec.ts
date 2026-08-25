@@ -2,6 +2,7 @@ import { ForbiddenException } from '@nestjs/common';
 import {
   assertNotSelf,
   assertPasswordResettable,
+  assertPrivilegedRolesManageable,
   assertRolesGrantable,
   collectRoleCodes,
   isSuperAdmin,
@@ -108,6 +109,59 @@ describe('assertPasswordResettable (Q2\' — akkauntni egallashga qarshi)', () =
     expect(() =>
       assertPasswordResettable(['*.*'], [role('super-admin', ['*.*'])]),
     ).not.toThrow();
+  });
+});
+
+describe("assertPrivilegedRolesManageable (RBAC ierarxiyasi — himoyalangan qatlam)", () => {
+  const privileged = (name: string) => ({ name, isPrivileged: true });
+  const ordinary = (name: string) => ({ name, isPrivileged: false });
+
+  it("himoyalanmagan rollar uchun har doim o'tadi (roles.manage-privileged talab qilinmaydi)", () => {
+    expect(() =>
+      assertPrivilegedRolesManageable([], [ordinary('teacher'), ordinary('accountant')]),
+    ).not.toThrow();
+  });
+
+  it("himoyalangan rol uchun kod yo'q aktorga 403 beradi va rol nomini aytadi", () => {
+    expect(() =>
+      assertPrivilegedRolesManageable(['students.read'], [privileged('director')]),
+    ).toThrow(ForbiddenException);
+    try {
+      assertPrivilegedRolesManageable(['students.read'], [privileged('director')]);
+    } catch (error) {
+      expect((error as ForbiddenException).message).toContain('director');
+    }
+  });
+
+  it("director aktor (director kodlarining barchasiga ega) ham CEO/direktor rolini boshqara olmaydi — Q2 bu yerga taalluqli emas", () => {
+    // Q2 (assertRolesGrantable) director kodlarini to'liq qoplagan aktorni o'tkazadi,
+    // lekin himoyalangan qatlam kod TO'PLAMIGA emas, `roles.manage-privileged`
+    // kodining o'ziga qaraydi — direktor darajasidagi keng ruxsat kifoya emas.
+    const directorLikePermissions = ['students.read', 'finance.read', 'hr-staff.read'];
+    expect(() =>
+      assertPrivilegedRolesManageable(directorLikePermissions, [privileged('director')]),
+    ).toThrow(ForbiddenException);
+  });
+
+  it("roles.manage-privileged kodiga ega aktor uchun o'tadi", () => {
+    expect(() =>
+      assertPrivilegedRolesManageable(
+        [AppPermission.ROLES_MANAGE_PRIVILEGED],
+        [privileged('director'), privileged('ceo')],
+      ),
+    ).not.toThrow();
+  });
+
+  it("super-admin (`*.*`) himoyalangan rollarni ham boshqara oladi", () => {
+    expect(() =>
+      assertPrivilegedRolesManageable(['*.*'], [privileged('director')]),
+    ).not.toThrow();
+  });
+
+  it("aralash ro'yxatda kamida bitta himoyalangan rol bo'lsa — tekshiriladi", () => {
+    expect(() =>
+      assertPrivilegedRolesManageable(['students.read'], [ordinary('teacher'), privileged('ceo')]),
+    ).toThrow(ForbiddenException);
   });
 });
 

@@ -1,9 +1,17 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { Repository } from 'typeorm';
+import type { AuthenticatedUser } from '../src/common/security/authenticated-user.interface';
 import type { Permission } from '../src/modules/identity/entities/permission.entity';
 import type { Role } from '../src/modules/identity/entities/role.entity';
 import { RolesService } from '../src/modules/identity/roles.service';
 import { TenantContextService } from '../src/common/tenant/tenant-context.service';
+
+const actorWith = (permissions: string[]): AuthenticatedUser => ({
+  id: 'actor-1',
+  username: 'actor',
+  roles: [],
+  permissions,
+});
 
 describe('RolesService', () => {
   const roleId = 'c9c1df8f-2c6d-4f55-a60a-d29127b3ebd6';
@@ -137,6 +145,47 @@ describe('RolesService', () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
+  it('rejects creating a role with a permission code the actor does not hold (Q2)', async () => {
+    roles.findOne.mockResolvedValue(null);
+    permissions.find.mockResolvedValue(permissionsList);
+
+    await expect(
+      service.create(
+        { name: 'Sales Manager', permissionCodes: ['students.read', 'crm.manage'] },
+        actorWith(['students.read']),
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(roles.save).not.toHaveBeenCalled();
+  });
+
+  it('allows creating a role when the actor covers every requested code', async () => {
+    roles.findOne.mockResolvedValue(null);
+    permissions.find.mockResolvedValue(permissionsList);
+    roles.create.mockImplementation((value) => value as Role);
+    roles.save.mockImplementation(async (value) => ({ ...role, ...value }) as Role);
+
+    await expect(
+      service.create(
+        { name: 'Sales Manager', permissionCodes: ['students.read', 'crm.manage'] },
+        actorWith(['students.read', 'crm.manage']),
+      ),
+    ).resolves.toBeDefined();
+  });
+
+  it('allows a super-admin actor to grant any code', async () => {
+    roles.findOne.mockResolvedValue(null);
+    permissions.find.mockResolvedValue(permissionsList);
+    roles.create.mockImplementation((value) => value as Role);
+    roles.save.mockImplementation(async (value) => ({ ...role, ...value }) as Role);
+
+    await expect(
+      service.create(
+        { name: 'Sales Manager', permissionCodes: ['students.read', 'crm.manage'] },
+        actorWith(['*.*']),
+      ),
+    ).resolves.toBeDefined();
+  });
+
   it('returns paginated roles with stats for role management page', async () => {
     roles.find.mockResolvedValue([role]);
     roles.count.mockResolvedValue(7);
@@ -172,10 +221,70 @@ describe('RolesService', () => {
     expect(result.displayName).toBe('TUTOR');
   });
 
+  it('rejects updating a role to add a permission code the actor does not hold (Q2)', async () => {
+    roles.createQueryBuilder.mockReturnValue(mockQueryBuilder(role));
+    roles.findOne.mockResolvedValue(null);
+    permissions.find.mockResolvedValue(permissionsList);
+
+    await expect(
+      service.update(
+        roleId,
+        { permissionCodes: ['students.read', 'crm.manage'] },
+        actorWith(['students.read']),
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(roles.save).not.toHaveBeenCalled();
+  });
+
+  it("getPermissionCatalog `*.*` (super-admin wildcard) ni chiqarib tashlaydi", async () => {
+    permissions.find.mockResolvedValue([
+      { id: 'p0', code: '*.*', module: '*', action: '*' },
+      permissionsList[0],
+      permissionsList[1],
+    ] as Permission[]);
+
+    const catalog = await service.getPermissionCatalog();
+
+    expect(catalog.totalPermissions).toBe(2);
+    const allCodes = catalog.categories.flatMap((category) =>
+      category.resources.flatMap((resource) => resource.permissions.map((permission) => permission.code)),
+    );
+    expect(allCodes).not.toContain('*.*');
+  });
+
   it('does not delete system roles', async () => {
     roles.createQueryBuilder.mockReturnValue(mockQueryBuilder({ ...role, isSystem: true } as Role));
 
     await expect(service.remove(roleId)).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects updating a privileged role (director/ceo) without roles.manage-privileged', async () => {
+    const privilegedRole = { ...role, name: 'director', isPrivileged: true } as Role;
+    roles.createQueryBuilder.mockReturnValue(mockQueryBuilder(privilegedRole));
+
+    await expect(
+      service.update(roleId, { title: { uz: 'Yangi nom' } }, actorWith(['students.read'])),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(roles.save).not.toHaveBeenCalled();
+  });
+
+  it('allows updating a privileged role when actor holds roles.manage-privileged', async () => {
+    const privilegedRole = { ...role, name: 'director', isPrivileged: true } as Role;
+    roles.createQueryBuilder.mockReturnValue(mockQueryBuilder(privilegedRole));
+    roles.save.mockImplementation(async (value) => value as Role);
+
+    await expect(
+      service.update(roleId, { title: { uz: 'Yangi nom' } }, actorWith(['roles.manage-privileged'])),
+    ).resolves.toBeDefined();
+  });
+
+  it('rejects deleting a privileged role without roles.manage-privileged (even before the isSystem check)', async () => {
+    const privilegedRole = { ...role, name: 'director', isPrivileged: true, isSystem: false } as Role;
+    roles.createQueryBuilder.mockReturnValue(mockQueryBuilder(privilegedRole));
+
+    await expect(service.remove(roleId, actorWith(['students.read']))).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it('throws NotFoundException when role is missing', async () => {

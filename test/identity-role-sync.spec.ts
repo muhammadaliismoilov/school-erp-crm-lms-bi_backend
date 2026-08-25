@@ -1,7 +1,69 @@
 import type { Repository } from 'typeorm';
 import type { Permission } from '../src/modules/identity/entities/permission.entity';
 import type { Role } from '../src/modules/identity/entities/role.entity';
-import { syncDefaultRoles, type DefaultRoleDefinition } from '../src/modules/identity/identity-role-sync';
+import { defaultRoles, syncDefaultRoles, type DefaultRoleDefinition } from '../src/modules/identity/identity-role-sync';
+import { AppPermission, WRITE_BUNDLES } from '../src/common/constants/permissions';
+
+/**
+ * RBAC ierarxiyasi (5–6-bosqich) — real `defaultRoles` ta'rifining o'zini
+ * tekshiradi, `syncDefaultRoles` mexanizmini emas: sintetik fixture'lar bilan
+ * yozilgan testlar formula noto'g'ri o'zgarsa ham (masalan kimdir `admin`ga
+ * `roles.create`ni qaytarib qo'ysa) sezmay qolardi.
+ */
+describe("RBAC ierarxiyasi — defaultRoles formulasi", () => {
+  const byName = (name: string): DefaultRoleDefinition => {
+    const found = defaultRoles.find((role) => role.name === name);
+    if (!found) throw new Error(`defaultRoles ichida "${name}" topilmadi`);
+    return found;
+  };
+
+  it("admin va supermanager rol-boshqaruv kodlariga (roles.create/update/delete/assign) ega EMAS", () => {
+    for (const name of ['admin', 'supermanager']) {
+      const codes = byName(name).permissions;
+      for (const roleCode of WRITE_BUNDLES.roles) {
+        expect(codes).not.toContain(roleCode);
+      }
+    }
+  });
+
+  it("director va ceo rol-boshqaruv kodlariga ega", () => {
+    for (const name of ['director', 'ceo']) {
+      const codes = byName(name).permissions;
+      for (const roleCode of WRITE_BUNDLES.roles) {
+        expect(codes).toContain(roleCode);
+      }
+    }
+  });
+
+  it("faqat director va ceo isPrivileged=true", () => {
+    for (const role of defaultRoles) {
+      const expected = role.name === 'director' || role.name === 'ceo';
+      expect(Boolean(role.isPrivileged)).toBe(expected);
+    }
+  });
+
+  it("roles.manage-privileged faqat ceo formulasida bor — director, admin, supermanager'da yo'q", () => {
+    expect(byName('ceo').permissions).toContain(AppPermission.ROLES_MANAGE_PRIVILEGED);
+    for (const name of ['director', 'admin', 'supermanager']) {
+      expect(byName(name).permissions).not.toContain(AppPermission.ROLES_MANAGE_PRIVILEGED);
+    }
+  });
+
+  it("ceo ruxsatlari director ruxsatlarining ustki to'plami (kamida)", () => {
+    const directorCodes = new Set(byName('director').permissions);
+    const ceoCodes = new Set(byName('ceo').permissions);
+    for (const code of directorCodes) {
+      expect(ceoCodes.has(code)).toBe(true);
+    }
+  });
+
+  it('*.* faqat super-admin formulasida', () => {
+    for (const role of defaultRoles) {
+      const hasWildcard = role.permissions.includes(AppPermission.SUPER_ADMIN);
+      expect(hasWildcard).toBe(role.name === 'super-admin');
+    }
+  });
+});
 
 describe('syncDefaultRoles', () => {
   const directorTitle = { uz: 'Direktor', ru: 'Директор', en: 'Director' };
@@ -56,6 +118,7 @@ describe('syncDefaultRoles', () => {
       name: 'director',
       title: directorTitle,
       isSystem: true,
+      isPrivileged: false,
       permissions: [permissionStudents, permissionCrm],
     } as Role;
     mockExistingRoles([existing]);
@@ -67,6 +130,31 @@ describe('syncDefaultRoles', () => {
     expect(roleRepo.save).not.toHaveBeenCalled();
     expect(roleRepo.create).not.toHaveBeenCalled();
     expect(result).toEqual({ created: [], updated: [], unchanged: ['director'] });
+  });
+
+  it('updates when isPrivileged changes', async () => {
+    const existing = {
+      id: 'r1',
+      name: 'director',
+      title: directorTitle,
+      isSystem: true,
+      isPrivileged: false,
+      permissions: [permissionStudents, permissionCrm],
+    } as Role;
+    mockExistingRoles([existing]);
+
+    const result = await run([
+      {
+        name: 'director',
+        title: directorTitle,
+        permissions: ['students.read', 'crm.manage'],
+        isPrivileged: true,
+      },
+    ]);
+
+    expect(roleRepo.save).toHaveBeenCalledTimes(1);
+    expect(roleRepo.save).toHaveBeenCalledWith(expect.objectContaining({ isPrivileged: true }));
+    expect(result).toEqual({ created: [], updated: ['director'], unchanged: [] });
   });
 
   it('updates when only a localized title field (ru) changes — field-by-field, not JSON.stringify', async () => {
@@ -96,6 +184,7 @@ describe('syncDefaultRoles', () => {
       name: 'director',
       title: directorTitle,
       isSystem: true,
+      isPrivileged: false,
       // Ta'rifdagi tartibga qarama-qarshi tartibda.
       permissions: [permissionCrm, permissionStudents],
     } as Role;
@@ -155,6 +244,7 @@ describe('syncDefaultRoles', () => {
       name: 'director',
       title: directorTitle,
       isSystem: true,
+      isPrivileged: false,
       permissions: [permissionStudents],
     } as Role;
     const existingAdmin = {
@@ -162,6 +252,7 @@ describe('syncDefaultRoles', () => {
       name: 'admin',
       title: adminTitle,
       isSystem: true,
+      isPrivileged: false,
       permissions: [permissionStudents],
     } as Role;
     mockExistingRoles([existingDirector, existingAdmin]);
@@ -183,6 +274,7 @@ describe('syncDefaultRoles', () => {
       name: 'director',
       title: directorTitle,
       isSystem: true,
+      isPrivileged: false,
       permissions: [permissionStudents, permissionCrm],
     } as Role;
     mockExistingRoles([existing]);

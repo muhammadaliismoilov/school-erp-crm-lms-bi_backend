@@ -41,6 +41,14 @@ export const AppPermission = {
   ROLES_DELETE: 'roles.delete',
   /** Foydalanuvchiga rol biriktirish — imtiyoz oshirish yo'li, alohida kod. */
   ROLES_ASSIGN: 'roles.assign',
+  /**
+   * "Himoyalangan" (`isPrivileged=true`) rollarni — direktor, CEO — tahrirlash,
+   * o'chirish yoki biror foydalanuvchiga shu rollarni biriktirish. `roles.*`
+   * kodlaridan ATAYLAB alohida va `CONFIDENTIAL_PERMISSION_CODES`da: faqat CEO
+   * va super-admin ega bo'ladi, direktor esa o'zini yoki yana bir direktorni
+   * yarata olmaydi (RBAC ierarxiya rejasi, 2026-08-25).
+   */
+  ROLES_MANAGE_PRIVILEGED: 'roles.manage-privileged',
   // Resurs: data-jobs
   DATA_JOBS_CREATE: 'data-jobs.create',
   DATA_JOBS_UPDATE: 'data-jobs.update',
@@ -603,6 +611,10 @@ export const CONFIDENTIAL_PERMISSION_CODES: readonly string[] = [
   // ko'chirish) — director/admin darajasidagi rol ham bunga ega bo'lmasligi
   // kerak, faqat super-admin wildcard.
   AppPermission.USERS_REASSIGN_SCHOOL,
+  // Himoyalangan rollarni (direktor, CEO) boshqarish — director/admin/
+  // supermanager `DEFAULT_PERMISSION_CODES` orqali avtomatik OLMASIN deb
+  // maxfiy: faqat `ceo` roli formulasida qo'lda qo'shiladi.
+  AppPermission.ROLES_MANAGE_PRIVILEGED,
 ];
 
 /**

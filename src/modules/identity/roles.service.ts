@@ -2,6 +2,13 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Not, Repository, type FindOptionsWhere } from 'typeorm';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { AppPermission } from '../../common/constants/permissions';
+import type { AuthenticatedUser } from '../../common/security/authenticated-user.interface';
+import {
+  assertPrivilegedRolesManageable,
+  assertRolesGrantable,
+  isSuperAdmin,
+} from '../../common/security/privilege.policy';
 import type { LocalizedText } from '../../common/i18n/locale';
 import { DataScope } from '../../common/scope/data-scope.enum';
 import { normalizeOptionalLocalizedText } from '../../common/i18n/localized-text.util';
@@ -93,9 +100,16 @@ export class RolesService {
    * Builds the category → resource → action permission tree consumed by the
    * role editor. Driven entirely by the permissions stored in the DB, so it
    * stays correct as the permission set grows; unmapped modules land in "Boshqa".
+   *
+   * `*.*` (texnik super-admin wildcard) ATAYLAB chiqarib tashlanadi: aks
+   * holda u "Tizim (barchasi)" nomi bilan Rollar sahifasida oddiy checkbox
+   * sifatida ko'rinib, tanlab bosilishi mumkin edi — mudofaa chuqurligi
+   * (`RolesService.create`/`update`dagi Q2 tekshiruvi bilan qatlamlangan).
    */
   async getPermissionCatalog(): Promise<PermissionCatalogResponseSchema> {
-    const permissions = await this.permissions.find();
+    const permissions = (await this.permissions.find()).filter(
+      (permission) => permission.code !== AppPermission.SUPER_ADMIN,
+    );
 
     const grouped = new Map<PermissionCategoryKey, Map<string, CatalogPermissionSchema[]>>();
     for (const permission of permissions) {
@@ -141,10 +155,16 @@ export class RolesService {
     return { totalPermissions: permissions.length, categories };
   }
 
-  async create(dto: CreateRoleDto): Promise<RoleResponseSchema> {
+  async create(dto: CreateRoleDto, actor?: AuthenticatedUser): Promise<RoleResponseSchema> {
     const name = this.normalizeRoleName(dto.name);
     await this.ensureRoleNameIsAvailable(name);
     const permissions = await this.resolvePermissions(dto.permissionCodes);
+    // Q2: yaratuvchi faqat o'z ruxsatlaridan oshmaydigan kod to'plamini bera
+    // oladi — aks holda `roles.create` egasi o'ziga `*.*` (super-admin) berib
+    // qo'yishi mumkin edi (RBAC ierarxiya rejasi, 3-bosqich).
+    if (actor && !isSuperAdmin(actor.permissions)) {
+      assertRolesGrantable(actor.permissions, [{ name, permissions }]);
+    }
     const title = this.buildLocalizedText(dto.title, dto.name);
 
     const role = await this.roles.save(
@@ -161,13 +181,18 @@ export class RolesService {
     return this.toRoleResponse(role);
   }
 
-  async update(id: string, dto: UpdateRoleDto): Promise<RoleResponseSchema> {
+  async update(id: string, dto: UpdateRoleDto, actor?: AuthenticatedUser): Promise<RoleResponseSchema> {
     if (Object.keys(dto).length === 0) {
       throw new BadRequestException('At least one role field must be provided');
     }
 
     const role = await this.findRoleEntity(id);
     this.assertRoleIsEditable(role);
+    if (actor) {
+      assertPrivilegedRolesManageable(actor.permissions, [
+        { name: role.name, isPrivileged: role.isPrivileged },
+      ]);
+    }
     if (dto.name !== undefined) {
       const name = this.normalizeRoleName(dto.name);
       if (role.isSystem && name !== role.name) {
@@ -186,7 +211,13 @@ export class RolesService {
       role.description = normalizeOptionalLocalizedText(dto.description);
     }
     if (dto.permissionCodes !== undefined) {
-      role.permissions = await this.resolvePermissions(dto.permissionCodes);
+      const wantedPermissions = await this.resolvePermissions(dto.permissionCodes);
+      // Q2: faqat aktual o'zgarish (yangi so'ralgan kod to'plami) tekshiriladi —
+      // rolning o'zgarmay qolgan eski ruxsatlarini qayta tasdiqlash shart emas.
+      if (actor && !isSuperAdmin(actor.permissions)) {
+        assertRolesGrantable(actor.permissions, [{ name: role.name, permissions: wantedPermissions }]);
+      }
+      role.permissions = wantedPermissions;
     }
     if (dto.dataScope !== undefined) {
       role.dataScope = dto.dataScope;
@@ -195,9 +226,14 @@ export class RolesService {
     return this.toRoleResponse(await this.roles.save(role));
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, actor?: AuthenticatedUser): Promise<void> {
     const role = await this.findRoleEntity(id);
     this.assertRoleIsEditable(role);
+    if (actor) {
+      assertPrivilegedRolesManageable(actor.permissions, [
+        { name: role.name, isPrivileged: role.isPrivileged },
+      ]);
+    }
 
     if (role.isSystem) {
       throw new BadRequestException('System role cannot be deleted');
@@ -282,6 +318,7 @@ export class RolesService {
       title: role.title?.uz ?? role.title?.en ?? role.name,
       description: role.description?.uz ?? role.description?.en ?? null,
       isSystem: role.isSystem,
+      isPrivileged: role.isPrivileged,
       dataScope: role.dataScope ?? DataScope.ALL,
       permissionCount: permissions.length,
       permissions,

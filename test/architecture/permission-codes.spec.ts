@@ -121,6 +121,11 @@ function codesRequiredByEndpoints(): Set<string> {
  */
 const CODES_WITHOUT_ENDPOINT: Record<string, string> = {
   '*.*': 'texnik super-admin wildcard — guardda emas, matcherda qoplaydi',
+  'roles.manage-privileged':
+    "controller `@Permissions()` dekoratorida EMAS — `assertPrivilegedRolesManageable` " +
+    '(RolesService.update/remove, UsersService.create/assignRoles, ' +
+    "hr/staff.service.assignRoleToLinkedUser) ichida service darajasida tekshiriladi, " +
+    "'*.*' kabi endpoint-skaneriga ko'rinmaydigan kross-endpoint qoida.",
 };
 
 describe("o'lik kod bo'lmasligi (T-01 qorovuli)", () => {

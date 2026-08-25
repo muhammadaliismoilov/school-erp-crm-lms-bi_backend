@@ -32,6 +32,13 @@ export class RoleResponseSchema {
   isSystem: boolean;
 
   @ApiProperty({
+    description:
+      "Himoyalangan rol (direktor, CEO) — faqat 'roles.manage-privileged' egasi tahrirlaydi/o'chiradi/biriktiradi.",
+    example: false,
+  })
+  isPrivileged: boolean;
+
+  @ApiProperty({
     description: "Ma'lumot doirasi — imtiyozlardan alohida qatlam (qaysi qatorlar).",
     enum: DataScope,
     example: DataScope.ALL,

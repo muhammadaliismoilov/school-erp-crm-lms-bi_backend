@@ -29,6 +29,15 @@ export class Role extends UuidAuditEntity {
   isSystem: boolean;
 
   /**
+   * Himoyalangan rol (direktor, CEO): faqat `roles.manage-privileged`ga ega
+   * bo'lgan aktor (CEO, super-admin) tahrirlashi/o'chirishi yoki birovga shu
+   * rolni biriktirishi mumkin. Faqat seed orqali o'rnatiladi, API'dan
+   * o'zgartirilmaydi.
+   */
+  @Column({ name: 'is_privileged', type: 'boolean', default: false })
+  isPrivileged: boolean;
+
+  /**
    * Ma'lumot doirasi — ruxsatlardan ALOHIDA qatlam: ruxsat "qaysi amal",
    * doira "qaysi qatorlar" degan savolga javob beradi. `OWN` roli, masalan,
    * `students.read` bilan ham faqat o'z sinflarining o'quvchilarini ko'radi.

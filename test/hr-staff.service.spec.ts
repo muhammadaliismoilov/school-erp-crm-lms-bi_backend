@@ -130,6 +130,49 @@ describe('StaffService', () => {
     });
   });
 
+  describe("assignRoleToLinkedUser (himoyalangan rol — RBAC ierarxiyasi)", () => {
+    const targetUser = { id: 'user-1', roles: [] } as unknown as User;
+    const privilegedDirectorRole = {
+      id: 'role-dir',
+      name: 'director',
+      isPrivileged: true,
+    } as unknown as Role;
+
+    it("himoyalangan rolga (director) roles.manage-privileged'siz tayinlash 403 beradi", async () => {
+      staff.findOne.mockResolvedValue(makeStaff());
+      users.findOne.mockResolvedValueOnce(targetUser).mockResolvedValue(null);
+      roles.findOne.mockResolvedValue(privilegedDirectorRole);
+
+      await expect(
+        service.updateStaff(
+          'staff-1',
+          { roleName: 'director' } as never,
+          { userId: 'actor-1', username: 'actor', permissions: ['roles.assign', 'students.read'] },
+        ),
+      ).rejects.toThrow(/roles\.manage-privileged|himoyalangan/i);
+      expect(users.save).not.toHaveBeenCalled();
+    });
+
+    it("roles.manage-privileged'ga ega aktor xodimga director rolini tayinlay oladi", async () => {
+      staff.findOne.mockResolvedValue(makeStaff());
+      users.findOne.mockResolvedValueOnce(targetUser).mockResolvedValue(null);
+      users.save.mockResolvedValueOnce(targetUser);
+      roles.findOne.mockResolvedValue(privilegedDirectorRole);
+
+      await service.updateStaff(
+        'staff-1',
+        { roleName: 'director' } as never,
+        {
+          userId: 'actor-1',
+          username: 'actor',
+          permissions: ['roles.assign', 'roles.manage-privileged'],
+        },
+      );
+
+      expect(users.save).toHaveBeenCalledWith(expect.objectContaining({ roles: [privilegedDirectorRole] }));
+    });
+  });
+
   describe('tenant scoping (ko‘p-maktabli ajratish)', () => {
     it('getStaff — kontekstda maktab/filial bo‘lsa where‘ga qo‘shiladi', async () => {
       tenantCtx.schoolId = 'school-A';
