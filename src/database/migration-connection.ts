@@ -18,9 +18,13 @@ import type { DataSourceOptions } from 'typeorm';
  * ish vaqtidagi sozlamasi (`config/database.config.ts`) unga umuman
  * tegmaydi — aks holda ajratishning ma'nosi qolmasdi.
  *
- * Supabase eslatmasi: migratsiya uchun TO'G'RIDAN-TO'G'RI ulanish (5432-port)
- * ishlatilsin, tranzaksiya rejimidagi pooler (6543) emas — pooler sessiya
- * darajasidagi amallarni to'liq qo'llab-quvvatlamaydi.
+ * Supabase + Render eslatmasi (2026-08-25 da amalda tekshirilgan):
+ *  - Direct connection (`db.<ref>.supabase.co:5432`) faqat IPv6 manzilga ega;
+ *    Render IPv6 chiqishini qo'llab-quvvatlamaydi va `ENETUNREACH` beradi.
+ *  - SESSION pooler (`…pooler.supabase.com:5432`, foydalanuvchi
+ *    `postgres.<ref>`) — IPv4, oddiy ulanish kabi ishlaydi. SHU ishlatilsin.
+ *  - TRANSACTION pooler (6543) sessiya holatini saqlamaydi — migratsiyaga
+ *    yaramaydi.
  */
 
 const sslKerakmi = (): false | { rejectUnauthorized: boolean } =>
