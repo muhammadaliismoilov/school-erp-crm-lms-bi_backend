@@ -73,8 +73,30 @@ export class IdentitySeedService implements OnApplicationBootstrap {
       return;
     }
 
-    const existing = await this.users.findOne({ where: { username } });
+    const email = this.configService.get<string>('ADMIN_EMAIL');
+
+    /*
+     * MUHIM: username ham, email ham UNIQUE. Ilgari faqat username tekshirilardi,
+     * shuning uchun `ADMIN_USERNAME` o'zgartirilganda (lekin `ADMIN_EMAIL` eski
+     * qolganda) seed yangi hisob yaratishga urinib, `UQ_..._email` cheklovini
+     * buzardi. Bu `onApplicationBootstrap` ichida bo'lgani uchun BUTUN ILOVANI
+     * qulatardi va deploy port ochmasdi (2026-08-26 production hodisasi).
+     * Endi ikkala noyob maydon ham tekshiriladi.
+     */
+    const existing = await this.users.findOne({
+      where: email ? [{ username }, { email }] : { username },
+    });
     if (existing) {
+      if (existing.username !== username) {
+        // Sozlamada boshqa login ko'rsatilgan, lekin shu email bilan hisob bor.
+        // Jim o'tib ketmaymiz: aks holda "nega yangi admin paydo bo'lmadi"
+        // degan savol javobsiz qolardi.
+        this.logger.warn(
+          `ADMIN_USERNAME='${username}' so'ralgan, lekin ADMIN_EMAIL='${email}' ` +
+            `allaqachon '${existing.username}' hisobiga tegishli. Yangi admin YARATILMADI. ` +
+            `Yangi admin kerak bo'lsa ADMIN_EMAIL ni ham o'zgartiring.`,
+        );
+      }
       return;
     }
 
@@ -86,7 +108,7 @@ export class IdentitySeedService implements OnApplicationBootstrap {
     await this.users.save(
       this.users.create({
         username,
-        email: this.configService.get<string>('ADMIN_EMAIL'),
+        email,
         firstName: 'Demo',
         firstNameCyrillic: 'Demo',
         lastName: 'Admin',
