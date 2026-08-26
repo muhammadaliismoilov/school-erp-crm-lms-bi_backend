@@ -1,15 +1,22 @@
 import type { DataSourceOptions } from 'typeorm';
 
 /**
- * Migratsiya skriptlari uchun ulanish sozlamalari — ILOVANIKIDAN ALOHIDA.
+ * Migratsiya skriptlari uchun ulanish sozlamalari.
  *
- * NEGA ALOHIDA: production'da ilova `app_backend` roli bilan ulanadi, lekin
- * jadvallarning egasi `postgres`. Shu sababli ilovaning ulanishi `ALTER TABLE`
- * qila olmaydi (`must be owner of table roles`). Ilovaga doimiy DDL huquqi
- * berish o'rniga — eng kam huquq tamoyili — migratsiya paytidagina
- * ishlatiladigan alohida ulanish beriladi:
+ * ODATDAGI HOLAT: `MIGRATION_DATABASE_URL` berilmaydi va migratsiya ilovaning
+ * o'z ulanishi (`DATABASE_*`) bilan ishlaydi. Production'da bu 2026-08-26 dan
+ * buyon mumkin — sxema egaligi ilova roliga (`app_backend`) o'tkazilgan
+ * (`transfer-ownership.ts`), shuning uchun `ALTER TABLE` o'tadi.
+ *
+ * IXTIYORIY ZAXIRA: agar ilova roli biror bazada egalikka ega bo'lmasa
+ * (`must be owner of table roles`), migratsiya paytigina ishlatiladigan
+ * alohida ulanish berish mumkin:
  *
  *   MIGRATION_DATABASE_URL=postgresql://<egasi>:<parol>@<host>:5432/<baza>
+ *
+ * Buni ishlatishdan oldin o'ylab ko'ring: Render Free tarifida Pre-Deploy
+ * bosqichi yo'q, ya'ni bu parol ilovaning o'z muhitida (`process.env`) turadi
+ * va "eng kam huquq" foydasi kutilganidan ancha kam bo'ladi.
  *
  * O'zgaruvchi berilmasa, odatdagi `DATABASE_*` sozlamalariga qaytadi — lokal
  * ishlab chiqishda hech narsa o'zgarmaydi.

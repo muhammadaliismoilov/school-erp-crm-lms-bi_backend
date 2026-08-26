@@ -22,6 +22,7 @@
     "migration:run:prod": "node dist/src/database/migrate-prod.js",
     "migration:hotfix:prod": "node dist/src/database/migrate-prod-hotfix.js",
     "migration:baseline:prod": "node dist/src/database/baseline-migrations.js",
+    "migration:ownership:prod": "node dist/src/database/transfer-ownership.js",
     "seed": "ts-node --transpile-only -r tsconfig-paths/register src/database/seed.ts",
     "backfill:student-payments": "ts-node --transpile-only -r tsconfig-paths/register src/database/backfill-student-payment-transactions.ts"
   },
