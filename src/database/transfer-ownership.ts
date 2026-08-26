@@ -36,11 +36,12 @@ import { migrationConnection } from './migration-connection';
  *   node dist/src/database/transfer-ownership.js --apply            # bajaradi
  *   node dist/src/database/transfer-ownership.js --print-sql        # SQL chiqaradi
  *   … --to=<rol>   # maqsad rol (standart: DATABASE_USER)
+ *   … --all        # `--print-sql` uchun: hozirgi egasidan qat'i nazar hamma obyekt
  *
- * `--print-sql` bazaga ULANMAYDI: qorovuli va idempotentligi ichiga o'rnatilgan
- * yagona SQL blokini chiqaradi. Render Free'da shell yo'qligi sababli uni
- * bevosita Supabase SQL Editor'da bajarish mumkin — mantiq shu fayldan
- * chiqqani uchun ikkinchi "haqiqat manbasi" paydo bo'lmaydi.
+ * `--print-sql` bazaga ulanib obyektlar ro'yxatini oladi va oddiy SQL
+ * (`ALTER … OWNER TO` ro'yxati) chiqaradi. Render Free'da shell yo'qligi
+ * sababli uni bevosita Supabase SQL Editor'da bajarish mumkin — mantiq shu
+ * fayldan chiqqani uchun ikkinchi "haqiqat manbasi" paydo bo'lmaydi.
  */
 
 /** Egalikni o'zgartirish uchun obyekt turiga mos ALTER buyrug'i. */
@@ -86,7 +87,7 @@ const RELATION_SQL = `
     AND c.relkind IN ('r', 'p', 'S', 'v', 'm')
     AND d.objid IS NULL
     AND ${BOGLANGAN_KETMA_KETLIK}
-    AND pg_get_userbyid(c.relowner) <> $1
+    AND ($2::boolean OR pg_get_userbyid(c.relowner) <> $1)
   ORDER BY c.relkind, c.relname`;
 
 /**
@@ -105,113 +106,82 @@ const TIP_SQL = `
   WHERE n.nspname = 'public'
     AND t.typtype IN ('e', 'd')
     AND d.objid IS NULL
-    AND pg_get_userbyid(t.typowner) <> $1
+    AND ($2::boolean OR pg_get_userbyid(t.typowner) <> $1)
   ORDER BY t.typname`;
 
 /** SQL identifikatorini ekranlash (`"` ichida). */
 const ident = (nom: string): string => `"${nom.replace(/"/g, '""')}"`;
 
-/** SQL matn literalini ekranlash. */
-const literal = (qiymat: string): string => `'${qiymat.replace(/'/g, "''")}'`;
-
 /**
- * Bazaga ulanmasdan, o'z-o'zini himoya qiladigan SQL blokini chiqaradi.
+ * Bevosita baza konsolida (Supabase SQL Editor) bajariladigan SQL'ni chiqaradi.
  *
- * Blok dinamik: obyektlar ro'yxati lokal inventardan emas, bajarilayotgan
- * bazaning o'zidan olinadi — shuning uchun production'dagi haqiqiy holatga
- * mos ishlaydi va takroran bajarish xavfsiz.
+ * NEGA PL/pgSQL EMAS: dastlab bu bir dona dinamik `DO $$ … $$` bloki edi —
+ * Supabase SQL Editor uni to'g'ri uzatmadi (`syntax error at or near "DECLARE"`),
+ * chunki so'rovni dollar-quote ichidan bo'lib yuboradi. Shuning uchun bu yerda
+ * faqat ODDIY SQL: dollar-quoting ham, PL/pgSQL ham yo'q — har qanday klient
+ * (SQL Editor, psql, GUI) bir xil bajaradi.
+ *
+ * Obyektlar ro'yxati skript ulangan bazadan olinadi. Lokal va production
+ * sxemalari bir xilligi 2026-08-25 da o'lchov bilan tasdiqlangan (167 jadval,
+ * 2310 ustun, 724 indeks) — shuning uchun lokaldan olingan ro'yxat production
+ * uchun ham to'g'ri. Oxiridagi tekshiruv SELECT'i har qanday farqni ko'rsatadi.
+ *
+ * Xavfsizlik: hammasi bitta tranzaksiyada (yo hammasi, yo hech biri);
+ * `ALTER … OWNER TO` allaqachon to'g'ri egada bo'lsa no-op — takroran
+ * bajarish xavfsiz.
  */
-function sqlChiqar(maqsad: string): string {
-  const m = literal(maqsad);
+function sqlChiqar(
+  maqsad: string,
+  relationlar: Relation[],
+  tiplar: Tip[],
+  joriyFoydalanuvchi: string,
+): string {
+  const m = ident(maqsad);
 
-  return `-- Sxema egaligini ${ident(maqsad)} roliga o'tkazish.
+  /*
+   * Egalikni o'tkazish uchun bajaruvchi maqsad rolning A'ZOSI bo'lishi shart.
+   * Lekin rolni O'ZIGA berish xato beradi (`role "postgres" is a member of
+   * role "postgres"`) va butun tranzaksiyani bekor qiladi — bu aynan orqaga
+   * qaytarish yo'lida yuz beradi (maqsad `postgres`, SQL konsoli ham
+   * `postgres` bilan ishlaydi). Shuning uchun bajaruvchi maqsad rolning
+   * o'zi bo'lganda GRANT satri umuman chiqarilmaydi.
+   */
+  const grantSatri =
+    maqsad === joriyFoydalanuvchi
+      ? `-- (GRANT kerak emas: SQL'ni bajaruvchi rolning o'zi ${maqsad}.)`
+      : `-- PostgreSQL obyekt egaligini faqat maqsad rolning A'ZOSIGA o'tkazishga
+-- ruxsat beradi. Allaqachon a'zo bo'lsak — bu satr zararsiz takror.
+GRANT ${m} TO CURRENT_USER;`;
+
+  const alterlar = [
+    ...relationlar.map((r) => {
+      const buyruq = ALTER_BUYRUQ[r.tur] ?? 'ALTER TABLE';
+      // `IF EXISTS` — ALTER TABLE/SEQUENCE/VIEW qo'llab-quvvatlaydi: agar
+      // production'da bu obyekt bo'lmasa, butun blok yiqilmasin.
+      return `${buyruq} IF EXISTS public.${ident(r.nom)} OWNER TO ${m};`;
+    }),
+    // ALTER TYPE'da IF EXISTS yo'q — tip nomlari sxema bilan birga keladi.
+    ...tiplar.map((t) => `ALTER TYPE public.${ident(t.nom)} OWNER TO ${m};`),
+  ].join('\n');
+
+  return `-- Sxema egaligini ${maqsad} roliga o'tkazish (${relationlar.length} relation, ${tiplar.length} tip).
 -- Manba: src/database/transfer-ownership.ts --print-sql
 -- Ma'lumot va sxema tuzilishi O'ZGARMAYDI — faqat obyektlarning egasi.
--- Takroran bajarish xavfsiz (allaqachon to'g'ri egadagilar o'tkazib yuboriladi).
+-- Takroran bajarish xavfsiz. Hammasi bitta tranzaksiyada.
 BEGIN;
 
-DO $$
-DECLARE
-  maqsad text := ${m};
-  r record;
-  n_relation int := 0;
-  n_tip int := 0;
-BEGIN
-  -- Qorovul 1: bu kutilgan bazami?
-  IF to_regclass('public.roles') IS NULL THEN
-    RAISE EXCEPTION 'Qorovul: "roles" jadvali yo''q — bu kutilgan baza emas';
-  END IF;
+-- Qorovul: bu kutilgan bazami? Jadval bo'lmasa shu yerda to'xtaydi va
+-- butun tranzaksiya bekor bo'ladi — hech narsa o'zgarmaydi.
+SELECT count(*) AS qorovul_roles_jadvali FROM public.roles;
 
-  -- Qorovul 2: maqsad rol mavjudmi?
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = maqsad) THEN
-    RAISE EXCEPTION 'Qorovul: "%" roli bazada yo''q', maqsad;
-  END IF;
+${grantSatri}
 
-  -- Qorovul 3: PostgreSQL obyekt egaligini o'zgartirishga faqat maqsad
-  -- rolning a'zosiga ruxsat beradi. A'zo bo'lmasak — a'zolikni olishga
-  -- urinamiz (CREATEROLE yoki admin option kerak).
-  IF NOT pg_has_role(current_user, maqsad, 'USAGE') THEN
-    BEGIN
-      EXECUTE format('GRANT %I TO CURRENT_USER', maqsad);
-    EXCEPTION WHEN insufficient_privilege THEN
-      RAISE EXCEPTION 'Qorovul: "%" rolining a''zosi emassiz va a''zolik ololmadingiz. '
-        'Superuser (yoki rol egasi) sifatida "GRANT % TO %;" bajaring.',
-        maqsad, maqsad, current_user;
-    END;
-  END IF;
-
-  -- Jadvallar, ketma-ketliklar, viewlar (extension obyektlari CHETDA).
-  FOR r IN
-    SELECT c.relname AS nom, c.relkind AS tur
-    FROM pg_class c
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    LEFT JOIN pg_depend d
-      ON d.objid = c.oid AND d.deptype = 'e' AND d.classid = 'pg_class'::regclass
-    WHERE n.nspname = 'public'
-      AND c.relkind IN ('r', 'p', 'S', 'v', 'm')
-      AND d.objid IS NULL
-      -- Jadvalga bog'langan (SERIAL/IDENTITY) ketma-ketliklar CHETDA: ularning
-      -- egasini mustaqil o'zgartirib bo'lmaydi, jadval bilan birga ko'chadi.
-      AND NOT (c.relkind = 'S' AND EXISTS (
-        SELECT 1 FROM pg_depend dep
-        WHERE dep.classid = 'pg_class'::regclass AND dep.objid = c.oid
-          AND dep.refclassid = 'pg_class'::regclass AND dep.deptype IN ('a', 'i')
-      ))
-      AND pg_get_userbyid(c.relowner) <> maqsad
-  LOOP
-    EXECUTE format('%s public.%I OWNER TO %I',
-      CASE r.tur
-        WHEN 'S' THEN 'ALTER SEQUENCE'
-        WHEN 'v' THEN 'ALTER VIEW'
-        WHEN 'm' THEN 'ALTER MATERIALIZED VIEW'
-        ELSE 'ALTER TABLE'
-      END, r.nom, maqsad);
-    n_relation := n_relation + 1;
-  END LOOP;
-
-  -- Enum va domain tiplari (migratsiyalar ularni ALTER TYPE qiladi).
-  FOR r IN
-    SELECT t.typname AS nom
-    FROM pg_type t
-    JOIN pg_namespace n ON n.oid = t.typnamespace
-    LEFT JOIN pg_depend d
-      ON d.objid = t.oid AND d.deptype = 'e' AND d.classid = 'pg_type'::regclass
-    WHERE n.nspname = 'public'
-      AND t.typtype IN ('e', 'd')
-      AND d.objid IS NULL
-      AND pg_get_userbyid(t.typowner) <> maqsad
-  LOOP
-    EXECUTE format('ALTER TYPE public.%I OWNER TO %I', r.nom, maqsad);
-    n_tip := n_tip + 1;
-  END LOOP;
-
-  RAISE NOTICE 'Egasi almashtirildi: % relation, % tip', n_relation, n_tip;
-END $$;
+${alterlar}
 
 -- Yangi migratsiyalar yangi jadval/tip yarata olishi uchun.
-GRANT USAGE, CREATE ON SCHEMA public TO ${ident(maqsad)};
+GRANT USAGE, CREATE ON SCHEMA public TO ${m};
 
--- Natija: egalik taqsimoti (kutilgan holat — barchasi maqsad rolda).
+-- Natija: egalik taqsimoti (kutilgan holat — barchasi ${maqsad} rolida).
 SELECT pg_get_userbyid(c.relowner) AS ega,
        count(*) FILTER (WHERE c.relkind IN ('r', 'p')) AS jadval,
        count(*) FILTER (WHERE c.relkind = 'S') AS ketma_ketlik,
@@ -230,8 +200,20 @@ interface Relation {
   ega: string;
 }
 
+interface Tip {
+  nom: string;
+  ega: string;
+}
+
 async function main(): Promise<void> {
   const apply = process.argv.includes('--apply');
+  const printSql = process.argv.includes('--print-sql');
+  // `--all`: hozirgi egasidan qat'i nazar HAMMA obyektni ro'yxatga oladi.
+  // Kerak bo'ladigan joyi — orqaga qaytarish SQL'ini boshqa bazadan (odatda
+  // lokaldan) generatsiya qilish: u yerda obyektlar allaqachon maqsad rolda
+  // bo'lgani uchun oddiy ro'yxat bo'sh chiqardi. `ALTER … OWNER TO` to'g'ri
+  // egada no-op bo'lgani uchun ortiqcha satrlar zarar qilmaydi.
+  const hammasi = process.argv.includes('--all');
   const toArg = process.argv.find((a) => a.startsWith('--to='))?.slice('--to='.length);
   const maqsad = (toArg ?? process.env.DATABASE_USER ?? '').trim();
 
@@ -241,16 +223,27 @@ async function main(): Promise<void> {
     );
   }
 
-  if (process.argv.includes('--print-sql')) {
-    console.log(sqlChiqar(maqsad));
-    return;
-  }
-
   const { options, tavsif, alohidaUlanish } = migrationConnection();
   const dataSource = new DataSource(options);
 
   await dataSource.initialize();
   try {
+    if (printSql) {
+      // Ro'yxat shu ulanishdagi bazadan olinadi (odatda lokal) — sabab
+      // `sqlChiqar()` izohida.
+      console.log(
+        sqlChiqar(
+          maqsad,
+          (await dataSource.query(RELATION_SQL, [maqsad, hammasi])) as Relation[],
+          (await dataSource.query(TIP_SQL, [maqsad, hammasi])) as Tip[],
+          (
+            (await dataSource.query('select current_user as u')) as { u: string }[]
+          )[0].u,
+        ),
+      );
+      return;
+    }
+
     console.log(apply ? '=== EGALIKNI O\'TKAZISH (--apply) ===' : '=== EGALIKNI O\'TKAZISH (dry-run) ===');
     console.log(
       `Ulanish: ${tavsif}` +
@@ -275,8 +268,8 @@ async function main(): Promise<void> {
     }
 
     // 2) Nima o'zgaradi
-    const relationlar = (await dataSource.query(RELATION_SQL, [maqsad])) as Relation[];
-    const tiplar = (await dataSource.query(TIP_SQL, [maqsad])) as { nom: string; ega: string }[];
+    const relationlar = (await dataSource.query(RELATION_SQL, [maqsad, false])) as Relation[];
+    const tiplar = (await dataSource.query(TIP_SQL, [maqsad, false])) as Tip[];
 
     const turBoyicha = new Map<string, number>();
     for (const r of relationlar) turBoyicha.set(r.tur, (turBoyicha.get(r.tur) ?? 0) + 1);
