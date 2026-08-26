@@ -9,6 +9,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
 import { PasswordService } from './password.service';
+import { PermissionRegistryService } from './permission-registry.service';
 import { SessionRegistryService } from './session-registry.service';
 import { NotificationsDeliveryModule } from '../notifications-delivery/notifications-delivery.module';
 import { SchoolsModule } from '../schools/schools.module';
@@ -22,7 +23,13 @@ import { SchoolsModule } from '../schools/schools.module';
     SchoolsModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, PasswordService, JwtStrategy, SessionRegistryService],
-  exports: [AuthService, PasswordService, SessionRegistryService],
+  providers: [
+    AuthService,
+    PasswordService,
+    JwtStrategy,
+    SessionRegistryService,
+    PermissionRegistryService,
+  ],
+  exports: [AuthService, PasswordService, SessionRegistryService, PermissionRegistryService],
 })
 export class AuthModule {}

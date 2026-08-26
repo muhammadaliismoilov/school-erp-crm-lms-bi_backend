@@ -375,8 +375,11 @@ export class AuthService {
     });
 
     const authUser = this.toAuthenticatedUser(user, session.id);
+    // Ruxsatlar tokenga solinmaydi (sarlavha 16 KB limitidan oshib ketardi) —
+    // javob TANASIDA esa qoladi, frontend `can()` shundan ishlaydi.
+    const { permissions: _permissions, ...tokenClaims } = authUser;
     const payload: JwtPayload = {
-      ...authUser,
+      ...tokenClaims,
       sub: user.id,
     };
 

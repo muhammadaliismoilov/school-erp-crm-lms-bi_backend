@@ -5,6 +5,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { DataScope } from '../../common/scope/data-scope.enum';
 import { AuthenticatedUser } from '../../common/security/authenticated-user.interface';
 import { JwtPayload } from './auth.types';
+import { PermissionRegistryService } from './permission-registry.service';
 import { SessionRegistryService } from './session-registry.service';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
     configService: ConfigService,
     private readonly sessionRegistry: SessionRegistryService,
+    private readonly permissionRegistry: PermissionRegistryService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -28,12 +30,16 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     }
     this.sessionRegistry.touch(payload.sessionId);
 
+    // Ruxsatlar tokendan EMAS, reyestrdan (30s kesh) o'qiladi — token ichida
+    // ular 15 KB sarlavha yasab, so'rovlarni HTTP 431 bilan yiqitardi.
+    const permissions = await this.permissionRegistry.codesForUser(payload.sub);
+
     return {
       id: payload.sub,
       username: payload.username,
       email: payload.email,
       roles: payload.roles ?? [],
-      permissions: payload.permissions ?? [],
+      permissions,
       sessionId: payload.sessionId,
       schoolId: payload.schoolId ?? null,
       branchId: payload.branchId ?? null,

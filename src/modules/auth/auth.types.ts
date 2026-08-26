@@ -1,6 +1,14 @@
 import type { AuthenticatedUser } from '../../common/security/authenticated-user.interface';
 
-export interface JwtPayload extends AuthenticatedUser {
+/**
+ * Access token tarkibi.
+ *
+ * `permissions` ATAYLAB yo'q: `ceo`/`director`da ular 439 tagacha yetadi va
+ * token 15 KB dan oshadi — brauzerning qolgan sarlavhalari bilan birga bu
+ * 16 KB limitidan oshib, har bir so'rov HTTP 431 bilan rad etiladi. Ruxsatlar
+ * har so'rovda `PermissionRegistryService` orqali o'qiladi.
+ */
+export interface JwtPayload extends Omit<AuthenticatedUser, 'permissions'> {
   sub: string;
 }
 
