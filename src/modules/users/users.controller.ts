@@ -56,6 +56,18 @@ const uuidParamDocs = {
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @Get("by-school")
+  @Permissions([AppPermission.USERS_READ])
+  @ApiOperation({
+    summary: "Maktablar bo‘yicha foydalanuvchi kesimi",
+    description:
+      "Global hisob (CEO) barcha maktablar qatorlarini oladi; maktabga bog‘langan " +
+      "foydalanuvchi faqat o‘z maktabini. Ro‘yxat bilan BIR XIL scoping qoidasi.",
+  })
+  breakdownBySchool() {
+    return this.usersService.breakdownBySchool();
+  }
+
   @Get()
   @Permissions([AppPermission.USERS_READ])
   @ApiOperation({

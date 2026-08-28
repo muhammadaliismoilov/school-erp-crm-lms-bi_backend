@@ -21,6 +21,7 @@ import {
 } from '../../common/security/privilege.policy';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
+import { Student } from '../students/entities/student.entity';
 import { AuditService } from '../audit/audit.service';
 import { PasswordService } from '../auth/password.service';
 import { Role } from '../identity/entities/role.entity';
@@ -33,10 +34,22 @@ import { ReassignSchoolDto } from './dto/reassign-school.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UserQueryDto } from './dto/user-query.dto';
 import { SessionRegistryService } from '../auth/session-registry.service';
-import { UserListResponseSchema, UserResponseSchema, UserRoleSchema } from './swagger/user-response.schema';
+import {
+  UserListResponseSchema,
+  UserResponseSchema,
+  UserRoleSchema,
+  UserStatsSchema,
+  SchoolUserBreakdownRowSchema,
+} from './swagger/user-response.schema';
 import { UserGender, UserManagementRole, userManagementRoleCandidates } from './enums/user.enums';
 
 type IdentifierInput = Partial<Pick<User, 'username' | 'email' | 'phone' | 'documentNumber' | 'pinfl'>>;
+
+/** "Faol foydalanuvchi" oynasi — oxirgi shuncha kun ichida kirganlar. */
+const ACTIVE_WINDOW_DAYS = 30;
+
+/** Maktabga bog'lanmagan hisoblar qatori (CEO, super-admin). */
+const MAKTABSIZ_NOMI = '—';
 
 @Injectable()
 export class UsersService {
@@ -48,6 +61,8 @@ export class UsersService {
   constructor(
     @InjectRepository(User)
     private readonly users: Repository<User>,
+    @InjectRepository(Student)
+    private readonly students: Repository<Student>,
     @InjectRepository(Role)
     private readonly roles: Repository<Role>,
     @InjectRepository(StaffMember)
@@ -321,10 +336,7 @@ export class UsersService {
       .take(limit)
       .getManyAndCount();
     const pageCount = Math.ceil(total / limit) || 1;
-    const [userCount, roleCount] = await Promise.all([
-      this.users.count(),
-      this.roles.count(),
-    ]);
+    const stats = await this.listStats();
 
     return {
       items: items.map((user) => this.toUserResponse(user)),
@@ -334,12 +346,83 @@ export class UsersService {
         total,
         pageCount,
       },
-      stats: {
-        userCount,
-        roleCount,
-        pageCount,
-      },
+      stats: { ...stats, pageCount },
     };
+  }
+
+  /**
+   * Ro'yxat ustidagi ko'rsatkichlar — HAMMASI tenant bo'yicha filtrlanadi.
+   *
+   * Ilgari `this.users.count()` filtrsiz edi: maktab direktori o'z sahifasida
+   * butun platformadagi 1192 raqamini ko'rardi, ro'yxat esa to'g'ri 818 ta
+   * qaytarardi (2026-08-28 da aniqlandi).
+   *
+   * `studentCount` ATAYLAB alohida manbadan: o'quvchida login hisobi yo'q,
+   * u `users` da umuman yo'q. Ikkala son bir-biriga qo'shilmaydi.
+   */
+  /**
+   * Maktablar bo'yicha kesim — CEO "har maktabda nechta?" degan savolga javob.
+   *
+   * Scoping ro'yxat bilan BIR XIL qoidada: maktab konteksti bo'lsa bitta
+   * qator, global hisobda hammasi + maktabga bog'lanmagan hisoblar qatori
+   * (CEO/super-admin). UI kesimni faqat ikkinchi holatda chizadi.
+   *
+   * Bitta GROUP BY: 1 200 qatorda kesh kerak emas.
+   */
+  async breakdownBySchool(): Promise<SchoolUserBreakdownRowSchema[]> {
+    const faolChegara = new Date(Date.now() - ACTIVE_WINDOW_DAYS * 86_400_000);
+    const schoolId = this.tenant.getSchoolId();
+
+    const hisoblar = await this.users
+      .createQueryBuilder('user')
+      .leftJoin('schools', 'school', 'school.id = user.school_id')
+      .select('user.school_id', 'schoolId')
+      .addSelect("school.name->>'uz'", 'name')
+      .addSelect('COUNT(user.id)', 'accounts')
+      .addSelect(
+        'COUNT(user.id) FILTER (WHERE user.last_login_at > :faolChegara)',
+        'active',
+      )
+      .setParameter('faolChegara', faolChegara)
+      .where(schoolId ? 'user.school_id = :schoolId' : '1 = 1', { schoolId })
+      .groupBy('user.school_id')
+      .addGroupBy("school.name->>'uz'")
+      .getRawMany<{ schoolId: string | null; name: string | null; accounts: string; active: string }>();
+
+    const oquvchilar = await this.students
+      .createQueryBuilder('student')
+      .select('student.school_id', 'schoolId')
+      .addSelect('COUNT(student.id)', 'students')
+      .where(schoolId ? 'student.school_id = :schoolId' : '1 = 1', { schoolId })
+      .groupBy('student.school_id')
+      .getRawMany<{ schoolId: string | null; students: string }>();
+
+    const oquvchiSoni = new Map(oquvchilar.map((r) => [r.schoolId, Number(r.students)]));
+
+    return hisoblar
+      .map((row) => ({
+        schoolId: row.schoolId,
+        // Maktabga bog'lanmagan hisoblar (CEO, super-admin) alohida qator.
+        name: row.name ?? MAKTABSIZ_NOMI,
+        accounts: Number(row.accounts),
+        students: oquvchiSoni.get(row.schoolId) ?? 0,
+        active: Number(row.active),
+      }))
+      .sort((a, b) => b.accounts - a.accounts);
+  }
+
+  private async listStats(): Promise<Omit<UserStatsSchema, 'pageCount'>> {
+    const faolChegara = new Date(Date.now() - ACTIVE_WINDOW_DAYS * 86_400_000);
+
+    const [accountCount, studentCount, activeCount] = await Promise.all([
+      applyTenantScope(this.users.createQueryBuilder('user'), 'user', this.tenant).getCount(),
+      applyTenantScope(this.students.createQueryBuilder('student'), 'student', this.tenant).getCount(),
+      applyTenantScope(this.users.createQueryBuilder('user'), 'user', this.tenant)
+        .andWhere('user.last_login_at > :faolChegara', { faolChegara })
+        .getCount(),
+    ]);
+
+    return { accountCount, studentCount, activeCount };
   }
 
   async findOne(id: string): Promise<UserResponseSchema> {

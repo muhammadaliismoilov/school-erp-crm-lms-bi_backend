@@ -73,6 +73,29 @@ async function main() {
   r = await api(ceo.accessToken, 'GET', '/schools?limit=50');
   tekshir('CEO hammasini ko\'radi (regressiya qorovuli)', true, (r.json?.data?.total ?? 0) > 1);
 
+  console.log("\n1b) STATISTIKA — ro'yxat bilan bir xil scoping");
+  const dirStats = (await api(dir.accessToken, 'GET', '/users?limit=1')).json?.data;
+  tekshir('direktor statistikasi = ro\'yxat total', dirStats?.meta?.total, dirStats?.stats?.accountCount);
+  const ceoStats = (await api(ceo.accessToken, 'GET', '/users?limit=1')).json?.data;
+  tekshir('CEO statistikasi = ro\'yxat total', ceoStats?.meta?.total, ceoStats?.stats?.accountCount);
+  tekshir(
+    'CEO raqami direktornikidan katta (izolyatsiya ishlayapti)',
+    true,
+    (ceoStats?.stats?.accountCount ?? 0) > (dirStats?.stats?.accountCount ?? 0),
+  );
+  tekshir("`roleCount` javobdan olib tashlangan", false, 'roleCount' in (dirStats?.stats ?? {}));
+
+  console.log("\n1c) MAKTAB KESIMI");
+  const dirBd = (await api(dir.accessToken, 'GET', '/users/by-school')).json?.data ?? [];
+  tekshir('direktor 1 ta qator ko\'radi', 1, dirBd.length);
+  const ceoBd = (await api(ceo.accessToken, 'GET', '/users/by-school')).json?.data ?? [];
+  tekshir('CEO bir nechta qator ko\'radi', true, ceoBd.length > 1);
+  tekshir(
+    'kesim yig\'indisi umumiy songa teng',
+    ceoStats?.stats?.accountCount,
+    ceoBd.reduce((sum, row) => sum + row.accounts, 0),
+  );
+
   console.log('\n2) MAKTAB BOSHQARUVI — faqat CEO');
   r = await api(dir.accessToken, 'GET', `/schools/${begona}`);
   tekshir('direktor begona maktabni ocha olmaydi', 404, r.status);

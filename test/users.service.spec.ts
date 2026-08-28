@@ -2,6 +2,7 @@ import { ConflictException, ForbiddenException, NotFoundException } from '@nestj
 import type { Repository, SelectQueryBuilder } from 'typeorm';
 import { CommonStatus } from '../src/common/enums/common-status.enum';
 import type { Role } from '../src/modules/identity/entities/role.entity';
+import type { Student } from '../src/modules/students/entities/student.entity';
 import type { User } from '../src/modules/identity/entities/user.entity';
 import type { StaffMember } from '../src/modules/hr/entities/staff-member.entity';
 import type { PasswordService } from '../src/modules/auth/password.service';
@@ -18,6 +19,7 @@ describe('UsersService', () => {
       'create' | 'save' | 'findOne' | 'count' | 'softDelete' | 'createQueryBuilder'
     >
   >;
+  let students: jest.Mocked<Pick<Repository<Student>, 'createQueryBuilder'>>;
   let roles: jest.Mocked<Pick<Repository<Role>, 'find' | 'count'>>;
   let staffMembers: jest.Mocked<
     Pick<Repository<StaffMember>, 'create' | 'save' | 'findOne' | 'count'>
@@ -67,6 +69,12 @@ describe('UsersService', () => {
       find: jest.fn(),
       count: jest.fn(),
     };
+    students = {
+      createQueryBuilder: jest.fn(() => ({
+        andWhere: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(0),
+      })) as unknown as jest.Mocked<Repository<Student>>['createQueryBuilder'],
+    };
     staffMembers = {
       create: jest.fn(),
       save: jest.fn(),
@@ -83,6 +91,7 @@ describe('UsersService', () => {
     auditLog = jest.fn().mockResolvedValue(undefined);
     service = new UsersService(
       users as unknown as Repository<User>,
+      students as unknown as Repository<Student>,
       roles as unknown as Repository<Role>,
       staffMembers as unknown as Repository<StaffMember>,
       passwords as unknown as PasswordService,
@@ -233,8 +242,7 @@ describe('UsersService', () => {
   it('returns paginated users with search/filter stats', async () => {
     const qb = createUserQueryBuilderMock([savedUser], 1);
     users.createQueryBuilder.mockReturnValue(qb as unknown as SelectQueryBuilder<User>);
-    users.count.mockResolvedValue(3);
-    roles.count.mockResolvedValue(7);
+
 
     const result = await service.findAll({
       page: 1,
@@ -246,7 +254,15 @@ describe('UsersService', () => {
 
     expect(qb.andWhere).toHaveBeenCalled();
     expect(result.meta).toEqual({ page: 1, limit: 20, total: 1, pageCount: 1 });
-    expect(result.stats).toEqual({ userCount: 3, roleCount: 7, pageCount: 1 });
+    // Statistika RO'YXAT bilan bir xil tenant filtridan o'tadi — ilgari
+    // `this.users.count()` filtrsiz edi va direktor butun platforma raqamini
+    // ko'rardi (1192 vs 818).
+    expect(result.stats).toEqual({
+      accountCount: 1,
+      studentCount: 0,
+      activeCount: 1,
+      pageCount: 1,
+    });
     expect(result.items[0]).toMatchObject({ login: 'javohir.aliyev', role: 'teacher' });
   });
 
@@ -537,6 +553,51 @@ describe('UsersService', () => {
       ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
+
+  /**
+   * 2026-08-28: ro'yxat `applyTenantScope` bilan to'g'ri filtrlanardi, ustidagi
+   * statistika esa `this.users.count()` — filtrsiz. Natijada Yuton direktori
+   * o'z sahifasida 818 ta qator va 1 192 degan raqamni birga ko'rardi.
+   */
+  describe('statistika tenant filtridan o\'tadi', () => {
+    it("statistika RO'YXAT bilan bir xil qurilmadan hisoblanadi", async () => {
+      const qb = createUserQueryBuilderMock([savedUser], 818);
+      users.createQueryBuilder.mockReturnValue(qb as unknown as SelectQueryBuilder<User>);
+
+      const result = await service.findAll({ page: 1, limit: 20 });
+
+      // Filtrsiz `count()` ishlatilmaydi — aynan shu nuqson edi.
+      expect(users.count).not.toHaveBeenCalled();
+      expect(result.stats.accountCount).toBe(818);
+    });
+
+    it("`roleCount` javobdan olib tashlandi — karta ham olib tashlangan", async () => {
+      const qb = createUserQueryBuilderMock([savedUser], 1);
+      users.createQueryBuilder.mockReturnValue(qb as unknown as SelectQueryBuilder<User>);
+
+      const result = await service.findAll({});
+
+      expect(result.stats).not.toHaveProperty('roleCount');
+      expect(roles.count).not.toHaveBeenCalled();
+    });
+
+    it("o'quvchilar ALOHIDA manbadan — `users` bilan kesishmaydi", async () => {
+      const qb = createUserQueryBuilderMock([savedUser], 1);
+      users.createQueryBuilder.mockReturnValue(qb as unknown as SelectQueryBuilder<User>);
+      const studentQb = {
+        andWhere: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(450),
+      };
+      students.createQueryBuilder.mockReturnValue(
+        studentQb as unknown as SelectQueryBuilder<Student>,
+      );
+
+      const result = await service.findAll({});
+
+      expect(result.stats.studentCount).toBe(450);
+      expect(students.createQueryBuilder).toHaveBeenCalled();
+    });
+  });
 });
 
 const createUserQueryBuilderMock = (items: User[], total: number) => {
@@ -548,6 +609,8 @@ const createUserQueryBuilderMock = (items: User[], total: number) => {
     skip: jest.fn().mockReturnThis(),
     take: jest.fn().mockReturnThis(),
     getManyAndCount: jest.fn().mockResolvedValue([items, total]),
+    // Statistika ham shu qurilmadan foydalanadi (tenant-scoped `getCount`).
+    getCount: jest.fn().mockResolvedValue(total),
   };
 
   return qb;

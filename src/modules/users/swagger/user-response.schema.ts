@@ -105,14 +105,45 @@ export class UserPageMetaSchema {
 }
 
 export class UserStatsSchema {
-  @ApiProperty({ example: 3 })
-  userCount: number;
+  @ApiProperty({
+    description:
+      "Login hisoblari soni (aktiv maktab bo'yicha). O'quvchilar bu songa " +
+      "KIRMAYDI — ularda login hisobi yo'q, ular alohida `students` jadvalida.",
+    example: 210,
+  })
+  accountCount: number;
 
-  @ApiProperty({ example: 7 })
-  roleCount: number;
+  @ApiProperty({
+    description: "O'quvchilar soni. `accountCount` bilan KESISHMAYDI.",
+    example: 200,
+  })
+  studentCount: number;
+
+  @ApiProperty({
+    description: 'Oxirgi 30 kunda kamida bir marta kirgan hisoblar.',
+    example: 10,
+  })
+  activeCount: number;
 
   @ApiProperty({ example: 1 })
   pageCount: number;
+}
+
+export class SchoolUserBreakdownRowSchema {
+  @ApiProperty({ description: "Maktab IDsi. `null` — maktabga bog'lanmagan global hisoblar.", nullable: true })
+  schoolId: string | null;
+
+  @ApiProperty({ example: 'Elegant School' })
+  name: string;
+
+  @ApiProperty({ example: 210 })
+  accounts: number;
+
+  @ApiProperty({ example: 200 })
+  students: number;
+
+  @ApiProperty({ example: 1 })
+  active: number;
 }
 
 export class UserListResponseSchema {

@@ -149,8 +149,10 @@ export class IntegrationsService implements OnApplicationBootstrap {
       .take(limit)
       .getManyAndCount();
     const [totalCount, connectedCount] = await Promise.all([
-      this.integrationRepository.count(),
-      this.integrationRepository.count({ where: { isEnabled: true } }),
+      this.integrationRepository.count({ where: tenantWhere<Integration>(this.tenant, {}, { branch: true }) }),
+      this.integrationRepository.count({
+        where: tenantWhere<Integration>(this.tenant, { isEnabled: true }, { branch: true }),
+      }),
     ]);
 
     return {

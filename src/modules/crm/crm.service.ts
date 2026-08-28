@@ -690,7 +690,10 @@ export class CrmService {
     const avgCycleDays = this.averageDuration(cohort, enrolledAt, 86_400_000);
 
     // ---- Overview ----
-    const [totalLeads, prev] = await Promise.all([this.leads.count(), this.previousPeriod(from, to)]);
+    const [totalLeads, prev] = await Promise.all([
+      this.leads.count({ where: tenantWhere<Lead>(this.tenant, {}, { branch: true }) }),
+      this.previousPeriod(from, to),
+    ]);
 
     const overview = {
       totalLeads,

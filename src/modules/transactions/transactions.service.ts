@@ -386,7 +386,7 @@ export class TransactionsService {
     monthStart.setUTCHours(0, 0, 0, 0);
 
     const [total, addedThisMonth, latest] = await Promise.all([
-      this.paymentTypes.count(),
+      this.paymentTypes.count({ where: tenantWhere<PaymentType>(this.tenant, {}, { branch: true }) }),
       this.paymentTypes
         .createQueryBuilder('pt')
         .where('pt.createdAt >= :monthStart', { monthStart })

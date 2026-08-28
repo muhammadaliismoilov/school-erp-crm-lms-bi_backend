@@ -209,8 +209,12 @@ export class AcademicService {
     await this.ensureNameAvailable(dto.name);
     await this.ensureNoOverlap(dto.startDate, dto.endDate);
 
-    // First year ever is implicitly the current one, even if the client omits the flag.
-    const existingCount = await this.academicYears.count();
+    // Maktabning BIRINCHI o'quv yili avtomatik joriy bo'ladi. Sanoq tenant
+    // bo'yicha filtrlanishi SHART: filtrsiz bo'lsa boshqa maktabda yil bor
+    // ekan, yangi maktabning birinchi yili joriy bo'lmay qolardi.
+    const existingCount = await this.academicYears.count({
+      where: tenantWhere<AcademicYear>(this.tenant, {}),
+    });
     const makeCurrent = dto.isCurrent === true || existingCount === 0;
 
     const saved = await this.academicYears.save(

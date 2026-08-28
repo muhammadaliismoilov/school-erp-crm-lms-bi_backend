@@ -39,7 +39,8 @@ export class ReportsService {
     const [students, contracts, attendance] = await Promise.all([
       this.students.count({ where: tenantWhere<Student>(this.tenant, {}, { branch: true }) }),
       this.contracts.count({ where: tenantWhere<Contract>(this.tenant, {}, { branch: true }) }),
-      this.attendance.count(),
+      // Qo'shni ikki qator tenant bilan filtrlangan edi, bu esa unutilgan.
+      this.attendance.count({ where: tenantWhere<AttendanceRecord>(this.tenant, {}, { branch: true }) }),
     ]);
     return { students, contracts, attendanceRecords: attendance };
   }
