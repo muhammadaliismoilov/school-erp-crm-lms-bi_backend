@@ -343,6 +343,9 @@ export class RolesService {
       description: role.description?.uz ?? role.description?.en ?? null,
       isSystem: role.isSystem,
       isPrivileged: role.isPrivileged,
+      // UI global rolni ajratib ko'rsatishi va tahrirdan oldin ogohlantirishi
+      // uchun: bunday rol barcha maktablarda bir xil.
+      isGlobal: role.schoolId == null,
       dataScope: role.dataScope ?? DataScope.ALL,
       permissionCount: permissions.length,
       permissions,

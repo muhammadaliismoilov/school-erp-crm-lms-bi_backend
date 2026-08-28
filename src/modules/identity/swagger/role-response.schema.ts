@@ -39,6 +39,17 @@ export class RoleResponseSchema {
   isPrivileged: boolean;
 
   @ApiProperty({
+    description:
+      "Global rol (school_id IS NULL) — BARCHA maktablarga tegishli, ya'ni uni " +
+      "o'zgartirish har bir maktabdagi shu roldagi foydalanuvchilarga tegadi. " +
+      "Maktab roli esa faqat o'z maktabida ko'rinadi. `schoolId` ataylab " +
+      'chiqarilmaydi: ro\'yxat baribir global + o\'z maktab rollarini qaytaradi, ' +
+      "ya'ni maktab roli doim so'rovchining o'ziniki.",
+    example: true,
+  })
+  isGlobal: boolean;
+
+  @ApiProperty({
     description: "Ma'lumot doirasi — imtiyozlardan alohida qatlam (qaysi qatorlar).",
     enum: DataScope,
     example: DataScope.ALL,

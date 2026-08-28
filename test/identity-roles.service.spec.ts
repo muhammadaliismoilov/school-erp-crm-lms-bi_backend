@@ -324,6 +324,35 @@ describe('RolesService', () => {
   });
 
   /**
+   * `isGlobal` — UI global rolni ajratib ko'rsatishi va tahrirdan oldin
+   * ogohlantirishi uchun. Busiz frontend rolning barcha maktablarga tegishli
+   * ekanini BILISHNING imkoni yo'q edi.
+   */
+  describe('isGlobal', () => {
+    it('global rol (school_id IS NULL) uchun true', async () => {
+      roles.createQueryBuilder.mockReturnValue(mockQueryBuilder({ ...role, schoolId: null } as Role));
+
+      await expect(service.findOne(roleId)).resolves.toMatchObject({ isGlobal: true });
+    });
+
+    it('maktab roli uchun false', async () => {
+      roles.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder({ ...role, schoolId: 'school-1' } as Role),
+      );
+
+      await expect(service.findOne(roleId)).resolves.toMatchObject({ isGlobal: false });
+    });
+
+    it('`schoolId` javobga chiqmaydi (boshqa tenant IDsi sizib chiqmasin)', async () => {
+      roles.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder({ ...role, schoolId: 'school-1' } as Role),
+      );
+
+      await expect(service.findOne(roleId)).resolves.not.toHaveProperty('schoolId');
+    });
+  });
+
+  /**
    * `ceo`/`director` — GLOBAL rollar (`school_id IS NULL`), shuning uchun maktabga
    * bog'langan aktor uchun IKKALA tekshiruv ham rad javob beradi:
    *   - `assertPrivilegedRolesManageable` — himoyalangan rol (RBAC)
