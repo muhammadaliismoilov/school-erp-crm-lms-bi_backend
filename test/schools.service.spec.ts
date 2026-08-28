@@ -3,6 +3,7 @@ import type { Repository, SelectQueryBuilder } from 'typeorm';
 import { CommonStatus } from '../src/common/enums/common-status.enum';
 import type { School } from '../src/modules/settings/entities/school.entity';
 import { SchoolsService } from '../src/modules/schools/schools.service';
+import { TenantContextService } from '../src/common/tenant/tenant-context.service';
 import { PaymentPeriodUnit, PaymentStartStrategy, SchoolType, WorkDays } from '../src/modules/schools/enums/school.enums';
 
 describe('SchoolsService', () => {
@@ -12,6 +13,7 @@ describe('SchoolsService', () => {
   >;
   let statsQueryBuilder: { getRawOne: jest.Mock } & Record<string, jest.Mock>;
   let service: SchoolsService;
+  let tenant: TenantContextService;
 
   beforeEach(() => {
     // Stats aggregatsiyasi uchun zanjirlanadigan query builder mock'i.
@@ -30,7 +32,8 @@ describe('SchoolsService', () => {
       softDelete: jest.fn(),
       createQueryBuilder: jest.fn(() => statsQueryBuilder as unknown as SelectQueryBuilder<School>),
     };
-    service = new SchoolsService(schools as unknown as Repository<School>);
+    tenant = new TenantContextService();
+    service = new SchoolsService(schools as unknown as Repository<School>, tenant);
   });
 
   const createPayload = {
@@ -237,6 +240,84 @@ describe('SchoolsService', () => {
       await service.resolveByHostname('elegantschool.crm.uz');
 
       expect(schools.find).toHaveBeenCalledTimes(2);
+    });
+  });
+  /**
+   * 2026-08-28: maktab direktori "Maktab ma'lumotlari" bo'limida BARCHA
+   * maktablarni ko'rardi — `findSchools`/`aggregateStats`/`findSchoolEntity`
+   * da tenant filtri umuman yo'q edi. `School` uchun tenant kaliti `school_id`
+   * emas, `id` ning O'ZI: maktab jadvali ijarachining o'zi.
+   */
+  describe('tenant scoping', () => {
+    const boshqaMaktab = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+
+    async function maktabKontekstida<T>(run: () => Promise<T>): Promise<T> {
+      return tenant.run(async () => {
+        tenant.set({ schoolId });
+        return run();
+      });
+    }
+
+    beforeEach(() => {
+      schools.findAndCount.mockResolvedValue([[], 0]);
+      statsQueryBuilder.getRawOne.mockResolvedValue({ count: '0', totalCapacity: '0', monthlyPaymentTotal: '0' });
+    });
+
+    it("ro'yxat faqat o'z maktabi bilan cheklanadi", async () => {
+      await maktabKontekstida(() => service.findSchools({}));
+
+      expect(schools.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ id: schoolId }) }),
+      );
+    });
+
+    it('statistika ham cheklanadi — begona jamlanma chiqmasin', async () => {
+      await maktabKontekstida(() => service.findSchools({}));
+
+      expect(statsQueryBuilder.andWhere).toHaveBeenCalledWith('school.id = :tenantSchoolId', {
+        tenantSchoolId: schoolId,
+      });
+    });
+
+    it("begona maktab so'ralsa 404 — DBga umuman bormaydi", async () => {
+      await expect(maktabKontekstida(() => service.findSchool(boshqaMaktab))).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(schools.findOne).not.toHaveBeenCalled();
+    });
+
+    it("begona maktabni o'chirib/tahrirlab ham bo'lmaydi", async () => {
+      // MUHIM: maktab bazada MAVJUD deb qaytariladi — ya'ni 404 ning yagona
+      // sababi scoping bo'lsin, "topilmadi" tasodifi emas.
+      schools.findOne.mockResolvedValue({ id: boshqaMaktab, name: { uz: 'Begona' } } as unknown as School);
+
+      await expect(
+        maktabKontekstida(() => service.updateSchool(boshqaMaktab, { name: 'Buzishga urinish' })),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      await expect(maktabKontekstida(() => service.deleteSchool(boshqaMaktab))).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(schools.softDelete).not.toHaveBeenCalled();
+    });
+
+    it("kontekst yo'q bo'lsa (global CEO) filtr QO'LLANMAYDI", async () => {
+      await service.findSchools({});
+
+      expect(schools.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.not.objectContaining({ id: expect.anything() }) }),
+      );
+      expect(statsQueryBuilder.andWhere).not.toHaveBeenCalledWith(
+        'school.id = :tenantSchoolId',
+        expect.anything(),
+      );
+    });
+
+    it("login paytida (kontekstsiz) maktab nomi qidiruvi ISHLAYDI", async () => {
+      // `AuthService.schoolNameFor` shu yo'ldan o'tadi: o'sha paytda hali
+      // foydalanuvchi yo'q, ya'ni kontekst bo'sh. Scoping uni buzmasligi shart.
+      schools.findOne.mockResolvedValue({ id: boshqaMaktab, name: { uz: 'Elegant School' } } as unknown as School);
+
+      await expect(service.findSchool(boshqaMaktab)).resolves.toMatchObject({ name: 'Elegant School' });
     });
   });
 });

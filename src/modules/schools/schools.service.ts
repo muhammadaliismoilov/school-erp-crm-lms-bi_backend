@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, ILike, Not, Repository } from 'typeorm';
 import type { FindOptionsWhere, SelectQueryBuilder } from 'typeorm';
 import { CommonStatus } from '../../common/enums/common-status.enum';
+import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import type { LocalizedText } from '../../common/i18n/locale';
 import { School } from '../settings/entities/school.entity';
 import { CreateSchoolDto } from './dto/create-school.dto';
@@ -54,7 +55,20 @@ export class SchoolsService {
   constructor(
     @InjectRepository(School)
     private readonly schools: Repository<School>,
+    private readonly tenant: TenantContextService,
   ) {}
+
+  /**
+   * Aktiv maktab — `School` uchun tenant kaliti `school_id` EMAS, `id` ning
+   * o'zi: maktab jadvali ijarachining o'zi.
+   *
+   * `null` qaytsa (global CEO `admin.*` da, yoki login paytida — u yerda hali
+   * foydalanuvchi yo'q) filtr qo'llanmaydi va hammasi ko'rinadi. Aynan shu
+   * sabab login'dagi maktab nomi qidiruvi ishlayveradi.
+   */
+  private tenantSchoolId(): string | null {
+    return this.tenant.getSchoolId();
+  }
 
   async createSchool(dto: CreateSchoolDto): Promise<SchoolResponseDto> {
     const input = this.buildSchoolInput(dto);
@@ -199,7 +213,11 @@ export class SchoolsService {
   }
 
   private buildSchoolWhere(query: SchoolQueryDto): FindOptionsWhere<School> | FindOptionsWhere<School>[] {
+    // Maktab konteksti bo'lsa ro'yxat FAQAT o'sha maktabdan iborat: ilgari
+    // filtr umuman yo'q edi va maktab direktori barcha maktablarni ko'rardi.
+    const tenantSchoolId = this.tenantSchoolId();
     const baseWhere: FindOptionsWhere<School> = {
+      ...(tenantSchoolId ? { id: tenantSchoolId } : {}),
       ...(query.schoolType ? { schoolType: query.schoolType } : {}),
       ...(query.status ? { status: query.status } : {}),
     };
@@ -237,6 +255,14 @@ export class SchoolsService {
   }
 
   private async findSchoolEntity(id: string): Promise<School> {
+    // Begona maktab so'ralsa "topilmadi" — mavjudligini ham oshkor qilmaymiz.
+    // `findSchool`/`updateSchool`/`deleteSchool` shu yerdan o'tadi, ya'ni
+    // bitta tekshiruv uchtasini ham qamrab oladi.
+    const tenantSchoolId = this.tenantSchoolId();
+    if (tenantSchoolId && tenantSchoolId !== id) {
+      throw new NotFoundException('School not found');
+    }
+
     const school = await this.schools.findOne({ where: { id } });
 
     if (!school) {
@@ -264,6 +290,12 @@ export class SchoolsService {
     qb: SelectQueryBuilder<School>,
     query: SchoolQueryDto,
   ): SelectQueryBuilder<School> {
+    // Statistika ham scoping'ga bo'ysunadi — aks holda direktor "Maktablar 4,
+    // sig'im 2 100" degan begona jamlanmani ko'rardi.
+    const tenantSchoolId = this.tenantSchoolId();
+    if (tenantSchoolId) {
+      qb.andWhere('school.id = :tenantSchoolId', { tenantSchoolId });
+    }
     if (query.schoolType) {
       qb.andWhere('school.school_type = :schoolType', { schoolType: query.schoolType });
     }
