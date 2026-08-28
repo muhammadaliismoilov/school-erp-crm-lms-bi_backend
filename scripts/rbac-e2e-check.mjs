@@ -28,11 +28,14 @@ const env = Object.fromEntries(
 /**
  * `maktabsiz: true` — `X-School-Id` yuborilmaydi.
  *
- * NEGA KERAK: `ceo`/`director` GLOBAL rollar (`school_id IS NULL`), va
- * `RolesService.assertRoleIsEditable` maktab konteksti mavjud bo'lsa global
- * rolni boshqarishni umuman taqiqlaydi ("Global role can only be managed by
- * super admin"). Bu RBAC'dan ALOHIDA, undan OLDIN ishlaydigan tenant qatlami.
- * Himoyalangan-rol tekshiruvigacha yetib borish uchun sarlavha yuborilmaydi.
+ * DIQQAT, bu faqat GLOBAL hisoblar uchun ahamiyatli. `TenantScopeInterceptor`
+ * kontekstni `user.schoolId ?? headerSchool` tartibida to'ldiradi — ya'ni
+ * MAKTABGA BOG'LANGAN foydalanuvchi o'z maktabiga qadalgan va sarlavha
+ * e'tiborsiz qoladi. Shunday hisob uchun bu bayroq hech narsani o'zgartirmaydi.
+ *
+ * (Skriptning avvalgi tahririda bu bayroq "global rol tekshiruvini chetlab
+ * o'tadi" deb izohlangan edi — bu noto'g'ri bo'lib, 4 ta yolg'on yiqilishga
+ * sabab bo'lgan.)
  */
 async function api(token, method, path, body, maktabsiz = false) {
   const res = await fetch(BASE + path, {
@@ -94,8 +97,12 @@ async function main() {
   console.log('=== RBAC ierarxiyasi — end-to-end tekshiruv ===\n');
 
   console.log('0) Tayyorgarlik');
-  const { token: adminToken } = await login(env.ADMIN_USERNAME, env.ADMIN_PASSWORD);
-  console.log('   super-admin login: ✓');
+  // `.env` dagi parol eskirgan bo'lishi mumkin (seed uni yangilamaydi), shuning
+  // uchun muhit o'zgaruvchisi ustun turadi.
+  const adminLogin = process.env.ADMIN_LOGIN || env.ADMIN_USERNAME;
+  const adminParol = process.env.ADMIN_PASS || env.ADMIN_PASSWORD;
+  const { token: adminToken, user: adminUser } = await login(adminLogin, adminParol);
+  console.log(`   admin login: ✓ (${adminLogin}, schoolId=${adminUser?.schoolId ?? 'null — global'})`);
 
   const rollar = await api(adminToken, 'GET', '/roles?limit=100');
   const roleList = rollar.json?.data?.items ?? rollar.json?.data ?? [];
@@ -121,13 +128,13 @@ async function main() {
   r = await api(directorToken, 'PATCH', `/users/${nishon.id}/roles`, { roleNames: ['ceo'] });
   tekshir('director birovni CEO qila olmaydi', 403, r.status, r.json?.error?.message?.slice(0, 90));
 
-  r = await api(directorToken, 'PATCH', `/roles/${ceoRol.id}`, { title: { uz: 'Buzishga urinish' } }, true);
+  r = await api(directorToken, 'PATCH', `/roles/${ceoRol.id}`, { title: { uz: 'Buzishga urinish' } });
   tekshir('director CEO ROLINI tahrirlay olmaydi', 403, r.status, r.json?.error?.message?.slice(0, 90));
 
-  r = await api(directorToken, 'PATCH', `/roles/${directorRol.id}`, { title: { uz: 'Buzishga urinish' } }, true);
+  r = await api(directorToken, 'PATCH', `/roles/${directorRol.id}`, { title: { uz: 'Buzishga urinish' } });
   tekshir('director DIREKTOR ROLINI tahrirlay olmaydi', 403, r.status, r.json?.error?.message?.slice(0, 90));
 
-  r = await api(directorToken, 'DELETE', `/roles/${ceoRol.id}`, null, true);
+  r = await api(directorToken, 'DELETE', `/roles/${ceoRol.id}`, null);
   tekshir('director CEO rolini o\'chira olmaydi', 403, r.status, r.json?.error?.message?.slice(0, 90));
 
   r = await api(directorToken, 'POST', '/roles', {
@@ -163,10 +170,33 @@ async function main() {
   // Nishonni asl holatiga qaytaramiz (test ma'lumoti tartibli qolsin).
   await api(ceoToken, 'PATCH', `/users/${nishon.id}/roles`, { roleNames: ['teacher'] });
 
-  r = await api(ceoToken, 'PATCH', `/roles/${directorRol.id}`, {
-    title: directorRol.title ?? { uz: 'Direktor', ru: 'Директор', en: 'Director' },
-  }, true);
-  tekshir('CEO direktor rolini tahrirlay oladi', 200, r.status, r.json?.error?.message?.slice(0, 90));
+  // MUHIM: `director` — GLOBAL rol (barcha maktablarda bir xil). Maktabga
+  // BOG'LANGAN CEO uni tahrirlay olmasligi KERAK — aks holda bitta maktabning
+  // o'zgarishi hamma tenantga tarqalardi. Bu 4-bosqich nuqsoni emas, tenant
+  // izolyatsiyasining to'g'ri ishlashi.
+  // NON-DESTRUKTIV tana: mavjud `dataScope` ni o'ziga qayta yozamiz — validatsiyadan
+  // o'tadi, guard zanjiriga yetadi, lekin rolni o'zgartirmaydi.
+  // (`title` ni javobdan qaytarib yuborib bo'lmaydi: API uni lokalizatsiya qilingan
+  // SATR qilib beradi, DTO esa {uz,ru,en} obyektini kutadi → 400 VALIDATION_FAILED.)
+  r = await api(ceoToken, 'PATCH', `/roles/${directorRol.id}`, { dataScope: directorRol.dataScope });
+  tekshir("maktabga bog'langan CEO GLOBAL rolni tahrirlay olmaydi", 403, r.status, r.json?.error?.message?.slice(0, 90));
+
+  // 5) IJOBIY yo'l: global rolni faqat MAKTABGA BOG'LANMAGAN hisob boshqara
+  // oladi. Admin hisobining o'zi global bo'lsa (`ceoschool`, schoolId=NULL) —
+  // aynan shu holat sinaladi, qo'shimcha parol talab qilinmaydi.
+  if (adminUser?.schoolId == null) {
+    console.log("\n5) GLOBAL hisob (schoolId=NULL) — global rol OCHIQ bo'lishi kerak");
+
+    // `maktabsiz: true` SHART — global hisob X-School-Id yuborsa, kontekst
+    // to'ladi va tenant qatlami global rolni yana to'sadi.
+    r = await api(adminToken, 'PATCH', `/roles/${directorRol.id}`, { dataScope: directorRol.dataScope }, true);
+    tekshir('GLOBAL hisob direktor rolini tahrirlay oladi', 200, r.status, r.json?.error?.message?.slice(0, 90));
+
+    r = await api(adminToken, 'PATCH', `/roles/${directorRol.id}`, { dataScope: directorRol.dataScope });
+    tekshir('...lekin maktab TANLANGAN holda tahrirlay olmaydi', 403, r.status, r.json?.error?.message?.slice(0, 90));
+  } else {
+    console.log("\n5) GLOBAL hisob bo'limi o'tkazib yuborildi (admin maktabga bog'langan)");
+  }
 
   const yiqilgan = natijalar.filter((n) => !n.otdi);
   console.log(`\n=== NATIJA: ${natijalar.length - yiqilgan.length}/${natijalar.length} o'tdi ===`);

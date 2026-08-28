@@ -1,4 +1,10 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Not, Repository, type FindOptionsWhere } from 'typeorm';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
@@ -53,11 +59,23 @@ export class RolesService {
     ];
   }
 
-  /** Maktab kontekstidan turib global rolni o'zgartirish/o'chirish taqiqlanadi. */
+  /**
+   * Maktab kontekstidan turib global rolni o'zgartirish/o'chirish taqiqlanadi.
+   *
+   * NEGA: global rol (`school_id IS NULL`) — masalan `ceo`, `director` — BARCHA
+   * maktablarda bir xil. Bitta maktabning ichidan uni tahrirlash o'zgarishni
+   * hamma tenantga tarqatardi. Shuning uchun bunday rolni faqat maktabga
+   * BOG'LANMAGAN hisob (global CEO yoki super-admin) boshqaradi.
+   *
+   * Bu 403: avtorizatsiya qarori, kiritilgan ma'lumot nuqsoni emas.
+   */
   private assertRoleIsEditable(role: Role): void {
     const schoolId = this.tenant.getSchoolId();
     if (schoolId && role.schoolId == null) {
-      throw new BadRequestException('Global role can only be managed by super admin');
+      throw new ForbiddenException(
+        `'${role.name}' — global rol va barcha maktablarga tegishli: uni faqat ` +
+          "maktabga bog'lanmagan hisob (CEO yoki super-admin) boshqara oladi.",
+      );
     }
   }
 
@@ -187,12 +205,17 @@ export class RolesService {
     }
 
     const role = await this.findRoleEntity(id);
-    this.assertRoleIsEditable(role);
+    // TARTIB MUHIM: RBAC avval. `ceo`/`director` — GLOBAL rollar, ya'ni maktabga
+    // bog'langan aktor uchun ikkala tekshiruv ham rad javob beradi. Tenant
+    // tekshiruvi oldinda turganda foydalanuvchi "Kiritilgan ma'lumotlar
+    // noto'g'ri" (400) degan chalg'ituvchi xabar olardi — aslida sabab rolning
+    // himoyalanganligi edi. Aniqroq sabab birinchi gapiradi.
     if (actor) {
       assertPrivilegedRolesManageable(actor.permissions, [
         { name: role.name, isPrivileged: role.isPrivileged },
       ]);
     }
+    this.assertRoleIsEditable(role);
     if (dto.name !== undefined) {
       const name = this.normalizeRoleName(dto.name);
       if (role.isSystem && name !== role.name) {
@@ -228,12 +251,13 @@ export class RolesService {
 
   async remove(id: string, actor?: AuthenticatedUser): Promise<void> {
     const role = await this.findRoleEntity(id);
-    this.assertRoleIsEditable(role);
+    // TARTIB MUHIM — `update()` dagi izohga qarang.
     if (actor) {
       assertPrivilegedRolesManageable(actor.permissions, [
         { name: role.name, isPrivileged: role.isPrivileged },
       ]);
     }
+    this.assertRoleIsEditable(role);
 
     if (role.isSystem) {
       throw new BadRequestException('System role cannot be deleted');

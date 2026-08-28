@@ -322,4 +322,85 @@ describe('RolesService', () => {
 
     expect(qb.andWhere).not.toHaveBeenCalled();
   });
+
+  /**
+   * `ceo`/`director` — GLOBAL rollar (`school_id IS NULL`), shuning uchun maktabga
+   * bog'langan aktor uchun IKKALA tekshiruv ham rad javob beradi:
+   *   - `assertPrivilegedRolesManageable` — himoyalangan rol (RBAC)
+   *   - `assertRoleIsEditable`            — global rol + maktab konteksti (tenant)
+   *
+   * Ilgari tenant tekshiruvi oldinda turardi va foydalanuvchi "Kiritilgan
+   * ma'lumotlar noto'g'ri" (400) degan chalg'ituvchi javob olardi — RBAC
+   * tekshiruvi bu yo'llarda umuman ishga tushmasdi. Quyidagi sinovlar aynan
+   * QAYSI tekshiruv gapirishini qulflaydi.
+   */
+  describe('himoyalangan + global rol: tekshiruvlar tartibi', () => {
+    const globalPrivilegedRole = {
+      ...role,
+      name: 'director',
+      isPrivileged: true,
+      schoolId: null,
+    } as Role;
+
+    /** Maktabga bog'langan aktor konteksti bilan chaqirish. */
+    async function maktabKontekstida<T>(run: () => Promise<T>): Promise<T> {
+      const tenant = new TenantContextService();
+      service = new RolesService(
+        roles as unknown as Repository<Role>,
+        permissions as unknown as Repository<Permission>,
+        tenant,
+      );
+      return tenant.run(async () => {
+        tenant.set({ schoolId: 'school-1' });
+        return run();
+      });
+    }
+
+    beforeEach(() => {
+      roles.createQueryBuilder.mockReturnValue(mockQueryBuilder(globalPrivilegedRole));
+      roles.save.mockImplementation(async (value) => value as Role);
+    });
+
+    it('direktor sababi HIMOYALANGAN ROL deb aytiladi (tenant xabari emas)', async () => {
+      await maktabKontekstida(async () => {
+        await expect(
+          service.update(roleId, { title: { uz: 'Buzishga urinish' } }, actorWith(['students.read'])),
+        ).rejects.toThrow(/himoyalangan rol/);
+      });
+    });
+
+    it('o‘chirishda ham himoyalangan-rol sababi birinchi', async () => {
+      await maktabKontekstida(async () => {
+        await expect(service.remove(roleId, actorWith(['students.read']))).rejects.toThrow(
+          /himoyalangan rol/,
+        );
+      });
+    });
+
+    it('maktabga bog‘langan CEO global rolni baribir tahrirlay olmaydi — sabab GLOBAL ROL', async () => {
+      await maktabKontekstida(async () => {
+        // RBAC tekshiruvidan o'tadi (manage-privileged bor), tenant qatlami to'sadi.
+        await expect(
+          service.update(roleId, { title: { uz: 'Yangi nom' } }, actorWith(['roles.manage-privileged'])),
+        ).rejects.toThrow(/global rol/);
+      });
+      expect(roles.save).not.toHaveBeenCalled();
+    });
+
+    it('global rol taqiqi 403 (avtorizatsiya), 400 emas', async () => {
+      await maktabKontekstida(async () => {
+        const xato = await service
+          .update(roleId, { title: { uz: 'Yangi nom' } }, actorWith(['roles.manage-privileged']))
+          .catch((e: unknown) => e);
+        expect(xato).toBeInstanceOf(ForbiddenException);
+        expect(xato).not.toBeInstanceOf(BadRequestException);
+      });
+    });
+
+    it('GLOBAL CEO (maktab konteksti yo‘q) global rolni tahrirlay oladi', async () => {
+      await expect(
+        service.update(roleId, { title: { uz: 'Yangi nom' } }, actorWith(['roles.manage-privileged'])),
+      ).resolves.toBeDefined();
+    });
+  });
 });
