@@ -615,6 +615,15 @@ export const CONFIDENTIAL_PERMISSION_CODES: readonly string[] = [
   // supermanager `DEFAULT_PERMISSION_CODES` orqali avtomatik OLMASIN deb
   // maxfiy: faqat `ceo` roli formulasida qo'lda qo'shiladi.
   AppPermission.ROLES_MANAGE_PRIVILEGED,
+  // Maktab kartochkasini boshqarish — ijarachining o'zini yaratish/o'chirish
+  // demak, ya'ni tenant chegarasidan yuqoridagi amal. Ilgari director, admin
+  // va supermanager bularga ega edi: maktab direktori yangi maktab yaratishi
+  // va BOSHQA maktabni o'chirishi mumkin edi (2026-08-28 da aniqlandi).
+  // Endi maktab xodimi o'z maktabini faqat KO'RADI (`settings-school.read`),
+  // yaratish/tahrirlash/o'chirish esa faqat CEO va super-adminda.
+  AppPermission.SETTINGS_SCHOOL_CREATE,
+  AppPermission.SETTINGS_SCHOOL_UPDATE,
+  AppPermission.SETTINGS_SCHOOL_DELETE,
 ];
 
 /**

@@ -49,6 +49,29 @@ describe("RBAC ierarxiyasi — defaultRoles formulasi", () => {
     }
   });
 
+  /**
+   * 2026-08-28: maktab direktori `settings-school.create/delete` ga ega edi,
+   * ya'ni yangi maktab yaratishi va BOSHQA maktabni o'chirishi mumkin edi.
+   * Maktab kartochkasi — ijarachining o'zi, uni boshqarish tenant chegarasidan
+   * yuqoridagi amal. Maktab xodimi endi faqat KO'RADI.
+   */
+  it("maktab kartochkasini boshqarish faqat ceo'da — director/admin/supermanager faqat o'qiydi", () => {
+    for (const code of [
+      AppPermission.SETTINGS_SCHOOL_CREATE,
+      AppPermission.SETTINGS_SCHOOL_UPDATE,
+      AppPermission.SETTINGS_SCHOOL_DELETE,
+    ]) {
+      expect(byName('ceo').permissions).toContain(code);
+      for (const name of ['director', 'admin', 'supermanager']) {
+        expect(byName(name).permissions).not.toContain(code);
+      }
+    }
+    // O'qish saqlanadi — o'z maktabi profilini ko'ra olishi kerak.
+    for (const name of ['director', 'admin', 'supermanager']) {
+      expect(byName(name).permissions).toContain(AppPermission.SETTINGS_SCHOOL_READ);
+    }
+  });
+
   it("ceo ruxsatlari director ruxsatlarining ustki to'plami (kamida)", () => {
     const directorCodes = new Set(byName('director').permissions);
     const ceoCodes = new Set(byName('ceo').permissions);
