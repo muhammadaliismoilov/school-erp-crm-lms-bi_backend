@@ -4,6 +4,7 @@ import { CommonStatus } from '../src/common/enums/common-status.enum';
 import type { School } from '../src/modules/settings/entities/school.entity';
 import { SchoolsService } from '../src/modules/schools/schools.service';
 import { TenantContextService } from '../src/common/tenant/tenant-context.service';
+import type { SchoolModulesService } from '../src/modules/schools/school-modules.service';
 import { PaymentPeriodUnit, PaymentStartStrategy, SchoolType, WorkDays } from '../src/modules/schools/enums/school.enums';
 
 describe('SchoolsService', () => {
@@ -33,7 +34,14 @@ describe('SchoolsService', () => {
       createQueryBuilder: jest.fn(() => statsQueryBuilder as unknown as SelectQueryBuilder<School>),
     };
     tenant = new TenantContextService();
-    service = new SchoolsService(schools as unknown as Repository<School>, tenant);
+    service = new SchoolsService(
+      schools as unknown as Repository<School>,
+      tenant,
+      {
+        statusFor: jest.fn().mockResolvedValue({ integrations: false }),
+        set: jest.fn(),
+      } as unknown as SchoolModulesService,
+    );
   });
 
   const createPayload = {

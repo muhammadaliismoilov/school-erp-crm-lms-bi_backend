@@ -3,6 +3,7 @@ import type { Request } from 'express';
 import { Observable } from 'rxjs';
 import { DataScope } from '../scope/data-scope.enum';
 import { TenantContextService } from './tenant-context.service';
+import { resolveRequestSchoolId } from './resolve-request-school';
 
 interface RequestUser {
   id?: string;
@@ -34,10 +35,8 @@ export class TenantScopeInterceptor implements NestInterceptor {
       const branchOverride = typeof headerBranch === 'string' && headerBranch.length > 0 ? headerBranch : null;
       // Maktabга bog'langan user o'z maktabiga qadalgan (header e'tiborsiz);
       // GLOBAL user (schoolId=null, masalan super-admin) X-School-Id bilan maktab tanlaydi.
-      const headerSchool = req.headers['x-school-id'];
-      const schoolOverride = typeof headerSchool === 'string' && headerSchool.length > 0 ? headerSchool : null;
       this.tenant.set({
-        schoolId: user.schoolId ?? schoolOverride ?? null,
+        schoolId: resolveRequestSchoolId(user.schoolId, req.headers['x-school-id']),
         branchId: branchOverride ?? user.branchId ?? null,
         userId: user.id ?? null,
         dataScope: hasWildcardPermission(user.permissions)

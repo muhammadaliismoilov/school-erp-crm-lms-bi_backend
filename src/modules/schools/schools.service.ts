@@ -4,6 +4,9 @@ import { Brackets, ILike, Not, Repository } from 'typeorm';
 import type { FindOptionsWhere, SelectQueryBuilder } from 'typeorm';
 import { CommonStatus } from '../../common/enums/common-status.enum';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
+import { SchoolModulesService } from './school-modules.service';
+import { GATED_MODULE_KEYS } from './gated-modules';
+import { SetSchoolModuleDto } from './dto/set-school-module.dto';
 import type { LocalizedText } from '../../common/i18n/locale';
 import { School } from '../settings/entities/school.entity';
 import { CreateSchoolDto } from './dto/create-school.dto';
@@ -56,7 +59,41 @@ export class SchoolsService {
     @InjectRepository(School)
     private readonly schools: Repository<School>,
     private readonly tenant: TenantContextService,
+    private readonly moduleRegistry: SchoolModulesService,
   ) {}
+
+  /**
+   * Aktiv maktabda qaysi modullar yoqilgan — yon panel shu javobga qarab
+   * bo'limlarni ko'rsatadi.
+   *
+   * Maktab konteksti yo'q bo'lsa (global CEO "Barcha maktablar" da) hammasi
+   * o'chiq deb qaytariladi: modul har doim aniq bir maktabga tegishli, "hamma
+   * maktab uchun birdaniga" degan holat yo'q.
+   */
+  async myModules(): Promise<Record<string, boolean>> {
+    const schoolId = this.tenantSchoolId();
+    if (!schoolId) {
+      return Object.fromEntries(GATED_MODULE_KEYS.map((key) => [key, false]));
+    }
+    return this.moduleRegistry.statusFor(schoolId);
+  }
+
+  /** CEO uchun: bitta maktabning modul holati. */
+  async modulesOfSchool(schoolId: string): Promise<Record<string, boolean>> {
+    await this.findSchoolEntity(schoolId);
+    return this.moduleRegistry.statusFor(schoolId);
+  }
+
+  /** CEO uchun: modulni yoqish/o'chirish. */
+  async setSchoolModule(
+    schoolId: string,
+    dto: SetSchoolModuleDto,
+    actorId?: string | null,
+  ): Promise<Record<string, boolean>> {
+    await this.findSchoolEntity(schoolId);
+    await this.moduleRegistry.set(schoolId, dto.module, dto.enabled, actorId);
+    return this.moduleRegistry.statusFor(schoolId);
+  }
 
   /**
    * Aktiv maktab — `School` uchun tenant kaliti `school_id` EMAS, `id` ning

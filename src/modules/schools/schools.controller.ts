@@ -41,6 +41,9 @@ import {
   WorkDays,
 } from "./enums/school.enums";
 import { SchoolsService } from "./schools.service";
+import { SetSchoolModuleDto } from "./dto/set-school-module.dto";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
+import type { AuthenticatedUser } from "../../common/security/authenticated-user.interface";
 
 const uuidParamDocs = {
   name: "id",
@@ -114,6 +117,41 @@ export class SchoolsController {
   })
   createSchool(@Body() dto: CreateSchoolDto) {
     return this.schoolsService.createSchool(dto);
+  }
+
+  @Get("modules/mine")
+  @ApiOperation({
+    summary: "Aktiv maktabda qaysi modullar yoqilgan",
+    description:
+      "Yon panel shu javobga qarab bo‘limlarni ko‘rsatadi. Maxsus ruxsat " +
+      "talab qilinmaydi — bu foydalanuvchining o‘z sirtidagi holat.",
+  })
+  myModules() {
+    return this.schoolsService.myModules();
+  }
+
+  @Get(":id/modules")
+  @Permissions([AppPermission.SETTINGS_SCHOOL_READ])
+  @ApiOperation({ summary: "Maktab modullari holati" })
+  @ApiParam(uuidParamDocs)
+  schoolModules(@Param() params: UuidParamDto) {
+    return this.schoolsService.modulesOfSchool(params.id);
+  }
+
+  @Patch(":id/modules")
+  @Permissions([AppPermission.SETTINGS_SCHOOL_UPDATE])
+  @ApiOperation({
+    summary: "Maktab modulini yoqish/o‘chirish",
+    description: "Faqat CEO: `settings-school.update` maktab xodimlarida yo‘q.",
+  })
+  @ApiParam(uuidParamDocs)
+  @ApiBody({ type: SetSchoolModuleDto })
+  setSchoolModule(
+    @Param() params: UuidParamDto,
+    @Body() dto: SetSchoolModuleDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.schoolsService.setSchoolModule(params.id, dto, actor.id);
   }
 
   @Get(":id")

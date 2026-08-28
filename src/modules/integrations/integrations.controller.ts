@@ -15,6 +15,8 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import type { Request } from "express";
+import { RequiresModule } from "../schools/requires-module.decorator";
+import { SchoolModuleGuard } from "../schools/school-module.guard";
 import {
   ApiBearerAuth,
   ApiBody,
@@ -54,7 +56,10 @@ const uuidParamDocs = {
 @ApiTags("Integratsiyalar")
 @ApiBearerAuth()
 @ApiLocalizedErrorResponses({ notFound: true, conflict: true })
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+// Butun bo'lim maktab bayrog'iga bog'langan: CEO uni maktab sahifasidan
+// yoqmaguncha hech kim (CEO ham) kira olmaydi.
+@UseGuards(JwtAuthGuard, PermissionsGuard, SchoolModuleGuard)
+@RequiresModule('integrations')
 @Controller({ path: "integrations", version: "1" })
 export class IntegrationsController {
   constructor(private readonly integrationsService: IntegrationsService) {}
