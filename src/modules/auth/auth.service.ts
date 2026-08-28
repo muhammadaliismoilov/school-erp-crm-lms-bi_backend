@@ -374,10 +374,11 @@ export class AuthService {
       ipAddress: meta.ipAddress ?? null,
     });
 
-    const authUser = this.toAuthenticatedUser(user, session.id);
-    // Ruxsatlar tokenga solinmaydi (sarlavha 16 KB limitidan oshib ketardi) —
-    // javob TANASIDA esa qoladi, frontend `can()` shundan ishlaydi.
-    const { permissions: _permissions, ...tokenClaims } = authUser;
+    const authUser = this.toAuthenticatedUser(user, session.id, await this.schoolNameFor(user.schoolId));
+    // Ruxsatlar va maktab nomi tokenga solinmaydi (sarlavha 16 KB limitidan
+    // oshib ketardi) — javob TANASIDA qoladi: frontend `can()` va yon paneldagi
+    // brend shundan ishlaydi.
+    const { permissions: _permissions, schoolName: _schoolName, ...tokenClaims } = authUser;
     const payload: JwtPayload = {
       ...tokenClaims,
       sub: user.id,
@@ -397,7 +398,26 @@ export class AuthService {
     };
   }
 
-  private toAuthenticatedUser(user: User, sessionId?: string): AuthenticatedUser {
+  /**
+   * Maktab nomi — yon paneldagi brend uchun. Login hech qachon shu sabab
+   * yiqilmasin: maktab topilmasa (o'chirilgan, yoki osilib qolgan schoolId)
+   * `null` qaytadi va UI zaxira nomga tushadi.
+   */
+  private async schoolNameFor(schoolId?: string | null): Promise<string | null> {
+    if (!schoolId) return null;
+    try {
+      const school = await this.schoolsService.findSchool(schoolId);
+      return school.name ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private toAuthenticatedUser(
+    user: User,
+    sessionId?: string,
+    schoolName: string | null = null,
+  ): AuthenticatedUser {
     const roles = user.roles?.map((role) => role.name) ?? [];
     const permissions = Array.from(
       new Set(
@@ -415,6 +435,7 @@ export class AuthService {
       permissions,
       sessionId,
       schoolId: user.schoolId ?? null,
+      schoolName,
       branchId: user.branchId ?? null,
       // Rollar qo'shiluvchi: bitta ham keng rol bo'lsa — to'liq ko'rish.
       dataScope: widestDataScope(user.roles?.map((role) => role.dataScope) ?? []),

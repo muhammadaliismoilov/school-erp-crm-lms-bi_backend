@@ -143,7 +143,11 @@ describe('Ruxsatlar tokenda emas, reyestrda', () => {
       } as unknown as Role;
     }
 
-    function makeAuthService() {
+    /**
+     * `maktab` — `SchoolsService.findSchool` nima qaytarishi:
+     * obyekt (topildi), `Error` (topilmadi), yoki `undefined` (chaqirilmasin).
+     */
+    function makeAuthService(maktab?: { name: string } | Error) {
       const qb = {
         addSelect: jest.fn().mockReturnThis(),
         leftJoinAndSelect: jest.fn().mockReturnThis(),
@@ -174,7 +178,13 @@ describe('Ruxsatlar tokenda emas, reyestrda', () => {
           get: (key: string) => (key === 'JWT_ACCESS_EXPIRES_IN' ? '15m' : undefined),
           getOrThrow: () => 'test-secret',
         } as unknown as ConfigService,
-        { resolveByHostname: jest.fn() } as unknown as SchoolsService,
+        {
+          resolveByHostname: jest.fn(),
+          findSchool: jest.fn(async () => {
+            if (maktab instanceof Error) throw maktab;
+            return maktab;
+          }),
+        } as unknown as SchoolsService,
       );
       return { service, qb };
     }
@@ -199,6 +209,44 @@ describe('Ruxsatlar tokenda emas, reyestrda', () => {
       expect(result.accessToken.length).toBeLessThan(TOKEN_LIMIT_BYTES);
       // Frontend `can()` javob tanasidagi ruxsatlardan ishlaydi — ular joyida.
       expect(result.user.permissions).toHaveLength(439);
+    });
+
+    it('`schoolName` javob tanasida keladi, lekin tokenga tushmaydi', async () => {
+      const { service, qb } = makeAuthService({ name: 'Elegant School' });
+      qb.getOne.mockResolvedValue({
+        id: 'user-1',
+        username: 'director',
+        status: CommonStatus.ACTIVE,
+        passwordHash: 'hash',
+        twoFactorEnabled: false,
+        schoolId: 'school-1',
+        roles: [permissionRole(10)],
+      } as unknown as User);
+
+      const result = await service.login({ login: 'director', password: 'x' });
+      if ('requiresTwoFactor' in result) throw new Error('2FA kutilmagan edi');
+
+      expect(result.user.schoolName).toBe('Elegant School');
+      const decoded = new JwtService({}).decode(result.accessToken) as Record<string, unknown>;
+      expect(decoded).not.toHaveProperty('schoolName');
+    });
+
+    it('maktab topilmasa login yiqilmaydi — `schoolName` null bo‘ladi', async () => {
+      const { service, qb } = makeAuthService(new Error('School not found'));
+      qb.getOne.mockResolvedValue({
+        id: 'user-1',
+        username: 'director',
+        status: CommonStatus.ACTIVE,
+        passwordHash: 'hash',
+        twoFactorEnabled: false,
+        schoolId: 'osilib-qolgan-id',
+        roles: [permissionRole(10)],
+      } as unknown as User);
+
+      const result = await service.login({ login: 'director', password: 'x' });
+      if ('requiresTwoFactor' in result) throw new Error('2FA kutilmagan edi');
+
+      expect(result.user.schoolName).toBeNull();
     });
 
     it('token payloadida `permissions` maydoni umuman yo‘q', async () => {
