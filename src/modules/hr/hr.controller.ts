@@ -6,6 +6,8 @@ import { Permissions } from '../../common/decorators/permissions.decorator';
 import { UuidParamDto } from '../../common/dto/uuid-param.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
+import { RequiresModule } from '../schools/requires-module.decorator';
+import { SchoolModuleGuard } from '../schools/school-module.guard';
 import type { AuthenticatedUser } from '../../common/security/authenticated-user.interface';
 import { BranchQueryDto, CreateBranchDto, CreateDepartmentDto, CreateLeaveDto, CreatePayrollDto, CreatePositionDto, CreateStaffAchievementDto, CreateStaffCertificateDto, CreateStaffMemberDto, DepartmentQueryDto, LeaveQueryDto, PositionQueryDto, ReviewLeaveDto, StaffQueryDto, UpdateBranchDto, UpdateDepartmentDto, UpdateLeaveDto, UpdatePayrollDto, UpdatePositionDto, UpdateStaffAchievementDto, UpdateStaffCertificateDto, UpdateStaffKpiDto, UpdateStaffMemberDto } from './dto/hr.dto';
 import { CreateTaskDto, TaskQueryDto, UpdateTaskDto } from './dto/task.dto';
@@ -22,7 +24,13 @@ import { StaffPortfolioService } from './staff-portfolio.service';
 
 @ApiTags('HR')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, PermissionsGuard)
+/**
+ * DIQQAT: `@RequiresModule` bu yerda CLASS darajasida QO'YILMAYDI — bitta
+ * kontrollerda butun HR (xodimlar, ta'tillar, oylik, vazifalar...) yashaydi va
+ * class darajasidagi bayroq ularning hammasini yopib qo'yardi. Bayroq faqat
+ * filial yo'llariga, metod darajasida biriktiriladi.
+ */
+@UseGuards(JwtAuthGuard, PermissionsGuard, SchoolModuleGuard)
 @Controller({ path: 'hr', version: '1' })
 export class HrController {
   constructor(
@@ -44,12 +52,12 @@ export class HrController {
   }
 
   @Get('schools/options') @Permissions([AppPermission.HR_BRANCHES_READ]) findSchoolOptions() { return this.branchService.schoolOptions(); }
-  @Get('branches/options') @Permissions([AppPermission.HR_BRANCHES_READ]) findBranchOptions() { return this.branchService.options(); }
-  @Get('branches') @Permissions([AppPermission.HR_BRANCHES_READ]) findBranches(@Query() query: BranchQueryDto) { return this.branchService.findBranches(query); }
-  @Get('branches/:id') @Permissions([AppPermission.HR_BRANCHES_READ]) getBranch(@Param() p: UuidParamDto) { return this.branchService.getBranch(p.id); }
-  @Post('branches') @Permissions([AppPermission.HR_BRANCHES_CREATE]) createBranch(@Body() dto: CreateBranchDto) { return this.branchService.createBranch(dto); }
-  @Patch('branches/:id') @Permissions([AppPermission.HR_BRANCHES_UPDATE]) updateBranch(@Param() p: UuidParamDto, @Body() dto: UpdateBranchDto) { return this.branchService.updateBranch(p.id, dto); }
-  @Delete('branches/:id') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_BRANCHES_DELETE]) removeBranch(@Param() p: UuidParamDto) { return this.branchService.removeBranch(p.id); }
+  @RequiresModule('branches') @Get('branches/options') @Permissions([AppPermission.HR_BRANCHES_READ]) findBranchOptions() { return this.branchService.options(); }
+  @RequiresModule('branches') @Get('branches') @Permissions([AppPermission.HR_BRANCHES_READ]) findBranches(@Query() query: BranchQueryDto) { return this.branchService.findBranches(query); }
+  @RequiresModule('branches') @Get('branches/:id') @Permissions([AppPermission.HR_BRANCHES_READ]) getBranch(@Param() p: UuidParamDto) { return this.branchService.getBranch(p.id); }
+  @RequiresModule('branches') @Post('branches') @Permissions([AppPermission.HR_BRANCHES_CREATE]) createBranch(@Body() dto: CreateBranchDto) { return this.branchService.createBranch(dto); }
+  @RequiresModule('branches') @Patch('branches/:id') @Permissions([AppPermission.HR_BRANCHES_UPDATE]) updateBranch(@Param() p: UuidParamDto, @Body() dto: UpdateBranchDto) { return this.branchService.updateBranch(p.id, dto); }
+  @RequiresModule('branches') @Delete('branches/:id') @HttpCode(HttpStatus.NO_CONTENT) @Permissions([AppPermission.HR_BRANCHES_DELETE]) removeBranch(@Param() p: UuidParamDto) { return this.branchService.removeBranch(p.id); }
   @Get('departments') @Permissions([AppPermission.HR_DEPARTMENTS_READ]) findDepartments(@Query() query: DepartmentQueryDto) { return this.departmentService.findDepartments(query); }
   @Get('departments/:id') @Permissions([AppPermission.HR_DEPARTMENTS_READ]) getDepartment(@Param() p: UuidParamDto) { return this.departmentService.getDepartment(p.id); }
   @Post('departments') @Permissions([AppPermission.HR_DEPARTMENTS_CREATE]) createDepartment(@Body() dto: CreateDepartmentDto) { return this.departmentService.createDepartment(dto); }

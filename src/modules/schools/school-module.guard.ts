@@ -35,12 +35,27 @@ export class SchoolModuleGuard implements CanActivate {
       headers: Record<string, unknown>;
     }>();
     const schoolId = resolveRequestSchoolId(req.user?.schoolId, req.headers['x-school-id']);
+    // Xabar `{uz, ru, en}` shaklida beriladi: `GlobalExceptionFilter` faqat shu
+    // shaklni saqlaydi, oddiy satr esa status kodining umumiy matniga
+    // ("Ruxsatlar yetarli emas") aylanib, sababi yo'qolardi.
     if (!schoolId) {
-      throw new ForbiddenException('Avval maktabni tanlang — bu bo‘lim maktabga bog‘liq');
+      throw new ForbiddenException({
+        message: {
+          uz: 'Avval maktabni tanlang — bu bo‘lim maktabga bog‘liq',
+          ru: 'Сначала выберите школу — этот раздел привязан к школе',
+          en: 'Select a school first — this section belongs to one',
+        },
+      });
     }
 
     if (!(await this.modules.isEnabled(schoolId, required))) {
-      throw new ForbiddenException('Bu bo‘lim maktabingiz uchun yoqilmagan');
+      throw new ForbiddenException({
+        message: {
+          uz: 'Bu bo‘lim maktabingiz uchun yoqilmagan',
+          ru: 'Этот раздел не включён для вашей школы',
+          en: 'This section is not enabled for your school',
+        },
+      });
     }
 
     return true;

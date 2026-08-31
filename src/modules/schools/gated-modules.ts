@@ -11,6 +11,14 @@
  */
 export const GATED_MODULES = {
   integrations: { default: false },
+  /**
+   * Filiallar. Ko'p maktabda filial umuman yo'q (o'lchov paytida
+   * `users.branch_id` 1194 qatordan 0 tasida to'ldirilgan edi), shuning uchun
+   * bo'lim ham, boshqa formalardagi "Filial" maydoni ham keraksiz shovqin
+   * bo'lardi. `default: false` — filiali BOR maktablarga migratsiya bayroqni
+   * yoqib qo'yadi, ya'ni ishlatayotgan maktabdan bo'lim jimgina yo'qolmaydi.
+   */
+  branches: { default: false },
 } as const;
 
 export type GatedModule = keyof typeof GATED_MODULES;

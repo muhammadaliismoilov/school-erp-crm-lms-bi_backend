@@ -5,6 +5,7 @@ import { User } from '../identity/entities/user.entity';
 import { Branch } from '../settings/entities/branch.entity';
 import { School } from '../settings/entities/school.entity';
 import { UsersModule } from '../users/users.module';
+import { SchoolsModule } from '../schools/schools.module';
 import { Department } from './entities/department.entity';
 import { DepartmentService } from './department.service';
 import { BranchService } from './branch.service';
@@ -125,6 +126,9 @@ import { PayrollEngineService } from './payroll-engine.service';
       StaffAttendanceRecord,
     ]),
     UsersModule,
+    // SchoolsModule — `SchoolModuleGuard` uchun (filial yo'llari maktab
+    // bayrog'iga bog'langan).
+    SchoolsModule,
   ],
   controllers: [HrController, TeacherController, VacancyController, CandidateController, InteractionController, SurveyController, PerformanceReviewController, WorkScheduleController, TimesheetController, HrPaymentController, ProjectController, GeofenceController, HrStatsController, PayrollConfigController, ClassLeaderController, HolidayController, PayrollAdjustmentController, PayrollEngineController],
   providers: [HrService, StaffService, StaffPortfolioService, DepartmentService, BranchService, PositionService, LeaveService, TaskService, AttendanceHrService, TeacherService, VacancyService, CandidateService, InteractionService, SurveyService, PerformanceReviewService, WorkScheduleService, TimesheetService, HrPaymentService, ProjectService, GeofenceService, HrStatsService, PayrollConfigService, ClassLeaderService, HolidayService, PayrollAdjustmentService, PayrollEngineService],
