@@ -30,20 +30,41 @@ export enum TargetRole {
   LIBRARIAN = 'librarian',
 }
 
+/**
+ * Indekslar so'rov naqshiga qarab tanlangan (10-bob: tenglik ustunlari oldinga,
+ * diapazon/tartib oxirga). `idx_appeals_inbox` da `created_at` DESC — bu yerda
+ * ifodalanmaydi (TypeORM `@Index` yo'nalishni bilmaydi), migratsiyada esa
+ * DESC bilan yaratilgan; TypeORM indeksni nom + ustunlar bo'yicha taqqoslagani
+ * uchun bu farq `migration:generate` da churn hosil qilmaydi.
+ */
 @Entity('appeals')
-@Index('idx_appeals_status', ['status'])
-@Index('idx_appeals_type', ['type'])
-@Index('idx_appeals_target_role', ['targetRole'])
-@Index('idx_appeals_phone', ['phone'])
-@Index('idx_appeals_assignee', ['assigneeUserId'])
+@Index('idx_appeals_inbox', ['schoolId', 'status', 'createdAt'])
+@Index('idx_appeals_assignee_scope', ['schoolId', 'assigneeUserId'])
 export class Appeal extends UuidAuditEntity {
-  @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
+  /** Qattiq tenant chegarasi — bazada NOT NULL + FK (ON DELETE RESTRICT). */
+  @Column({ name: 'school_id', type: 'uuid', nullable: false }) schoolId: string;
   @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;
-  @Column({ name: 'full_name', type: 'varchar', length: 150, nullable: false })
-  fullName: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: false })
-  phone: string;
+  /**
+   * Murojaat qaysi public havoladan kelgani. Havolasiz (qo'lda kiritilgan)
+   * murojaatda `null`. Bu bog'lanish saqlanmagani uchun ilgari egasiz qolgan
+   * qatorni qaysi maktabga tiklashni aniqlashning yo'li yo'q edi.
+   */
+  @Column({ name: 'public_link_id', type: 'uuid', nullable: true })
+  publicLinkId?: string | null;
+
+  /**
+   * Anonim murojaatda `full_name`/`phone` bo'sh qoladi. Oraliq holatni
+   * (masalan ism bor, telefon yo'q) `chk_appeals_identity` taqiqlaydi.
+   */
+  @Column({ name: 'is_anonymous', type: 'boolean', default: false })
+  isAnonymous: boolean;
+
+  @Column({ name: 'full_name', type: 'varchar', length: 150, nullable: true })
+  fullName?: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  phone?: string | null;
 
   @Column({
     type: 'enum',
@@ -93,4 +114,14 @@ export class Appeal extends UuidAuditEntity {
 
   @Column({ name: 'resolved_at', type: 'timestamptz', nullable: true })
   resolvedAt?: Date | null;
+
+  /**
+   * Javob berish muddati: shikoyat uchun 3 kun, taklif uchun 7 kun.
+   *
+   * GENERATED ustun BO'LA OLMAYDI — `timestamptz + interval` STABLE, IMMUTABLE
+   * emas ("generation expression is not immutable"). Shuning uchun service
+   * to'ldiradi (`resolveDueAt`), tur o'zgarsa qayta hisoblanadi.
+   */
+  @Column({ name: 'due_at', type: 'timestamptz', nullable: false })
+  dueAt: Date;
 }

@@ -10,10 +10,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
 import { Between, Brackets, FindOptionsWhere, Repository } from 'typeorm';
 import { AppPermission } from '../../common/constants/permissions';
+import { defaultLocale, pickLocalizedText } from '../../common/i18n/locale';
 import { CommonStatus } from '../../common/enums/common-status.enum';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
 import { AuditService } from '../audit/audit.service';
+import { School } from '../settings/entities/school.entity';
 import { User } from '../identity/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationChannel } from '../notifications/enums/notification-status.enum';
@@ -21,6 +23,7 @@ import { AssignAppealDto } from './dto/assign-appeal.dto';
 import { CreateAppealDto } from './dto/create-appeal.dto';
 import { AppealPeriodFilter, AppealQueryDto } from './dto/appeal-query.dto';
 import { PublicCreateAppealDto } from './dto/public-create-appeal.dto';
+import { TransferAppealDto } from './dto/transfer-appeal.dto';
 import { UpdateAppealDto } from './dto/update-appeal.dto';
 import {
   Appeal,
@@ -41,6 +44,9 @@ export interface AppealActor {
   ipAddress?: string;
 }
 
+/** Murojaat bo'yicha yuboriladigan xabar turi. */
+type AppealNotificationKind = 'new' | 'assigned' | 'overdue' | 'escalated';
+
 /** Ro'yxatni ko'rayotgan foydalanuvchi va uning qamrovi. */
 export interface AppealViewer {
   userId?: string | null;
@@ -59,6 +65,16 @@ const ALLOWED_STATUS_TRANSITIONS: Record<AppealStatus, AppealStatus[]> = {
   [AppealStatus.REJECTED]: [AppealStatus.IN_PROGRESS],
 };
 
+/**
+ * Javob berish muddati. Konstanta, maktabga sozlanmaydi — sozlamalar jadvalini
+ * qurishdan oldin muddatning o'zi ishlab tursin. Shikoyat qisqaroq: kechikkan
+ * shikoyat kechikkan taklifdan qimmatroq turadi.
+ */
+const SLA_DAYS: Record<AppealType, number> = {
+  [AppealType.COMPLAINT]: 3,
+  [AppealType.SUGGESTION]: 7,
+};
+
 const TERMINAL_STATUSES: readonly AppealStatus[] = [
   AppealStatus.RESOLVED,
   AppealStatus.REJECTED,
@@ -75,6 +91,8 @@ export class AppealsService {
     private readonly publicLinkRepository: Repository<AppealPublicLink>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(School)
+    private readonly schoolRepository: Repository<School>,
     private readonly notificationsService: NotificationsService,
     private readonly auditService: AuditService,
     private readonly configService: ConfigService,
@@ -109,8 +127,19 @@ export class AppealsService {
   // ---- Public (unauthenticated) submission ----
 
   async validatePublicToken(token: string): Promise<PublicAppealLinkInfoSchema> {
-    await this.resolveActiveLink(token);
-    return { valid: true, title: 'Maktab murojaatlari' };
+    const link = await this.resolveActiveLink(token);
+    // Maktab nomi ATAYLAB qaytariladi: bir nechta maktabli tarmoqda ota-ona
+    // qaysi maktabga yozayotganini ko'rmasa, formaga ishonmaydi. Nomi
+    // topilmasa forma baribir ochiladi — sarlavha yo'qligi yuborishni
+    // to'sib qo'yishi mantiqsiz bo'lardi.
+    const school = link.schoolId
+      ? await this.schoolRepository.findOne({ where: { id: link.schoolId } })
+      : null;
+    return {
+      valid: true,
+      title: 'Maktab murojaatlari',
+      schoolName: school ? pickLocalizedText(school.name, defaultLocale) : null,
+    };
   }
 
   async createPublicAppeal(token: string, dto: PublicCreateAppealDto): Promise<{ id: string }> {
@@ -128,15 +157,20 @@ export class AppealsService {
       return { id: randomBytes(16).toString('hex') };
     }
 
+    const identity = this.resolveIdentity(dto);
     const appeal = await this.appealRepository.save(
       this.appealRepository.create({
-        fullName: this.normalizeText(dto.fullName),
-        phone: this.normalizePhone(dto.phone),
+        ...identity,
         type: dto.type,
         targetRole: dto.targetRole,
         description: this.normalizeText(dto.description),
         source: AppealSource.PUBLIC_LINK,
         status: AppealStatus.PENDING,
+        // Manbani saqlaymiz: keyinchalik "bu murojaat qaysi havoladan keldi"
+        // degan savolga javob beradi va egasiz qolgan qatorni tiklash imkonini
+        // beradi (ilgari bu bog'lanish yo'q edi).
+        publicLinkId: link.id,
+        dueAt: this.resolveDueAt(dto.type),
       }),
     );
     await this.recordAudit(undefined, 'appeal.public_created', appeal.id, {
@@ -184,13 +218,14 @@ export class AppealsService {
   async create(dto: CreateAppealDto, actor?: AppealActor): Promise<AppealResponseSchema> {
     const appeal = await this.appealRepository.save(
       this.appealRepository.create({
-        fullName: this.normalizeText(dto.fullName),
-        phone: this.normalizePhone(dto.phone),
+        schoolId: this.resolveTargetSchool(dto.schoolId),
+        ...this.resolveIdentity(dto),
         type: dto.type,
         targetRole: dto.targetRole,
         description: this.normalizeText(dto.description),
         source: dto.source ?? AppealSource.MANUAL,
         status: dto.status ?? AppealStatus.PENDING,
+        dueAt: this.resolveDueAt(dto.type),
       }),
     );
 
@@ -363,13 +398,17 @@ export class AppealsService {
     const previousStatus = appeal.status;
 
     if (dto.fullName !== undefined) {
-      appeal.fullName = this.normalizeText(dto.fullName);
+      appeal.fullName = dto.fullName === null ? null : this.normalizeText(dto.fullName);
     }
     if (dto.phone !== undefined) {
-      appeal.phone = this.normalizePhone(dto.phone);
+      appeal.phone = dto.phone === null ? null : this.normalizePhone(dto.phone);
     }
-    if (dto.type !== undefined) {
+    if (dto.type !== undefined && dto.type !== appeal.type) {
       appeal.type = dto.type;
+      // Muddat turdan kelib chiqadi, shuning uchun tur o'zgarsa u ham qayta
+      // hisoblanadi — lekin YARATILGAN vaqtdan, hozirdan emas: aks holda turni
+      // almashtirish kechikkan murojaatning soatini nolga qaytarardi.
+      appeal.dueAt = this.resolveDueAt(appeal.type, appeal.createdAt);
     }
     if (dto.targetRole !== undefined) {
       appeal.targetRole = dto.targetRole;
@@ -440,6 +479,94 @@ export class AppealsService {
     appeal.status = to;
   }
 
+  /**
+   * Murojaatni boshqa maktabga ko'chiradi (bosh ofis uchun).
+   *
+   * Biriktirilgan xodim ATAYLAB bo'shatiladi: u eski maktabning xodimi va
+   * `appeals.read-assigned` orqali murojaatni ochishda davom etardi — ya'ni
+   * ko'chirish tenant chegarasida teshik ochib qo'yardi.
+   */
+  async transfer(
+    id: string,
+    dto: TransferAppealDto,
+    actor?: AppealActor,
+  ): Promise<AppealResponseSchema> {
+    const appeal = await this.findAppealEntity(id);
+    const from = appeal.schoolId;
+    if (from === dto.schoolId) {
+      throw new BadRequestException({
+        message: {
+          uz: 'Murojaat allaqachon shu maktabga tegishli',
+          ru: 'Обращение уже принадлежит этой школе',
+          en: 'The appeal already belongs to this school',
+        },
+      });
+    }
+
+    const school = await this.schoolRepository.findOne({ where: { id: dto.schoolId } });
+    if (!school) {
+      throw new NotFoundException({
+        message: {
+          uz: 'Maktab topilmadi',
+          ru: 'Школа не найдена',
+          en: 'School not found',
+        },
+      });
+    }
+
+    appeal.schoolId = dto.schoolId;
+    appeal.filialId = null;
+    appeal.assigneeUserId = null;
+    const saved = await this.appealRepository.save(appeal);
+
+    await this.recordAudit(
+      actor?.userId,
+      'appeal.transferred',
+      saved.id,
+      { schoolFrom: from, schoolTo: saved.schoolId },
+      actor?.ipAddress,
+    );
+
+    // Yangi maktab rahbariyati murojaat kelganini bilsin.
+    const handlers = await this.findAppealHandlerIds(saved.schoolId);
+    if (handlers.length > 0) {
+      await this.queueAppealNotifications(handlers, saved, 'new');
+    }
+
+    return this.toResponseDto(saved);
+  }
+
+  /**
+   * Murojaat qaysi maktabga yoziladi.
+   *
+   * Maktabga BOG'LANGAN hisob o'z maktabidan chiqa olmaydi — boshqa maktab
+   * ko'rsatsa rad etiladi (tenant chegarasi). Bosh ofis esa maktabni ataylab
+   * tanlaydi; tanlamasa — yozadigan joy yo'q, chunki `school_id` NOT NULL.
+   */
+  private resolveTargetSchool(requested?: string | null): string {
+    const active = this.tenant.getSchoolId();
+    if (requested && active && requested !== active) {
+      throw new ForbiddenException({
+        message: {
+          uz: 'Boshqa maktab uchun murojaat yaratishga huquqingiz yo‘q',
+          ru: 'Нет прав создавать обращение для другой школы',
+          en: 'Not allowed to create an appeal for another school',
+        },
+      });
+    }
+    const target = active ?? requested ?? null;
+    if (!target) {
+      throw new BadRequestException({
+        message: {
+          uz: 'Murojaat yaratish uchun maktabni tanlang',
+          ru: 'Выберите школу, чтобы создать обращение',
+          en: 'Select a school to create an appeal',
+        },
+      });
+    }
+    return target;
+  }
+
   async remove(id: string, actor?: AppealActor): Promise<void> {
     const appeal = await this.findAppealEntity(id);
     await this.appealRepository.softDelete(id);
@@ -474,14 +601,24 @@ export class AppealsService {
    * kerak bo'lsa aniq xodimga biriktiradi (`assign`).
    */
   private async notifyAppealHandlers(appeal: Appeal): Promise<void> {
-    const recipients = await this.findAppealHandlerIds();
+    const recipients = await this.findAppealHandlerIds(appeal.schoolId);
     if (recipients.length === 0) {
       return;
     }
     await this.queueAppealNotifications(recipients, appeal, 'new');
   }
 
-  private async findAppealHandlerIds(): Promise<string[]> {
+  /**
+   * Murojaat bilan ishlay oladiganlar: `appeals.read` egalari.
+   *
+   * Maktab ATAYLAB argument sifatida keladi, so'rov kontekstidan olinmaydi.
+   * Ikki sabab: (1) oluvchilar murojaatning O'ZIDAN kelib chiqsin — ambient
+   * kontekst noto'g'ri bo'lsa xabar boshqa maktabga ketardi; (2) kunlik cron
+   * so'rov kontekstisiz ishlaydi, ya'ni tayanadigan kontekst umuman yo'q.
+   *
+   * `schoolId = null` — bosh ofis (global) hisoblari, eskalatsiya uchun.
+   */
+  private async findAppealHandlerIds(schoolId: string | null): Promise<string[]> {
     try {
       const qb = this.userRepository
         .createQueryBuilder('user')
@@ -490,10 +627,11 @@ export class AppealsService {
         .innerJoin('role.permissions', 'permission')
         .where('permission.code = :code', { code: AppPermission.APPEALS_READ })
         .andWhere('user.status = :status', { status: CommonStatus.ACTIVE });
-      // Tenant filtrisiz bu so'rov BARCHA maktablarning rahbariyatini qaytarardi —
-      // bitta maktabga kelgan shikoyat boshqa maktab direktoriga, murojaat
-      // qiluvchining ismi bilan birga, push bo'lib borardi.
-      applyTenantScope(qb, 'user', this.tenant);
+      if (schoolId) {
+        qb.andWhere('user.school_id = :schoolId', { schoolId });
+      } else {
+        qb.andWhere('user.school_id IS NULL');
+      }
       const rows = await qb.getRawMany<{ id: string }>();
       return rows.map((row) => row.id);
     } catch (error) {
@@ -505,13 +643,19 @@ export class AppealsService {
   private async queueAppealNotifications(
     userIds: string[],
     appeal: Appeal,
-    kind: 'new' | 'assigned',
+    kind: AppealNotificationKind,
   ): Promise<void> {
     const typeLabel = appeal.type === AppealType.COMPLAINT ? 'shikoyat' : 'taklif';
-    const text =
-      kind === 'new'
-        ? `Yangi ${typeLabel}: ${appeal.fullName}`
-        : `Sizga ${typeLabel} biriktirildi: ${appeal.fullName}`;
+    // Anonim murojaatda ism yaratishda bo'shatiladi; bu tekshiruv IKKINCHI qatlam —
+    // shu qoidadan oldin yozilgan qatorda ism qolgan bo'lsa ham oshkor bo'lmasin.
+    const who = appeal.isAnonymous ? 'Anonim' : (appeal.fullName ?? 'Anonim');
+    const texts: Record<AppealNotificationKind, string> = {
+      new: `Yangi ${typeLabel}: ${who}`,
+      assigned: `Sizga ${typeLabel} biriktirildi: ${who}`,
+      overdue: `Muddati o'tgan ${typeLabel}: ${who}`,
+      escalated: `Uzoq javobsiz qolgan ${typeLabel}: ${who}`,
+    };
+    const text = texts[kind];
 
     await Promise.all(
       userIds.map((userId) =>
@@ -533,6 +677,71 @@ export class AppealsService {
           ),
       ),
     );
+  }
+
+  // ---- Muddat eskalatsiyasi (kunlik cron chaqiradi) ----
+
+  /**
+   * Muddati o'tgan ochiq murojaatlarni topib eslatma yuboradi.
+   *
+   * Ikki daraja, ataylab har xil qoida bilan:
+   *  - MAKTAB RAHBARIYATI har kuni eslatma oladi, murojaat yopilguncha. Eslatma
+   *    aynan shu takrorlanish uchun bor — bir marta aytib qo'yish unutilgan
+   *    murojaatni qaytarmaydi.
+   *  - BOSH OFIS (global `appeals.read` egalari) faqat muddat IKKI BAROBAR
+   *    oshgan kuni xabar oladi. Bu holat oxirgi sutkada yuz berganini SQLning
+   *    o'zi hisoblaydi (`due_at + (due_at - created_at)`), ya'ni "xabar
+   *    yuborildimi" degan holatni saqlash uchun ustun kerak emas.
+   *
+   * So'rov kontekstisiz ishlaydi: har maktab uchun tenant konteksti ATAYLAB
+   * ochiladi, shunda yozilgan xabarlar to'g'ri maktabga tegishli bo'ladi.
+   */
+  async escalateOverdue(now: Date = new Date()): Promise<{ reminded: number; escalated: number }> {
+    const overdue = await this.appealRepository
+      .createQueryBuilder('appeal')
+      .where('appeal.due_at < :now', { now })
+      .andWhere('appeal.status IN (:...open)', {
+        open: [AppealStatus.PENDING, AppealStatus.IN_PROGRESS],
+      })
+      .orderBy('appeal.due_at', 'ASC')
+      .getMany();
+
+    if (overdue.length === 0) {
+      return { reminded: 0, escalated: 0 };
+    }
+
+    let reminded = 0;
+    let escalated = 0;
+    const dayAgo = new Date(now.getTime() - 86_400_000);
+
+    for (const appeal of overdue) {
+      // Har maktab uchun alohida kontekst: xabar yozuvlari o'z maktabiga tegsin.
+      await this.tenant.run(async () => {
+        this.tenant.set({ schoolId: appeal.schoolId, branchId: appeal.filialId ?? null });
+
+        const handlers = await this.findAppealHandlerIds(appeal.schoolId);
+        if (handlers.length > 0) {
+          await this.queueAppealNotifications(handlers, appeal, 'overdue');
+          reminded += 1;
+        }
+
+        // Muddat ikki barobar oshgan lahza — oxirgi sutka ichidami?
+        const slaMs = appeal.dueAt.getTime() - appeal.createdAt.getTime();
+        const doubledAt = new Date(appeal.dueAt.getTime() + slaMs);
+        if (doubledAt > dayAgo && doubledAt <= now) {
+          const headOffice = await this.findAppealHandlerIds(null);
+          if (headOffice.length > 0) {
+            await this.queueAppealNotifications(headOffice, appeal, 'escalated');
+            escalated += 1;
+          }
+        }
+      });
+    }
+
+    this.logger.log(
+      `Muddat eskalatsiyasi: ${reminded} ta eslatma, ${escalated} ta bosh ofisga chiqarildi`,
+    );
+    return { reminded, escalated };
   }
 
   private async recordAudit(
@@ -596,8 +805,9 @@ export class AppealsService {
   private toResponseDto(appeal: Appeal): AppealResponseSchema {
     return {
       id: appeal.id,
-      fullName: appeal.fullName,
-      phone: appeal.phone,
+      isAnonymous: appeal.isAnonymous,
+      fullName: appeal.fullName ?? null,
+      phone: appeal.phone ?? null,
       type: appeal.type,
       targetRole: appeal.targetRole,
       description: appeal.description,
@@ -607,10 +817,41 @@ export class AppealsService {
       resolutionNote: appeal.resolutionNote ?? null,
       resolvedById: appeal.resolvedById ?? null,
       resolvedAt: appeal.resolvedAt ?? null,
+      dueAt: appeal.dueAt,
+      publicLinkId: appeal.publicLinkId ?? null,
       createdAt: appeal.createdAt,
       updatedAt: appeal.updatedAt,
       deletedAt: appeal.deletedAt,
       version: appeal.version,
+    };
+  }
+
+  /**
+   * Muddatni turdan hisoblaydi. `from` berilmasa — hozirdan (yangi murojaat).
+   */
+  private resolveDueAt(type: AppealType, from: Date = new Date()): Date {
+    const due = new Date(from);
+    due.setDate(due.getDate() + SLA_DAYS[type]);
+    return due;
+  }
+
+  /**
+   * Murojaat qiluvchining kimligi. Anonim bo'lsa ism va telefon SAQLANMAYDI —
+   * bo'shatilmasa `chk_appeals_identity` o'tib ketardi-yu, "anonim" belgisi
+   * yolg'on bo'lardi: ma'lumot bazada qolib, ro'yxatda yashiringan bo'lardi.
+   */
+  private resolveIdentity(dto: {
+    isAnonymous?: boolean;
+    fullName?: string | null;
+    phone?: string | null;
+  }): { isAnonymous: boolean; fullName: string | null; phone: string | null } {
+    if (dto.isAnonymous) {
+      return { isAnonymous: true, fullName: null, phone: null };
+    }
+    return {
+      isAnonymous: false,
+      fullName: dto.fullName ? this.normalizeText(dto.fullName) : null,
+      phone: dto.phone ? this.normalizePhone(dto.phone) : null,
     };
   }
 

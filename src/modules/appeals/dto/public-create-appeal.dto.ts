@@ -1,6 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsEnum, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  IsString,
+  Length,
+  Matches,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
 import { AppealType, TargetRole } from '../entities/appeal.entity';
 
 const normalizePhone = ({ value }: { value: unknown }): unknown =>
@@ -11,17 +20,28 @@ const normalizePhone = ({ value }: { value: unknown }): unknown =>
  * source/status are forced server-side, so outsiders can't set them.
  */
 export class PublicCreateAppealDto {
-  @ApiProperty({ example: 'Ali Valiyev', minLength: 2, maxLength: 150 })
+  @ApiPropertyOptional({
+    example: false,
+    description:
+      'Anonim yuborish. `true` bo‘lsa ism va telefon SO‘RALMAYDI va saqlanmaydi.',
+  })
+  @IsOptional()
+  @IsBoolean({ message: 'Anonim belgisi true yoki false bo‘lishi kerak' })
+  isAnonymous?: boolean;
+
+  @ApiPropertyOptional({ example: 'Ali Valiyev', minLength: 2, maxLength: 150 })
+  @ValidateIf((dto: PublicCreateAppealDto) => !dto.isAnonymous)
   @IsString({ message: 'Ism sharif matn formatida bo‘lishi kerak' })
   @Length(2, 150, { message: 'Ism sharif uzunligi 2 dan 150 belgigacha bo‘lishi kerak' })
-  fullName: string;
+  fullName?: string;
 
-  @ApiProperty({ example: '+998901234567' })
+  @ApiPropertyOptional({ example: '+998901234567' })
+  @ValidateIf((dto: PublicCreateAppealDto) => !dto.isAnonymous)
   @Transform(normalizePhone)
   @Matches(/^\+998\d{9}$/, {
     message: 'Telefon raqam +998 bilan boshlanadigan 12 xonali O‘zbekiston raqami bo‘lishi kerak',
   })
-  phone: string;
+  phone?: string;
 
   @ApiProperty({ enum: AppealType, example: AppealType.SUGGESTION })
   @IsEnum(AppealType, { message: 'Murojaat turi faqat suggestion yoki complaint bo‘lishi mumkin' })

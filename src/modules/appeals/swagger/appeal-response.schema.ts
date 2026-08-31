@@ -5,11 +5,26 @@ export class AppealResponseSchema {
   @ApiProperty({ example: '0f8fad5b-d9cb-469f-a165-70867728950e', format: 'uuid' })
   id: string;
 
-  @ApiProperty({ example: 'Ali Valiyev', description: 'Murojaat qiluvchi to‘liq ismi.' })
-  fullName: string;
+  @ApiProperty({
+    example: false,
+    description:
+      'Anonim murojaatmi. Anonim bo‘lsa ism va telefon SAQLANMAYDI (null qaytadi).',
+  })
+  isAnonymous: boolean;
 
-  @ApiProperty({ example: '+998901234567', description: 'Murojaat qiluvchi telefon raqami.' })
-  phone: string;
+  @ApiPropertyOptional({
+    example: 'Ali Valiyev',
+    nullable: true,
+    description: 'Murojaat qiluvchi to‘liq ismi. Anonim murojaatda null.',
+  })
+  fullName?: string | null;
+
+  @ApiPropertyOptional({
+    example: '+998901234567',
+    nullable: true,
+    description: 'Murojaat qiluvchi telefon raqami. Anonim murojaatda null.',
+  })
+  phone?: string | null;
 
   @ApiProperty({ enum: AppealType, example: AppealType.SUGGESTION, description: 'Murojaat turi.' })
   type: AppealType;
@@ -51,6 +66,21 @@ export class AppealResponseSchema {
 
   @ApiPropertyOptional({ example: null, format: 'date-time', nullable: true })
   resolvedAt?: Date | null;
+
+  @ApiProperty({
+    example: '2026-06-12T10:00:00.000Z',
+    format: 'date-time',
+    description: 'Javob berish muddati: shikoyat uchun 3 kun, taklif uchun 7 kun.',
+  })
+  dueAt: Date;
+
+  @ApiPropertyOptional({
+    example: '0f8fad5b-d9cb-469f-a165-70867728950e',
+    format: 'uuid',
+    nullable: true,
+    description: 'Murojaat kelgan public havola. Qo‘lda kiritilganda null.',
+  })
+  publicLinkId?: string | null;
 
   @ApiProperty({ example: '2026-06-09T10:00:00.000Z', format: 'date-time' })
   createdAt: Date;

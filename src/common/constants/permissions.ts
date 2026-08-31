@@ -18,6 +18,12 @@ export const AppPermission = {
   APPEALS_CREATE: 'appeals.create',
   APPEALS_UPDATE: 'appeals.update',
   APPEALS_DELETE: 'appeals.delete',
+  /**
+   * Murojaatni boshqa maktabga ko'chirish. Tenant chegarasini KESIB O'TADI,
+   * shuning uchun `CONFIDENTIAL_PERMISSION_CODES` da: direktor/admin/supermanager
+   * uni `DEFAULT_PERMISSION_CODES` orqali avtomatik OLMAYDI.
+   */
+  APPEALS_TRANSFER: 'appeals.transfer',
   // Resurs: appeals-public-link
   APPEALS_PUBLIC_LINK_READ: 'appeals-public-link.read',
   APPEALS_PUBLIC_LINK_CREATE: 'appeals-public-link.create',
@@ -618,6 +624,9 @@ export const CONFIDENTIAL_PERMISSION_CODES: readonly string[] = [
   // ko'chirish) — director/admin darajasidagi rol ham bunga ega bo'lmasligi
   // kerak, faqat super-admin wildcard.
   AppPermission.USERS_REASSIGN_SCHOOL,
+  // Murojaatni maktabdan maktabga ko'chirish — xuddi shu sabab: tenant
+  // chegarasini kesib o'tadi, ya'ni maktab xodimida bo'lmasligi kerak.
+  AppPermission.APPEALS_TRANSFER,
   // Himoyalangan rollarni (direktor, CEO) boshqarish — director/admin/
   // supermanager `DEFAULT_PERMISSION_CODES` orqali avtomatik OLMASIN deb
   // maxfiy: faqat `ceo` roli formulasida qo'lda qo'shiladi.

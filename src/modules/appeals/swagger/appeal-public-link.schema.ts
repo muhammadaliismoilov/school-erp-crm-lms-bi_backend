@@ -26,4 +26,13 @@ export class PublicAppealLinkInfoSchema {
 
   @ApiProperty({ example: 'Maktab murojaatlari', description: 'Public forma sarlavhasi.' })
   title: string;
+
+  @ApiPropertyOptional({
+    example: 'Elegant School',
+    nullable: true,
+    description:
+      'Havola tegishli maktab nomi. Ota-ona qaysi maktabga yozayotganini ko‘rishi uchun — ' +
+      'bir nechta maktabli tarmoqda bu ishonchning asosi.',
+  })
+  schoolName: string | null;
 }

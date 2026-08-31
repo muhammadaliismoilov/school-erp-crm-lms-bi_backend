@@ -38,6 +38,7 @@ import { ApiLocalizedErrorResponses } from "../../common/swagger/api-localized-e
 import { AppealQueryDto } from "./dto/appeal-query.dto";
 import { AssignAppealDto } from "./dto/assign-appeal.dto";
 import { CreateAppealDto } from "./dto/create-appeal.dto";
+import { TransferAppealDto } from "./dto/transfer-appeal.dto";
 import { UpdateAppealDto } from "./dto/update-appeal.dto";
 import {
   AppealSource,
@@ -280,6 +281,35 @@ export class AppealsController {
       return await this.appealsService.assign(params.id, dto, this.buildActor(user, request));
     } catch (error) {
       this.handleError(error, "Murojaatni biriktirishda server xatosi yuz berdi");
+    }
+  }
+
+  @Patch(":id/transfer")
+  @Permissions([AppPermission.APPEALS_TRANSFER])
+  @ApiOperation({
+    summary: "Murojaatni boshqa maktabga ko‘chirish",
+    description:
+      "Faqat bosh ofis uchun: murojaatni boshqa maktabga o‘tkazadi. Biriktirilgan xodim " +
+      "bo‘shatiladi (u eski maktab xodimi), yangi maktab rahbariyatiga xabar boradi, " +
+      "o‘zgarish audit jurnaliga yoziladi.",
+  })
+  @ApiParam(uuidParamDocs)
+  @ApiBody({ type: TransferAppealDto })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "Murojaat ko‘chirildi.",
+    type: AppealResponseSchema,
+  })
+  async transfer(
+    @Param() params: UuidParamDto,
+    @Body() dto: TransferAppealDto,
+    @Req() request: Request,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    try {
+      return await this.appealsService.transfer(params.id, dto, this.buildActor(user, request));
+    } catch (error) {
+      this.handleError(error, "Murojaatni ko‘chirishda server xatosi yuz berdi");
     }
   }
 

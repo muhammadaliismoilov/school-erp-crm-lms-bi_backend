@@ -13,6 +13,7 @@ import type { NotificationsService } from '../src/modules/notifications/notifica
 import { NotificationChannel } from '../src/modules/notifications/enums/notification-status.enum';
 import { AppealsService } from '../src/modules/appeals/appeals.service';
 import type { TenantContextService } from '../src/common/tenant/tenant-context.service';
+import type { School } from '../src/modules/settings/entities/school.entity';
 import type {
   Appeal} from '../src/modules/appeals/entities/appeal.entity';
 import {
@@ -50,6 +51,7 @@ describe('AppealsService', () => {
   let audit: { log: jest.Mock };
   let tenant: ReturnType<typeof createTenantStub>;
   let recipientQb: Record<string, jest.Mock>;
+  let schools: { findOne: jest.Mock };
   let service: AppealsService;
 
   const mockRecipients = (ids: string[]): void => {
@@ -75,6 +77,25 @@ describe('AppealsService', () => {
     };
     return {
       store,
+      // Haqiqiy `run()` har chaqiruvda YANGI store ochadi (AsyncLocalStorage).
+      // Dublyor ham shuni qiladi: aks holda cron ichida bir maktab uchun
+      // o'rnatilgan kontekst keyingisiga sizib o'tardi va sinov buni sezmasdi.
+      run: jest.fn(<T,>(callback: () => T): T => {
+        const saved = { ...store };
+        const restore = (): void => {
+          Object.assign(store, saved);
+        };
+        const result = callback();
+        // Async callback uchun holatni promise TUGAGACH tiklaymiz. `finally`
+        // blokida tiklash sinxron bajarilardi — ya'ni kontekst ish davom
+        // etayotgan paytda o'chib, dublyor haqiqiy AsyncLocalStorage'dan
+        // boshqacha yo'l tutardi.
+        if (result instanceof Promise) {
+          return result.finally(restore) as unknown as T;
+        }
+        restore();
+        return result;
+      }),
       set: jest.fn((partial: Partial<typeof store>) => {
         Object.assign(store, partial);
       }),
@@ -87,7 +108,19 @@ describe('AppealsService', () => {
   beforeEach(() => {
     appeals = {
       create: jest.fn().mockImplementation((value) => value as Appeal),
-      save: jest.fn().mockImplementation(async (value) => ({ id: appealId, version: 1, ...value }) as Appeal),
+      // `TenantWriteSubscriber` taqlidi: `school_id` ustuni bor entity insert
+      // qilinganda aktiv tenant kontekstidan to'ldiriladi. Buni taqlid qilmasak,
+      // saqlangan murojaatda maktab bo'lmasdi va oluvchilarni maktabga bog'lash
+      // sinovda hech qachon tekshirilmagan bo'lardi.
+      save: jest.fn().mockImplementation(
+        async (value) =>
+          ({
+            id: appealId,
+            version: 1,
+            schoolId: tenant.getSchoolId() ?? undefined,
+            ...value,
+          }) as Appeal,
+      ),
       findOne: jest.fn(),
       count: jest.fn(),
       softDelete: jest.fn().mockResolvedValue({ affected: 1, raw: {}, generatedMaps: [] }),
@@ -95,15 +128,20 @@ describe('AppealsService', () => {
     };
     publicLinks = { findOne: jest.fn() };
     users = { findOne: jest.fn(), createQueryBuilder: jest.fn() };
+    schools = { findOne: jest.fn() };
     notifications = { queueNotification: jest.fn().mockResolvedValue(undefined) };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
     tenant = createTenantStub();
+    // Standart holat — maktab kontekstidagi so'rov (eng keng tarqalgani).
+    // Kontekstsizlikni tekshiradigan sinovlar uni ATAYLAB tozalaydi.
+    tenant.set({ schoolId: 'school-default' });
     mockRecipients([]);
 
     service = new AppealsService(
       appeals as unknown as Repository<Appeal>,
       publicLinks as unknown as Repository<AppealPublicLink>,
       users as unknown as Repository<User>,
+      schools as unknown as Repository<School>,
       notifications as unknown as NotificationsService,
       audit as unknown as AuditService,
       { get: jest.fn() } as unknown as ConfigService,
@@ -337,8 +375,8 @@ describe('AppealsService', () => {
     });
 
     expect(recipientQb.andWhere).toHaveBeenCalledWith(
-      expect.stringContaining('school_id'),
-      expect.objectContaining({ tenantSchoolId: 'school-elegant' }),
+      expect.stringContaining('user.school_id'),
+      { schoolId: 'school-elegant' },
     );
   });
 
@@ -346,7 +384,79 @@ describe('AppealsService', () => {
     ['getPublicLink', () => service.getPublicLink()],
     ['createPublicLink', () => service.createPublicLink('user-1')],
   ])('%s refuses to act without an active school', async (_name, call) => {
+    tenant.set({ schoolId: null });
+
     await expect(call()).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  // ---- Maktabni tanlash va ko'chirish (bosh ofis oqimi) ----
+
+  it('refuses to create an appeal when no school is selected', async () => {
+    tenant.set({ schoolId: null });
+
+    // `school_id` NOT NULL — maktabsiz yozadigan joy yo'q. Aniq xato, 500 emas.
+    await expect(service.create(baseCreateDto, actor)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+  });
+
+  it('lets head office pick the school explicitly', async () => {
+    tenant.set({ schoolId: null });
+
+    await service.create({ ...baseCreateDto, schoolId: 'school-uno' }, actor);
+
+    expect(appeals.create).toHaveBeenCalledWith(
+      expect.objectContaining({ schoolId: 'school-uno' }),
+    );
+  });
+
+  it('stops a school user from creating an appeal for another school', async () => {
+    await expect(
+      service.create({ ...baseCreateDto, schoolId: 'school-uno' }, actor),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('clears the assignee when an appeal is transferred to another school', async () => {
+    appeals.findOne.mockResolvedValue({
+      id: appealId,
+      schoolId: 'school-default',
+      assigneeUserId: 'staff-of-old-school',
+      type: AppealType.COMPLAINT,
+    } as Appeal);
+    schools.findOne.mockResolvedValue({ id: 'school-uno' } as School);
+
+    const result = await service.transfer(appealId, { schoolId: 'school-uno' }, actor);
+
+    // Biriktirilgan xodim eski maktabniki — `appeals.read-assigned` orqali
+    // murojaatni ochishda davom etardi, ya'ni ko'chirish tenant chegarasida
+    // teshik ochib qo'yardi.
+    expect(result.assigneeUserId).toBeNull();
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'appeal.transferred',
+        details: expect.objectContaining({
+          schoolFrom: 'school-default',
+          schoolTo: 'school-uno',
+        }),
+      }),
+    );
+  });
+
+  it('rejects a transfer to an unknown school', async () => {
+    appeals.findOne.mockResolvedValue({ id: appealId, schoolId: 'school-default' } as Appeal);
+    schools.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.transfer(appealId, { schoolId: 'school-ghost' }, actor),
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('rejects a transfer that would not move the appeal', async () => {
+    appeals.findOne.mockResolvedValue({ id: appealId, schoolId: 'school-default' } as Appeal);
+
+    await expect(
+      service.transfer(appealId, { schoolId: 'school-default' }, actor),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   // ---- Marshrutlash qorovullari ----
@@ -435,6 +545,246 @@ describe('AppealsService', () => {
     await expect(
       service.findAll({}, { userId: null, canReadAll: false }),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('tells the parent which school the public form belongs to', async () => {
+    publicLinks.findOne.mockResolvedValue({
+      id: 'link-1',
+      token: 'tok',
+      isActive: true,
+      schoolId: 'school-elegant',
+    } as AppealPublicLink);
+    schools.findOne.mockResolvedValue({
+      id: 'school-elegant',
+      name: { uz: 'Elegant School', ru: 'Elegant School', en: 'Elegant School' },
+    } as School);
+
+    // Bir nechta maktabli tarmoqda forma qaysi maktabniki ekanini aytmasa,
+    // ota-ona unga ishonmaydi — ilgari sarlavha hamma uchun bir xil edi.
+    await expect(service.validatePublicToken('tok')).resolves.toEqual({
+      valid: true,
+      title: 'Maktab murojaatlari',
+      schoolName: 'Elegant School',
+    });
+  });
+
+  it('still opens the public form when the school name cannot be resolved', async () => {
+    publicLinks.findOne.mockResolvedValue({
+      id: 'link-1',
+      token: 'tok',
+      isActive: true,
+      schoolId: 'school-gone',
+    } as AppealPublicLink);
+    schools.findOne.mockResolvedValue(null);
+
+    await expect(service.validatePublicToken('tok')).resolves.toMatchObject({
+      valid: true,
+      schoolName: null,
+    });
+  });
+
+  // ---- Anonimlik ----
+
+  it('drops name and phone when the appeal is submitted anonymously', async () => {
+    publicLinks.findOne.mockResolvedValue({
+      id: 'link-1',
+      token: 'tok',
+      isActive: true,
+      schoolId: 'school-elegant',
+    } as AppealPublicLink);
+
+    await service.createPublicAppeal('tok', {
+      isAnonymous: true,
+      fullName: 'Ali Valiyev',
+      phone: '+998901234567',
+      type: AppealType.COMPLAINT,
+      targetRole: TargetRole.DIRECTOR,
+      description: 'Anonim shikoyat matni.',
+    });
+
+    // Bo'shatilmasa `chk_appeals_identity` o'tib ketardi-yu, "anonim" belgisi
+    // yolg'on bo'lardi: ma'lumot bazada qolib, faqat ro'yxatda yashiringan bo'lardi.
+    expect(appeals.create).toHaveBeenCalledWith(
+      expect.objectContaining({ isAnonymous: true, fullName: null, phone: null }),
+    );
+  });
+
+  it('hides the name of a legacy anonymous row whose name was never cleared', async () => {
+    // Ikkinchi himoya qatlami. Yangi yozuvlarda ism yaratishda bo'shatiladi, ya'ni
+    // xabar matni baribir "Anonim" chiqadi. Lekin bazada shu qoidadan OLDIN
+    // yozilgan (yoki qo'lda tahrirlangan) anonim qator ismi bilan qolishi mumkin —
+    // xabar matni o'sha holatda ham ismni oshkor qilmasligi kerak.
+    appeals.findOne.mockResolvedValue({
+      id: appealId,
+      type: AppealType.COMPLAINT,
+      isAnonymous: true,
+      fullName: 'Ali Valiyev',
+    } as Appeal);
+    users.findOne.mockResolvedValue({ id: 'u1', status: CommonStatus.ACTIVE } as User);
+
+    await service.assign(appealId, { assigneeUserId: 'u1' }, actor);
+
+    expect(notifications.queueNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({ text: 'Sizga shikoyat biriktirildi: Anonim' }),
+      }),
+    );
+  });
+
+  it('records which public link produced the appeal', async () => {
+    publicLinks.findOne.mockResolvedValue({
+      id: 'link-1',
+      token: 'tok',
+      isActive: true,
+      schoolId: 'school-elegant',
+    } as AppealPublicLink);
+
+    await service.createPublicAppeal('tok', {
+      fullName: 'Ali Valiyev',
+      phone: '+998901234567',
+      type: AppealType.SUGGESTION,
+      targetRole: TargetRole.DIRECTOR,
+      description: 'Taklif matni.',
+    });
+
+    expect(appeals.create).toHaveBeenCalledWith(
+      expect.objectContaining({ publicLinkId: 'link-1' }),
+    );
+  });
+
+  // ---- Muddat (SLA) ----
+
+  it.each([
+    [AppealType.COMPLAINT, 3],
+    [AppealType.SUGGESTION, 7],
+  ])('sets the %s deadline %i days out', async (type, days) => {
+    const before = Date.now();
+
+    await service.create({ ...baseCreateDto, type }, actor);
+
+    const created = appeals.create.mock.calls.at(-1)?.[0] as { dueAt: Date };
+    const offsetDays = Math.round((created.dueAt.getTime() - before) / 86_400_000);
+    expect(offsetDays).toBe(days);
+  });
+
+  it('recomputes the deadline from creation time, not from now, when the type changes', async () => {
+    const createdAt = new Date('2026-06-01T10:00:00.000Z');
+    appeals.findOne.mockResolvedValue({
+      id: appealId,
+      status: AppealStatus.PENDING,
+      type: AppealType.SUGGESTION,
+      createdAt,
+      dueAt: new Date('2026-06-08T10:00:00.000Z'),
+    } as Appeal);
+
+    const result = await service.update(appealId, { type: AppealType.COMPLAINT }, actor);
+
+    // Turni almashtirish kechikkan murojaatning soatini nolga qaytarmasin.
+    expect(result.dueAt).toEqual(new Date('2026-06-04T10:00:00.000Z'));
+  });
+
+  // ---- Muddat eskalatsiyasi ----
+
+  const overdueAppeal = (overrides: Partial<Appeal> = {}): Appeal =>
+    ({
+      id: appealId,
+      schoolId: 'school-elegant',
+      filialId: null,
+      type: AppealType.COMPLAINT,
+      status: AppealStatus.PENDING,
+      isAnonymous: false,
+      fullName: 'Ali Valiyev',
+      createdAt: new Date('2026-06-01T09:00:00.000Z'),
+      dueAt: new Date('2026-06-04T09:00:00.000Z'),
+      ...overrides,
+    }) as Appeal;
+
+  const mockOverdueQuery = (items: Appeal[]): void => {
+    appeals.createQueryBuilder.mockReturnValue({
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      getMany: jest.fn().mockResolvedValue(items),
+    } as unknown as SelectQueryBuilder<Appeal>);
+  };
+
+  it('reminds school management about every overdue appeal', async () => {
+    mockOverdueQuery([overdueAppeal()]);
+    mockRecipients(['director-1']);
+
+    // Muddatdan 1 kun o'tgan: eslatma bor, bosh ofisga chiqarish hali yo'q.
+    const result = await service.escalateOverdue(new Date('2026-06-05T09:00:00.000Z'));
+
+    expect(result).toEqual({ reminded: 1, escalated: 0 });
+    expect(notifications.queueNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipientId: 'director-1',
+        payload: expect.objectContaining({ kind: 'overdue' }),
+      }),
+    );
+  });
+
+  it('escalates to head office on the day the deadline doubles', async () => {
+    mockOverdueQuery([overdueAppeal()]);
+    mockRecipients(['director-1']);
+
+    // Yaratilgan 01-iyun, muddat 04-iyun (3 kun) → ikki barobar 07-iyun.
+    const result = await service.escalateOverdue(new Date('2026-06-07T09:00:00.000Z'));
+
+    expect(result).toEqual({ reminded: 1, escalated: 1 });
+    expect(notifications.queueNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ payload: expect.objectContaining({ kind: 'escalated' }) }),
+    );
+  });
+
+  it('does not escalate to head office again on later days', async () => {
+    mockOverdueQuery([overdueAppeal()]);
+    mockRecipients(['director-1']);
+
+    // 09-iyun — ikki barobar chegarasi 2 kun oldin o'tgan. Rahbariyat eslatmani
+    // yana oladi (nag), bosh ofis esa YO'Q: aks holda CEO har kuni bir xil
+    // murojaat haqida xabar olardi.
+    const result = await service.escalateOverdue(new Date('2026-06-09T09:00:00.000Z'));
+
+    expect(result).toEqual({ reminded: 1, escalated: 0 });
+  });
+
+  it('binds each reminder to the school of its own appeal', async () => {
+    mockOverdueQuery([
+      overdueAppeal({ id: 'a-1', schoolId: 'school-uno' }),
+      overdueAppeal({ id: 'a-2', schoolId: 'school-elegant' }),
+    ]);
+    mockRecipients(['director-1']);
+
+    await service.escalateOverdue(new Date('2026-06-05T09:00:00.000Z'));
+
+    // Cron so'rov kontekstisiz ishlaydi va bitta tsiklda bir necha maktabni
+    // aylanadi — oluvchilar HAR murojaatning o'z maktabidan olinishi shart.
+    // Kontekst iteratsiyalar orasida sizib qolsa, ikkinchi maktab birinchisining
+    // nomi bilan so'ralardi va eslatma noto'g'ri odamlarga ketardi.
+    const schoolsQueried = recipientQb.andWhere.mock.calls
+      .filter(([clause]) => typeof clause === 'string' && clause.includes('user.school_id'))
+      .map(([, params]) => (params as { schoolId: string }).schoolId);
+    expect(schoolsQueried).toEqual(['school-uno', 'school-elegant']);
+  });
+
+  it('leaves the deadline alone when the type is unchanged', async () => {
+    const dueAt = new Date('2026-06-08T10:00:00.000Z');
+    appeals.findOne.mockResolvedValue({
+      id: appealId,
+      status: AppealStatus.PENDING,
+      type: AppealType.SUGGESTION,
+      createdAt: new Date('2026-06-01T10:00:00.000Z'),
+      dueAt,
+    } as Appeal);
+
+    const result = await service.update(
+      appealId,
+      { type: AppealType.SUGGESTION, description: 'yangilangan matn' },
+      actor,
+    );
+
+    expect(result.dueAt).toEqual(dueAt);
   });
 });
 
