@@ -89,6 +89,7 @@ export class AppealsService {
   // ---- Public link management (authed) ----
 
   async getPublicLink(): Promise<AppealPublicLinkSchema> {
+    this.assertSchoolContext();
     const link = await this.publicLinkRepository.findOne({
       where: tenantWhere<AppealPublicLink>(this.tenant, { isActive: true }),
       order: { createdAt: 'DESC' },
@@ -101,6 +102,7 @@ export class AppealsService {
 
   /** Rotates the active link: deactivates any existing one and issues a fresh token. */
   async createPublicLink(createdById?: string): Promise<AppealPublicLinkSchema> {
+    this.assertSchoolContext();
     await this.publicLinkRepository.update(tenantWhere<AppealPublicLink>(this.tenant, { isActive: true }), { isActive: false });
     const token = randomBytes(16).toString('hex');
     const link = await this.publicLinkRepository.save(
@@ -117,7 +119,12 @@ export class AppealsService {
   }
 
   async createPublicAppeal(token: string, dto: PublicCreateAppealDto): Promise<{ id: string }> {
-    await this.resolveActiveLink(token);
+    const link = await this.resolveActiveLink(token);
+    // Public route auth'siz ishlaydi, ya'ni `TenantScopeInterceptor` chetlab o'tiladi va
+    // kontekst bo'sh qoladi — murojaat ham, undan tug'iladigan xabarlar ham egasiz
+    // tushardi. Turniket ingestion'idagi naqsh: tenantni so'rovni autentifikatsiya
+    // qilgan artefaktdan olamiz (u yerda qurilma, bu yerda havola).
+    this.tenant.set({ schoolId: link.schoolId ?? null, branchId: link.filialId ?? null });
 
     // Honeypot tripped: a bot filled the hidden field. Pretend success (so the bot
     // doesn't retry) but persist nothing.
@@ -143,6 +150,23 @@ export class AppealsService {
     });
     await this.notifyTargetRoleHolders(appeal);
     return { id: appeal.id };
+  }
+
+  /**
+   * Havola HAR DOIM bitta maktabga tegishli. Global hisob (CEO) «Barcha maktablar»
+   * holatida turganda kontekst bo'sh bo'ladi: o'qishda tasodifiy maktabning havolasi
+   * qaytardi, yaratishda esa hech bir maktabga tegishli bo'lmagan havola tug'ilardi.
+   */
+  private assertSchoolContext(): void {
+    if (!this.tenant.getSchoolId()) {
+      throw new BadRequestException({
+        message: {
+          uz: 'Havola bilan ishlash uchun avval maktabni tanlang',
+          ru: 'Чтобы работать со ссылкой, сначала выберите школу',
+          en: 'Select a school before working with the public link',
+        },
+      });
+    }
   }
 
   private async resolveActiveLink(token: string): Promise<AppealPublicLink> {
@@ -417,13 +441,17 @@ export class AppealsService {
 
   private async findActiveUserIdsByRoleNames(roleNames: string[]): Promise<string[]> {
     try {
-      const rows = await this.userRepository
+      const qb = this.userRepository
         .createQueryBuilder('user')
         .select('user.id', 'id')
         .innerJoin('user.roles', 'role')
         .where('role.name IN (:...roleNames)', { roleNames })
-        .andWhere('user.status = :status', { status: CommonStatus.ACTIVE })
-        .getRawMany<{ id: string }>();
+        .andWhere('user.status = :status', { status: CommonStatus.ACTIVE });
+      // Tenant filtrisiz bu so'rov BARCHA maktablarning shu roldagi xodimlarini
+      // qaytarardi — bitta maktabga kelgan shikoyat boshqa maktab direktoriga,
+      // murojaat qiluvchining ismi bilan birga, push bo'lib borardi.
+      applyTenantScope(qb, 'user', this.tenant);
+      const rows = await qb.getRawMany<{ id: string }>();
       return rows.map((row) => row.id);
     } catch (error) {
       this.logger.warn(`Failed to resolve appeal recipients: ${this.errorMessage(error)}`);

@@ -44,16 +44,40 @@ describe('AppealsService', () => {
   let users: { findOne: jest.Mock; createQueryBuilder: jest.Mock };
   let notifications: { queueNotification: jest.Mock };
   let audit: { log: jest.Mock };
+  let tenant: ReturnType<typeof createTenantStub>;
+  let recipientQb: Record<string, jest.Mock>;
   let service: AppealsService;
 
   const mockRecipients = (ids: string[]): void => {
-    users.createQueryBuilder.mockReturnValue({
+    recipientQb = {
       select: jest.fn().mockReturnThis(),
       innerJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       getRawMany: jest.fn().mockResolvedValue(ids.map((id) => ({ id }))),
-    });
+    };
+    users.createQueryBuilder.mockReturnValue(recipientQb);
+  };
+
+  /**
+   * Tenant kontekstining eng kichik dublyori: `set()` haqiqatan yozadi, o'quvchilar
+   * o'sha holatni qaytaradi. Shu sabab "kontekst havoladan o'rnatildimi" degan
+   * qorovul sinovi haqiqiy xatti-harakatni tekshiradi, chaqiruvni emas.
+   */
+  const createTenantStub = () => {
+    const store: { schoolId: string | null; branchId: string | null } = {
+      schoolId: null,
+      branchId: null,
+    };
+    return {
+      store,
+      set: jest.fn((partial: Partial<typeof store>) => {
+        Object.assign(store, partial);
+      }),
+      getSchoolId: () => store.schoolId,
+      getBranchId: () => store.branchId,
+      getUserId: () => null,
+    };
   };
 
   beforeEach(() => {
@@ -69,6 +93,7 @@ describe('AppealsService', () => {
     users = { findOne: jest.fn(), createQueryBuilder: jest.fn() };
     notifications = { queueNotification: jest.fn().mockResolvedValue(undefined) };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
+    tenant = createTenantStub();
     mockRecipients([]);
 
     service = new AppealsService(
@@ -78,7 +103,7 @@ describe('AppealsService', () => {
       notifications as unknown as NotificationsService,
       audit as unknown as AuditService,
       { get: jest.fn() } as unknown as ConfigService,
-      undefined as unknown as TenantContextService,
+      tenant as unknown as TenantContextService,
     );
   });
 
@@ -265,6 +290,59 @@ describe('AppealsService', () => {
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'appeal.public_created' }),
     );
+  });
+
+  // ---- Tenant qorovullari ----
+  // Public yuborish auth'siz, ya'ni `TenantScopeInterceptor` ishlamaydi. Agar service
+  // kontekstni havoladan o'rnatmasa, murojaat egasiz tushadi va uni maktab direktori
+  // hech qachon ko'rmaydi. Quyidagi uch sinov aynan shuni qulflaydi.
+
+  it('binds the tenant context to the link school so the appeal is not orphaned', async () => {
+    publicLinks.findOne.mockResolvedValue({
+      token: 'tok',
+      isActive: true,
+      schoolId: 'school-elegant',
+      filialId: 'branch-1',
+    } as AppealPublicLink);
+
+    await service.createPublicAppeal('tok', {
+      fullName: 'Ali Valiyev',
+      phone: '+998901234567',
+      type: AppealType.COMPLAINT,
+      targetRole: TargetRole.DIRECTOR,
+      description: 'Sinf xonasi juda sovuq.',
+    });
+
+    expect(tenant.store).toEqual({ schoolId: 'school-elegant', branchId: 'branch-1' });
+  });
+
+  it('scopes appeal recipients to the active school', async () => {
+    publicLinks.findOne.mockResolvedValue({
+      token: 'tok',
+      isActive: true,
+      schoolId: 'school-elegant',
+    } as AppealPublicLink);
+    mockRecipients(['director-1']);
+
+    await service.createPublicAppeal('tok', {
+      fullName: 'Ali Valiyev',
+      phone: '+998901234567',
+      type: AppealType.COMPLAINT,
+      targetRole: TargetRole.DIRECTOR,
+      description: 'Sinf xonasi juda sovuq.',
+    });
+
+    expect(recipientQb.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('school_id'),
+      expect.objectContaining({ tenantSchoolId: 'school-elegant' }),
+    );
+  });
+
+  it.each([
+    ['getPublicLink', () => service.getPublicLink()],
+    ['createPublicLink', () => service.createPublicLink('user-1')],
+  ])('%s refuses to act without an active school', async (_name, call) => {
+    await expect(call()).rejects.toBeInstanceOf(BadRequestException);
   });
 });
 
