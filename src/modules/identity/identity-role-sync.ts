@@ -83,6 +83,8 @@ export const defaultRoles: DefaultRoleDefinition[] = [
     name: 'sales-manager',
     title: { uz: 'Sotuv menejeri', ru: 'Менеджер продаж', en: 'Sales Manager' },
     permissions: [
+      // Rahbariyat biriktirsa — o'sha murojaatni ko'ra oladi (faqat o'zinikini).
+      AppPermission.APPEALS_READ_ASSIGNED,
       ...READ_BUNDLES.crm,
       ...WRITE_BUNDLES.crm,
       AppPermission.USERS_READ,
@@ -107,6 +109,8 @@ export const defaultRoles: DefaultRoleDefinition[] = [
     name: 'tutor',
     title: { uz: 'Tyutor', ru: 'Тьютор', en: 'Tutor' },
     permissions: [
+      // Rahbariyat biriktirsa — o'sha murojaatni ko'ra oladi (faqat o'zinikini).
+      AppPermission.APPEALS_READ_ASSIGNED,
       AppPermission.STUDENTS_READ,
       ...READ_BUNDLES.students,
       ...READ_BUNDLES.academic,
@@ -120,6 +124,8 @@ export const defaultRoles: DefaultRoleDefinition[] = [
     name: 'manager',
     title: { uz: 'Menejer', ru: 'Менеджер', en: 'Manager' },
     permissions: [
+      // Rahbariyat biriktirsa — o'sha murojaatni ko'ra oladi (faqat o'zinikini).
+      AppPermission.APPEALS_READ_ASSIGNED,
       ...READ_BUNDLES.crm,
       ...WRITE_BUNDLES.crm,
       AppPermission.STUDENTS_READ,
@@ -133,6 +139,8 @@ export const defaultRoles: DefaultRoleDefinition[] = [
     name: 'teacher',
     title: { uz: "O'qituvchi", ru: 'Учитель', en: 'Teacher' },
     permissions: [
+      // Rahbariyat biriktirsa — o'sha murojaatni ko'ra oladi (faqat o'zinikini).
+      AppPermission.APPEALS_READ_ASSIGNED,
       AppPermission.STUDENTS_READ,
       ...READ_BUNDLES.students,
       ...READ_BUNDLES.academic,
@@ -147,6 +155,8 @@ export const defaultRoles: DefaultRoleDefinition[] = [
     name: 'accountant',
     title: { uz: 'Buxgalter', ru: 'Бухгалтер', en: 'Accountant' },
     permissions: [
+      // Rahbariyat biriktirsa — o'sha murojaatni ko'ra oladi (faqat o'zinikini).
+      AppPermission.APPEALS_READ_ASSIGNED,
       AppPermission.FINANCE_READ,
       ...READ_BUNDLES.finance,
       ...WRITE_BUNDLES.finance,
@@ -156,6 +166,8 @@ export const defaultRoles: DefaultRoleDefinition[] = [
     name: 'psychologist',
     title: { uz: 'Psixolog', ru: 'Психолог', en: 'Psychologist' },
     permissions: [
+      // Rahbariyat biriktirsa — o'sha murojaatni ko'ra oladi (faqat o'zinikini).
+      AppPermission.APPEALS_READ_ASSIGNED,
       AppPermission.COUNSELING_READ,
       ...WRITE_BUNDLES.counseling,
       AppPermission.STUDENTS_READ,

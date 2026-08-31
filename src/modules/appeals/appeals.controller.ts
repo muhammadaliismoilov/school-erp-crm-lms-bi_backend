@@ -30,6 +30,10 @@ import { UuidParamDto } from "../../common/dto/uuid-param.dto";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../../common/guards/permissions.guard";
 import type { AuthenticatedUser } from "../../common/security/authenticated-user.interface";
+import {
+  PermissionMatchMode,
+  userSatisfiesPermissions,
+} from "../../common/security/permission.matcher";
 import { ApiLocalizedErrorResponses } from "../../common/swagger/api-localized-error-responses.decorator";
 import { AppealQueryDto } from "./dto/appeal-query.dto";
 import { AssignAppealDto } from "./dto/assign-appeal.dto";
@@ -41,7 +45,7 @@ import {
   AppealType,
   TargetRole,
 } from "./entities/appeal.entity";
-import { AppealActor, AppealsService } from "./appeals.service";
+import { AppealActor, AppealsService, AppealViewer } from "./appeals.service";
 import {
   AppealListResponseSchema,
   AppealResponseSchema,
@@ -63,7 +67,10 @@ export class AppealsController {
   constructor(private readonly appealsService: AppealsService) {}
 
   @Get()
-  @Permissions([AppPermission.APPEALS_READ])
+  @Permissions(
+    [AppPermission.APPEALS_READ, AppPermission.APPEALS_READ_ASSIGNED],
+    PermissionMatchMode.ANY,
+  )
   @ApiOperation({
     summary: "Murojaatlar ro‘yxatini olish",
     description:
@@ -74,9 +81,12 @@ export class AppealsController {
     description: "Murojaatlar ro‘yxati muvaffaqiyatli qaytarildi.",
     type: AppealListResponseSchema,
   })
-  async findAll(@Query() query: AppealQueryDto) {
+  async findAll(
+    @Query() query: AppealQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
     try {
-      return await this.appealsService.findAll(query);
+      return await this.appealsService.findAll(query, this.viewerOf(user));
     } catch (error) {
       this.handleError(
         error,
@@ -167,7 +177,10 @@ export class AppealsController {
   }
 
   @Get(":id")
-  @Permissions([AppPermission.APPEALS_READ])
+  @Permissions(
+    [AppPermission.APPEALS_READ, AppPermission.APPEALS_READ_ASSIGNED],
+    PermissionMatchMode.ANY,
+  )
   @ApiOperation({
     summary: "Murojaatni ID bo‘yicha olish",
     description:
@@ -179,9 +192,12 @@ export class AppealsController {
     description: "Murojaat muvaffaqiyatli qaytarildi.",
     type: AppealResponseSchema,
   })
-  async findOne(@Param() params: UuidParamDto) {
+  async findOne(
+    @Param() params: UuidParamDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
     try {
-      return await this.appealsService.findOne(params.id);
+      return await this.appealsService.findOne(params.id, this.viewerOf(user));
     } catch (error) {
       this.handleError(error, "Murojaatni olishda server xatosi yuz berdi");
     }
@@ -294,6 +310,22 @@ export class AppealsController {
 
   private buildActor(user: AuthenticatedUser, request: Request): AppealActor {
     return { userId: user?.id, ipAddress: request?.ip };
+  }
+
+  /**
+   * `appeals.read` — maktabning barcha murojaatlari; usiz esa foydalanuvchi
+   * faqat o'ziga biriktirilganini ko'radi. Tekshiruvni qorovul bilan bir xil
+   * matcher bajaradi, shunda `appeals.*` va `*.*` wildcardlari ikkala joyda
+   * bir xil talqin qilinadi.
+   */
+  private viewerOf(user: AuthenticatedUser): AppealViewer {
+    return {
+      userId: user.id,
+      canReadAll: userSatisfiesPermissions(
+        [AppPermission.APPEALS_READ],
+        new Set(user.permissions ?? []),
+      ),
+    };
   }
 
   private handleError(error: unknown, fallbackMessage: string): never {

@@ -309,6 +309,13 @@ export const AppPermission = {
   FILES_UPLOAD: 'files.upload',
   ROLES_READ: 'roles.read',
   APPEALS_READ: 'appeals.read',
+  /**
+   * Biriktirilgan murojaatni ko'rish. `appeals.read` maktabning BARCHA
+   * murojaatlarini ochadi (rahbariyat), bu esa faqat `assignee_user_id` shu
+   * foydalanuvchi bo'lganini. Shu sabab shikoyat hech qachon shikoyat qilingan
+   * xodimga o'z-o'zidan ko'rinmaydi — uni rahbariyat ataylab biriktiradi.
+   */
+  APPEALS_READ_ASSIGNED: 'appeals.read-assigned',
   INTEGRATIONS_READ: 'integrations.read',
   STUDENTS_READ: 'students.read',
   STUDENTS_CREATE: 'students.create',

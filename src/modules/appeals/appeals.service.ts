@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -7,7 +8,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
-import { Between, Brackets, Repository } from 'typeorm';
+import { Between, Brackets, FindOptionsWhere, Repository } from 'typeorm';
+import { AppPermission } from '../../common/constants/permissions';
 import { CommonStatus } from '../../common/enums/common-status.enum';
 import { TenantContextService } from '../../common/tenant/tenant-context.service';
 import { applyTenantScope, tenantWhere } from '../../common/tenant/tenant-scope.util';
@@ -25,7 +27,6 @@ import {
   AppealSource,
   AppealStatus,
   AppealType,
-  TargetRole,
 } from './entities/appeal.entity';
 import { AppealPublicLink } from './entities/appeal-public-link.entity';
 import { AppealListResponseSchema, AppealResponseSchema } from './swagger/appeal-response.schema';
@@ -40,21 +41,15 @@ export interface AppealActor {
   ipAddress?: string;
 }
 
-/**
- * Maps a public-facing target lavozim to the system role name(s) whose holders
- * should be notified. Roles without a backing system role (doctor/librarian)
- * simply yield no recipients until such roles exist.
- */
-const TARGET_ROLE_TO_ROLE_NAMES: Record<TargetRole, string[]> = {
-  [TargetRole.CLASS_TEACHER]: ['teacher'],
-  [TargetRole.DEPUTY_DIRECTOR]: ['supermanager', 'manager'],
-  [TargetRole.DIRECTOR]: ['director'],
-  [TargetRole.ACCOUNTANT]: ['accountant'],
-  [TargetRole.SALES_MANAGER]: ['sales-manager'],
-  [TargetRole.PSYCHOLOGIST]: ['psychologist'],
-  [TargetRole.DOCTOR]: ['doctor'],
-  [TargetRole.LIBRARIAN]: ['librarian'],
-};
+/** Ro'yxatni ko'rayotgan foydalanuvchi va uning qamrovi. */
+export interface AppealViewer {
+  userId?: string | null;
+  /**
+   * `appeals.read` — maktabning BARCHA murojaatlari (rahbariyat). `false` bo'lsa
+   * foydalanuvchi faqat o'ziga biriktirilganini ko'radi (`appeals.read-assigned`).
+   */
+  canReadAll: boolean;
+}
 
 /** Allowed status transitions. Reopening a terminal appeal returns it to in_progress. */
 const ALLOWED_STATUS_TRANSITIONS: Record<AppealStatus, AppealStatus[]> = {
@@ -148,7 +143,7 @@ export class AppealsService {
       type: appeal.type,
       targetRole: appeal.targetRole,
     });
-    await this.notifyTargetRoleHolders(appeal);
+    await this.notifyAppealHandlers(appeal);
     return { id: appeal.id };
   }
 
@@ -204,16 +199,23 @@ export class AppealsService {
       targetRole: appeal.targetRole,
       source: appeal.source,
     }, actor?.ipAddress);
-    await this.notifyTargetRoleHolders(appeal);
+    await this.notifyAppealHandlers(appeal);
 
     return this.toResponseDto(appeal);
   }
 
-  async findAll(query: Partial<AppealQueryDto> = {}): Promise<AppealListResponseSchema> {
+  async findAll(
+    query: Partial<AppealQueryDto> = {},
+    viewer?: AppealViewer,
+  ): Promise<AppealListResponseSchema> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
+    const assigneeOnly = this.resolveAssigneeFilter(viewer);
     const qb = this.appealRepository.createQueryBuilder('appeal').where('1 = 1');
     applyTenantScope(qb, 'appeal', this.tenant, { branch: true });
+    if (assigneeOnly) {
+      qb.andWhere('appeal.assignee_user_id = :assigneeOnly', { assigneeOnly });
+    }
     const search = this.nullableText(query.search);
 
     if (search) {
@@ -258,12 +260,20 @@ export class AppealsService {
       .getManyAndCount();
     const pageCount = Math.ceil(total / limit) || 1;
     const monthRange = this.getPeriodRange(AppealPeriodFilter.MONTH);
+    // Statistika ro'yxat bilan BIR XIL qamrovda sanaladi: aks holda biriktirilgan
+    // xodim 2 ta murojaat ko'rib turib, kartochkada 40 ni ko'rardi.
+    const statsWhere = (base: FindOptionsWhere<Appeal>): FindOptionsWhere<Appeal> =>
+      tenantWhere<Appeal>(
+        this.tenant,
+        assigneeOnly ? { ...base, assigneeUserId: assigneeOnly } : base,
+        { branch: true },
+      );
     const [totalCount, suggestionCount, complaintCount, monthCount] = await Promise.all([
-      this.appealRepository.count({ where: tenantWhere<Appeal>(this.tenant, {}, { branch: true }) }),
-      this.appealRepository.count({ where: tenantWhere<Appeal>(this.tenant, { type: AppealType.SUGGESTION }, { branch: true }) }),
-      this.appealRepository.count({ where: tenantWhere<Appeal>(this.tenant, { type: AppealType.COMPLAINT }, { branch: true }) }),
+      this.appealRepository.count({ where: statsWhere({}) }),
+      this.appealRepository.count({ where: statsWhere({ type: AppealType.SUGGESTION }) }),
+      this.appealRepository.count({ where: statsWhere({ type: AppealType.COMPLAINT }) }),
       this.appealRepository.count({
-        where: tenantWhere<Appeal>(this.tenant, { createdAt: Between(monthRange.from, monthRange.to) }, { branch: true }),
+        where: statsWhere({ createdAt: Between(monthRange.from, monthRange.to) }),
       }),
     ]);
 
@@ -284,8 +294,29 @@ export class AppealsService {
     };
   }
 
-  async findOne(id: string): Promise<AppealResponseSchema> {
-    return this.toResponseDto(await this.findAppealEntity(id));
+  async findOne(id: string, viewer?: AppealViewer): Promise<AppealResponseSchema> {
+    return this.toResponseDto(await this.findAppealEntity(id, this.resolveAssigneeFilter(viewer)));
+  }
+
+  /**
+   * Ko'ruvchi rahbariyat bo'lmasa, natijani unga BIRIKTIRILGAN murojaatlar bilan
+   * cheklaydi. Qamrovi tor bo'lib, kimligi noma'lum holat "hammasini ko'rsat"ga
+   * aylanib ketmasin — shuning uchun bu holatda rad etiladi.
+   */
+  private resolveAssigneeFilter(viewer?: AppealViewer): string | null {
+    if (!viewer || viewer.canReadAll) {
+      return null;
+    }
+    if (!viewer.userId) {
+      throw new ForbiddenException({
+        message: {
+          uz: 'Murojaatlarni ko\'rish uchun huquqingiz yetarli emas',
+          ru: 'Недостаточно прав для просмотра обращений',
+          en: 'Insufficient permissions to view appeals',
+        },
+      });
+    }
+    return viewer.userId;
   }
 
   /** Assigns (or, with null, unassigns) an appeal to a staff member and notifies them. */
@@ -415,8 +446,9 @@ export class AppealsService {
     await this.recordAudit(actor?.userId, 'appeal.archived', appeal.id, undefined, actor?.ipAddress);
   }
 
-  private async findAppealEntity(id: string): Promise<Appeal> {
-    const appeal = await this.appealRepository.findOne({ where: tenantWhere<Appeal>(this.tenant, { id }, { branch: true }) });
+  private async findAppealEntity(id: string, assigneeUserId?: string | null): Promise<Appeal> {
+    const base: FindOptionsWhere<Appeal> = assigneeUserId ? { id, assigneeUserId } : { id };
+    const appeal = await this.appealRepository.findOne({ where: tenantWhere<Appeal>(this.tenant, base, { branch: true }) });
 
     if (!appeal) {
       throw new NotFoundException('Appeal not found');
@@ -427,29 +459,40 @@ export class AppealsService {
 
   // ---- Notifications & audit (best-effort: never fail the main operation) ----
 
-  private async notifyTargetRoleHolders(appeal: Appeal): Promise<void> {
-    const roleNames = TARGET_ROLE_TO_ROLE_NAMES[appeal.targetRole] ?? [];
-    if (roleNames.length === 0) {
-      return;
-    }
-    const recipients = await this.findActiveUserIdsByRoleNames(roleNames);
+  /**
+   * Yangi murojaat kimga boradi.
+   *
+   * Ilgari `target_role` bo'yicha o'sha lavozimdagi HAMMA xodimga borardi. Uch
+   * muammo bir vaqtda: (1) sinf rahbari haqidagi shikoyat maktabdagi barcha
+   * o'qituvchilarga, murojaat qiluvchining ismi bilan; (2) o'sha xodimlarda
+   * `appeals.read` yo'q edi — xabar kelardi-yu, ochib bo'lmasdi; (3)
+   * `doctor`/`librarian` uchun tizim roli umuman yo'q, ya'ni murojaat qora
+   * tuynukka tushardi.
+   *
+   * Endi `target_role` faqat saralash belgisi. Xabar murojaat bilan ishlay
+   * OLADIGANLARGA — maktabning `appeals.read` egalariga — boradi; ular esa
+   * kerak bo'lsa aniq xodimga biriktiradi (`assign`).
+   */
+  private async notifyAppealHandlers(appeal: Appeal): Promise<void> {
+    const recipients = await this.findAppealHandlerIds();
     if (recipients.length === 0) {
       return;
     }
     await this.queueAppealNotifications(recipients, appeal, 'new');
   }
 
-  private async findActiveUserIdsByRoleNames(roleNames: string[]): Promise<string[]> {
+  private async findAppealHandlerIds(): Promise<string[]> {
     try {
       const qb = this.userRepository
         .createQueryBuilder('user')
-        .select('user.id', 'id')
+        .select('DISTINCT user.id', 'id')
         .innerJoin('user.roles', 'role')
-        .where('role.name IN (:...roleNames)', { roleNames })
+        .innerJoin('role.permissions', 'permission')
+        .where('permission.code = :code', { code: AppPermission.APPEALS_READ })
         .andWhere('user.status = :status', { status: CommonStatus.ACTIVE });
-      // Tenant filtrisiz bu so'rov BARCHA maktablarning shu roldagi xodimlarini
-      // qaytarardi — bitta maktabga kelgan shikoyat boshqa maktab direktoriga,
-      // murojaat qiluvchining ismi bilan birga, push bo'lib borardi.
+      // Tenant filtrisiz bu so'rov BARCHA maktablarning rahbariyatini qaytarardi —
+      // bitta maktabga kelgan shikoyat boshqa maktab direktoriga, murojaat
+      // qiluvchining ismi bilan birga, push bo'lib borardi.
       applyTenantScope(qb, 'user', this.tenant);
       const rows = await qb.getRawMany<{ id: string }>();
       return rows.map((row) => row.id);

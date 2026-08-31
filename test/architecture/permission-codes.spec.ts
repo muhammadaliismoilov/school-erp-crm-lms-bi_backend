@@ -90,6 +90,12 @@ describe('WRITE_BUNDLES', () => {
  * (`@Get('x') @Permissions([...]) fn()`) va ko'p qatorli uslublarning ikkalasi
  * ham to'g'ri o'qiladi — oyna (window) asosidagi usul qo'shni endpointning
  * kodlarini olib qo'yardi.
+ *
+ * `@Permissions(` va `[` orasidagi bo'shliq ATAYLAB ruxsat etilgan: ikkinchi
+ * argumentli shakl (`@Permissions([...], PermissionMatchMode.ANY)`) prettier
+ * tomonidan ko'p qatorga yoyiladi va massiv keyingi qatorga tushadi. Bu
+ * bo'shliqsiz regex bilan butun endpoint KO'RINMAY qolardi — ya'ni qorovul
+ * uning kodlarini "o'lik" deb e'lon qilardi.
  */
 function codesRequiredByEndpoints(): Set<string> {
   const catalog = AppPermission as Record<string, string>;
@@ -103,7 +109,7 @@ function codesRequiredByEndpoints(): Set<string> {
     for (const [index, hit] of hits.entries()) {
       const end = index + 1 < hits.length ? hits[index + 1].index! : content.length;
       const segment = content.slice(hit.index! + hit[0].length, end);
-      const perms = segment.match(/@Permissions\(\[([^\]]*)\]/);
+      const perms = segment.match(/@Permissions\(\s*\[([^\]]*)\]/);
       if (!perms) continue;
       for (const ref of perms[1].matchAll(/AppPermission\.([A-Z0-9_]+)/g)) {
         const code = catalog[ref[1]];

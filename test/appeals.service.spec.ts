@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import type { Repository, SelectQueryBuilder } from 'typeorm';
 import { CommonStatus } from '../src/common/enums/common-status.enum';
@@ -343,6 +347,94 @@ describe('AppealsService', () => {
     ['createPublicLink', () => service.createPublicLink('user-1')],
   ])('%s refuses to act without an active school', async (_name, call) => {
     await expect(call()).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  // ---- Marshrutlash qorovullari ----
+  // `target_role` endi faqat saralash belgisi: xabar murojaat bilan ishlay
+  // oladiganlarga (`appeals.read` egalari) boradi, lavozim egalariga emas.
+
+  it('routes new appeals to appeals.read holders, not to the target role', async () => {
+    mockRecipients(['director-1']);
+
+    await service.create({ ...baseCreateDto, targetRole: TargetRole.CLASS_TEACHER }, actor);
+
+    expect(recipientQb.innerJoin).toHaveBeenCalledWith('role.permissions', 'permission');
+    expect(recipientQb.where).toHaveBeenCalledWith(
+      expect.stringContaining('permission.code'),
+      expect.objectContaining({ code: 'appeals.read' }),
+    );
+    expect(notifications.queueNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ recipientId: 'director-1' }),
+    );
+  });
+
+  it('still routes appeals whose target role has no backing system role', async () => {
+    mockRecipients(['director-1']);
+
+    await service.create({ ...baseCreateDto, targetRole: TargetRole.LIBRARIAN }, actor);
+
+    // Ilgari `librarian` uchun tizim roli bo'lmagani uchun murojaat qora tuynukka
+    // tushardi — hech kim xabar olmasdi. Qorovul: oluvchilar ro'yxati endi rol
+    // NOMIGA umuman qaramaydi, shuning uchun tizim roli yo'q lavozim ham
+    // murojaatni yo'qotmaydi.
+    const roleNameFilters = [
+      ...recipientQb.where.mock.calls,
+      ...recipientQb.andWhere.mock.calls,
+    ].filter(([clause]) => typeof clause === 'string' && clause.includes('role.name'));
+    expect(roleNameFilters).toEqual([]);
+    expect(notifications.queueNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ recipientId: 'director-1' }),
+    );
+  });
+
+  // ---- Qamrov qorovullari ----
+
+  it('limits a non-management viewer to their own assigned appeals', async () => {
+    const qb = createAppealQueryBuilderMock([appeal], 1);
+    appeals.createQueryBuilder.mockReturnValue(qb as unknown as SelectQueryBuilder<Appeal>);
+    appeals.count.mockResolvedValue(1);
+
+    await service.findAll({ page: 1, limit: 20 }, { userId: 'staff-1', canReadAll: false });
+
+    expect(qb.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('assignee_user_id'),
+      { assigneeOnly: 'staff-1' },
+    );
+    // Statistika ham shu qamrovda — aks holda xodim 2 ta murojaat ko'rib turib
+    // kartochkada butun maktabning sonini ko'rardi.
+    expect(appeals.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({ assigneeUserId: 'staff-1' }),
+    });
+  });
+
+  it('does not restrict a management viewer', async () => {
+    const qb = createAppealQueryBuilderMock([appeal], 1);
+    appeals.createQueryBuilder.mockReturnValue(qb as unknown as SelectQueryBuilder<Appeal>);
+    appeals.count.mockResolvedValue(1);
+
+    await service.findAll({ page: 1, limit: 20 }, { userId: 'director-1', canReadAll: true });
+
+    expect(qb.andWhere).not.toHaveBeenCalledWith(
+      expect.stringContaining('assignee_user_id'),
+      expect.anything(),
+    );
+  });
+
+  it('hides an appeal assigned to someone else from a non-management viewer', async () => {
+    appeals.findOne.mockResolvedValue(null);
+
+    await expect(
+      service.findOne(appealId, { userId: 'staff-1', canReadAll: false }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(appeals.findOne).toHaveBeenCalledWith({
+      where: expect.objectContaining({ assigneeUserId: 'staff-1' }),
+    });
+  });
+
+  it('refuses a narrowed viewer whose identity is unknown', async () => {
+    await expect(
+      service.findAll({}, { userId: null, canReadAll: false }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });
 
