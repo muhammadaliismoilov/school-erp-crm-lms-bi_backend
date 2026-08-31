@@ -31,6 +31,7 @@ describe("ReferralsService", () => {
   let config: { get: jest.Mock };
   let audit: { log: jest.Mock };
   let service: ReferralsService;
+  let tenant: TenantContextService;
 
   beforeEach(() => {
     referrals = {
@@ -49,12 +50,13 @@ describe("ReferralsService", () => {
     config = { get: jest.fn().mockReturnValue("https://app.example.com") };
     audit = { log: jest.fn() };
 
+    tenant = new TenantContextService();
     service = new ReferralsService(
       referrals as unknown as Repository<Referral>,
       leads as unknown as Repository<Lead>,
       sources as unknown as Repository<LeadSource>,
       config as unknown as ConfigService,
-      new TenantContextService(),
+      tenant,
       audit as unknown as AuditService,
     );
   });
@@ -111,6 +113,20 @@ describe("ReferralsService", () => {
     );
     expect(res.id).toBe("lead-1");
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "lead.referral_created" }));
+  });
+
+  it("binds a public lead to the school of the referral link", async () => {
+    referrals.findOne.mockResolvedValue(referralEntity({ schoolId: "school-uno", filialId: null }));
+
+    // Public route auth'siz — `TenantScopeInterceptor` ishlamaydi. Service
+    // kontekstni havoladan o'rnatmasa, `TenantWriteSubscriber` bo'sh kontekstdan
+    // hech narsa olmaydi va lid `school_id = NULL` bilan tushadi: maktab CRM'ida
+    // KO'RINMAY qoladi. Kontekst haqiqiy `AsyncLocalStorage` ichida tekshiriladi,
+    // chunki `set()` ochilmagan store'da jim o'tib ketadi.
+    await tenant.run(async () => {
+      await service.submitPublicLead("5262804", { firstName: "Ali", phone: "+998901234567" });
+      expect(tenant.getSchoolId()).toBe("school-uno");
+    });
   });
 
   it("silently discards a honeypot-tripped submission", async () => {

@@ -158,6 +158,12 @@ export class ReferralsService {
   /** Create a lead from a public referral submission. Honeypot-guarded. */
   async submitPublicLead(code: string, dto: PublicReferralLeadDto): Promise<{ id: string }> {
     const referral = await this.resolveActive(code);
+    // Public route auth'siz ishlaydi, ya'ni `TenantScopeInterceptor` chetlab
+    // o'tiladi va tenant konteksti bo'sh qoladi — lid `school_id`siz tushardi va
+    // maktab CRM'ida KO'RINMASDI (`applyTenantScope` faqat qiymat bor bo'lsa
+    // filtr qo'yadi). Tenantni so'rovni autentifikatsiya qilgan artefaktdan —
+    // referal havolasidan — olamiz.
+    this.tenant.set({ schoolId: referral.schoolId ?? null, branchId: referral.filialId ?? null });
 
     // Honeypot tripped: pretend success so the bot doesn't retry, persist nothing.
     if (dto.website && dto.website.trim().length > 0) {
