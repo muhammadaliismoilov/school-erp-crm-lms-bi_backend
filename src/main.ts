@@ -15,6 +15,7 @@ import { ResponseEnvelopeInterceptor } from "./common/interceptors/response-enve
 import { buildValidationException } from "./common/validation/localized-validation.factory";
 import { startMetricsServer } from "./modules/observability/metrics-server";
 import { MetricsService } from "./modules/observability/metrics.service";
+import { DB_HEALTH_HEADER } from "./common/database/db-health/db-health.interceptor";
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -65,6 +66,14 @@ async function bootstrap(): Promise<void> {
   app.enableCors({
     origin: configService.get<string[] | boolean>("app.corsOrigins") ?? true,
     credentials: true,
+    /**
+     * Maxsus javob sarlavhasini brauzer JS `fetch` javobidan o'qishi uchun
+     * ATAYLAB ochib qo'yiladi. Production'da frontend Vercel proksisi orqali
+     * boradi (same-origin) va bu shart bo'lmasligi mumkin, lekin to'g'ridan-
+     * to'g'ri murojaatda (lokal ish, boshqa mijoz) busiz sarlavha JS uchun
+     * KO'RINMAS bo'lib qoladi — xato bermaydi, shunchaki `null` qaytaradi.
+     */
+    exposedHeaders: [DB_HEALTH_HEADER],
   });
 
   app.setGlobalPrefix(configService.get<string>("app.globalPrefix") ?? "api");

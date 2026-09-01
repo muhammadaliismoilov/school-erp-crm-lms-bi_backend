@@ -5,6 +5,7 @@ import {
   MetricsService,
   type DbOperation,
 } from '../../modules/observability/metrics.service';
+import { DbHealthCollector } from './db-health/db-health.collector';
 import { QueryContextService } from './query-context.service';
 
 /** SQL matnining boshidan operatsiya turini aniqlaydi (metrika yorlig'i uchun). */
@@ -46,6 +47,10 @@ export class QueryMetricsLogger implements TypeOrmLogger {
   constructor(
     private readonly queryContext: QueryContextService,
     private readonly metrics: MetricsService,
+    // Sog'liq chirog'i `MetricsService` dan MUSTAQIL sanaydi: metrikalar
+    // `METRICS_ENABLED=false` bilan o'chirilganda chiroq doim yashil bo'lib
+    // yolg'on gapirardi.
+    private readonly dbHealth: DbHealthCollector,
     configService: ConfigService,
   ) {
     this.verbose = configService.get<boolean>('database.logging') ?? false;
@@ -63,6 +68,7 @@ export class QueryMetricsLogger implements TypeOrmLogger {
   logQuerySlow(time: number, query: string, parameters?: unknown[]): void {
     this.queryContext.recordSlowQuery(time);
     this.metrics.observeSlowQuery(detectOperation(query), time / 1000);
+    this.dbHealth.recordSlowQuery();
     this.logger.warn(
       `Sekin so'rov (${time} ms): ${truncate(query)}${
         parameters?.length ? ` — parametrlar: ${JSON.stringify(parameters)}` : ''
@@ -72,6 +78,7 @@ export class QueryMetricsLogger implements TypeOrmLogger {
 
   logQueryError(error: string | Error, query: string, parameters?: unknown[]): void {
     this.metrics.incQueryError(detectOperation(query));
+    this.dbHealth.recordQueryError();
     const message = error instanceof Error ? error.message : error;
     this.logger.error(
       `So'rov xatosi: ${message} — ${truncate(query)}${

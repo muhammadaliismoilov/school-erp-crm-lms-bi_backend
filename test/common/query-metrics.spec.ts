@@ -1,5 +1,6 @@
 import type { ConfigService } from '@nestjs/config';
 import { QueryContextService } from '../../src/common/database/query-context.service';
+import { DbHealthCollector } from '../../src/common/database/db-health/db-health.collector';
 import { QueryMetricsLogger } from '../../src/common/database/query-metrics.logger';
 import type { DbOperation } from '../../src/modules/observability/metrics.service';
 import type { MetricsService } from '../../src/modules/observability/metrics.service';
@@ -70,7 +71,8 @@ describe('QueryMetricsLogger', () => {
   it('har bir so‘rovni sanaydi, lekin jim turadi (verbose o‘chiq)', () => {
     const context = new QueryContextService();
     const metrics = metricsStub();
-    const logger = new QueryMetricsLogger(context, metrics.service, configWith(false));
+    const health = new DbHealthCollector();
+    const logger = new QueryMetricsLogger(context, metrics.service, health, configWith(false));
 
     const count = context.run(() => {
       logger.logQuery('SELECT 1');
@@ -85,7 +87,8 @@ describe('QueryMetricsLogger', () => {
   it('sekin so‘rovni ham hisobga, ham metrikaga yozadi', () => {
     const context = new QueryContextService();
     const metrics = metricsStub();
-    const logger = new QueryMetricsLogger(context, metrics.service, configWith(false));
+    const health = new DbHealthCollector();
+    const logger = new QueryMetricsLogger(context, metrics.service, health, configWith(false));
 
     const stats = context.run(() => {
       logger.logQuery('UPDATE students SET name = $1');
@@ -96,12 +99,16 @@ describe('QueryMetricsLogger', () => {
     expect(stats).toEqual({ count: 1, slowCount: 1, slowTotalMs: 1250 });
     // Metrika sekundlarda o'lchanadi — millisekund emas.
     expect(metrics.slow).toEqual([{ operation: 'update', seconds: 1.25 }]);
+    // Sog'liq chirog'i AYNI manbadan, lekin `MetricsService` dan MUSTAQIL
+    // oziqlanadi: `METRICS_ENABLED=false` bo'lganda ham chiroq ishlashi kerak.
+    expect(health.ratesPerMinute().slowPerMinute).toBeGreaterThan(0);
   });
 
   it('operatsiya turini SQL boshidan aniqlaydi', () => {
     const context = new QueryContextService();
     const metrics = metricsStub();
-    const logger = new QueryMetricsLogger(context, metrics.service, configWith(false));
+    const health = new DbHealthCollector();
+    const logger = new QueryMetricsLogger(context, metrics.service, health, configWith(false));
 
     logger.logQueryError('xato', '  SELECT * FROM users');
     logger.logQueryError('xato', 'INSERT INTO users VALUES (1)');
@@ -109,5 +116,6 @@ describe('QueryMetricsLogger', () => {
     logger.logQueryError('xato', 'BEGIN');
 
     expect(metrics.errors).toEqual(['select', 'insert', 'delete', 'other']);
+    expect(health.ratesPerMinute().errorsPerMinute).toBeGreaterThan(0);
   });
 });

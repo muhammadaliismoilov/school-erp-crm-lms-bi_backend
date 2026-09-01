@@ -1,5 +1,6 @@
 import { Global, MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ObservabilityModule } from '../../modules/observability/observability.module';
+import { DbHealthCollector } from './db-health/db-health.collector';
 import { QueryContextMiddleware } from './query-context.middleware';
 import { QueryContextService } from './query-context.service';
 import { QueryMetricsLogger } from './query-metrics.logger';
@@ -20,8 +21,8 @@ import { QueryMetricsLogger } from './query-metrics.logger';
 @Global()
 @Module({
   imports: [ObservabilityModule],
-  providers: [QueryContextService, QueryMetricsLogger],
-  exports: [QueryContextService, QueryMetricsLogger],
+  providers: [QueryContextService, QueryMetricsLogger, DbHealthCollector],
+  exports: [QueryContextService, QueryMetricsLogger, DbHealthCollector],
 })
 export class DatabaseObservabilityModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {

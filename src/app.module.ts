@@ -68,6 +68,8 @@ import { EncryptionModule } from "./common/security/encryption.module";
 import { TenantModule } from "./common/tenant/tenant.module";
 import { ScopeModule } from "./common/scope/scope.module";
 import { DatabaseObservabilityModule } from "./common/database/database-observability.module";
+import { DbHealthModule } from "./common/database/db-health/db-health.module";
+import { SystemModule } from "./modules/system/system.module";
 import { DbPoolMetricsModule } from "./common/database/db-pool-metrics.module";
 import { QueryMetricsLogger } from "./common/database/query-metrics.logger";
 
@@ -199,6 +201,8 @@ const buildTypeOrmOptions = (
       useFactory: buildTypeOrmOptions,
     }),
     DbPoolMetricsModule,
+    DbHealthModule,
+    SystemModule,
     HealthModule,
     ObservabilityModule,
     AuthModule,

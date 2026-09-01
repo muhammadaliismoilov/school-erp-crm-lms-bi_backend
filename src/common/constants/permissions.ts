@@ -314,6 +314,14 @@ export const AppPermission = {
   FILES_READ: 'files.read',
   FILES_UPLOAD: 'files.upload',
   ROLES_READ: 'roles.read',
+  /**
+   * Tizim holatini kuzatish — baza sog'lig'i chirog'i va uning paneli.
+   *
+   * MAXFIY EMAS: qaytadigan narsa faqat yuklama darajasi va uch raqam,
+   * hech qanday ma'lumot mazmuni emas. Maktab direktori "baza band" ekanini
+   * bilishi foydali — u shunda sekinlikning sababini tushunadi.
+   */
+  SYSTEM_MONITOR: 'system.monitor',
   APPEALS_READ: 'appeals.read',
   /**
    * Biriktirilgan murojaatni ko'rish. `appeals.read` maktabning BARCHA
