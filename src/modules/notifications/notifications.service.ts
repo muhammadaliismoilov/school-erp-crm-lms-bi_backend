@@ -31,10 +31,8 @@ export class NotificationsService {
   }
 
   findTemplates(): Promise<NotificationTemplate[]> {
-    return this.templates.find({
-      relations: { translations: true },
-      order: { name: 'ASC' },
-    });
+    // translations qo'shilmaydi — NotificationTemplate.translations eager:true.
+    return this.templates.find({ order: { name: 'ASC' } });
   }
 
   queueNotification(dto: QueueNotificationDto): Promise<Notification> {

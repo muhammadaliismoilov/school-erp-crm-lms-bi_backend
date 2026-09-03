@@ -470,9 +470,9 @@ export class SalaryService {
   }
 
   private async findTeacher(teacherId: string): Promise<User> {
+    // roles eager:true, qayta so'ramaymiz (ikki marta join — kombinatorial portlash).
     const teacher = await this.users.findOne({
       where: tenantWhere<User>(this.tenant, { id: teacherId }),
-      relations: { roles: true },
     });
     if (!teacher) throw new NotFoundException('O‘qituvchi topilmadi');
     const isTeacher = teacher.roles?.some((r) => r.name === SalaryService.TEACHER_ROLE);

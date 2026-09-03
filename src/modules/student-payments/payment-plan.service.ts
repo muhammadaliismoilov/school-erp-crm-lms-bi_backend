@@ -206,9 +206,9 @@ export class PaymentPlanService {
   // ─── Helperlar ──────────────────────────────────────────────────────────────
 
   private async resolveConfigEntity(): Promise<PaymentPlanConfig> {
+    // rates qo'shilmaydi — PaymentPlanConfig.rates eager:true.
     let config = await this.configs.findOne({
       where: { academicYearId: IsNull() },
-      relations: { rates: true },
     });
     if (!config) {
       config = await this.configs.save(

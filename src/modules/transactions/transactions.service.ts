@@ -560,10 +560,8 @@ export class TransactionsService {
     personId: string | undefined,
   ): Promise<{ id: string; name: string; role: string | null } | null> {
     if (!personId) return null;
-    const user = await this.users.findOne({
-      where: { id: personId },
-      relations: { roles: true },
-    });
+    // roles eager:true, qayta so'ramaymiz (ikki marta join — kombinatorial portlash).
+    const user = await this.users.findOne({ where: { id: personId } });
     if (!user) throw new NotFoundException('Shaxs (foydalanuvchi) topilmadi');
     const name = `${user.lastName ?? ''} ${user.firstName ?? ''}`.trim() || user.username || personId;
     const role = user.roles?.[0]?.name ?? null;

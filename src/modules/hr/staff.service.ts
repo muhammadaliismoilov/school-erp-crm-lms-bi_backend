@@ -306,9 +306,9 @@ export class StaffService {
     roleName: string,
     actor?: StaffActor,
   ): Promise<void> {
+    // roles eager:true, qayta so'ramaymiz (ikki marta join — kombinatorial portlash).
     const user = await this.users.findOne({
       where: tenantWhere<User>(this.tenant, { id: userId }, { branch: true }),
-      relations: { roles: true },
     });
     if (!user) return;
 
@@ -395,7 +395,8 @@ export class StaffService {
   }
 
   private async syncUser(userId: string, dto: UpdateStaffMemberDto): Promise<void> {
-    const user = await this.users.findOne({ where: tenantWhere<User>(this.tenant, { id: userId }, { branch: true }), relations: { roles: true } });
+    // roles eager:true, qayta so'ramaymiz (ikki marta join — kombinatorial portlash).
+    const user = await this.users.findOne({ where: tenantWhere<User>(this.tenant, { id: userId }, { branch: true }) });
     if (!user) return;
 
     if (dto.firstName !== undefined) user.firstName = dto.firstName;

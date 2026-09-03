@@ -21,6 +21,7 @@ import { PipelineStage } from './pipeline-stage.entity';
 @Entity('leads')
 @Index('idx_leads_phone', ['phone'])
 @Index('idx_leads_status', ['status'])
+@Index('idx_leads_school_created', ['schoolId', 'createdAt'])
 export class Lead extends UuidAuditEntity {
   @Column({ name: 'school_id', type: 'uuid', nullable: true }) schoolId?: string | null;
   @Column({ name: 'filial_id', type: 'uuid', nullable: true }) filialId?: string | null;

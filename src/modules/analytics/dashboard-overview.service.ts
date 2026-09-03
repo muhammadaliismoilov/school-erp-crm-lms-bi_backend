@@ -343,38 +343,43 @@ export class DashboardOverviewService {
       );
     }
 
-    // ─── Diqqat markazi: tasdiqlanmagan sessiyalar ──────────────────────────
+    // ─── Diqqat markazi + BUGUN paneli: sessiyalar holati ───────────────────
+    // Ikkalasi ham `class_sessions`ga tegadi va oralari kesishadi (bugun —
+    // 7 kunlik oynaning bir qismi), shuning uchun bitta so'rovda FILTER bilan
+    // hisoblanadi (T-07 naqshi — pastdagi lidlar countsQb bilan bir xil).
     if (can(AppPermission.ATTENDANCE_RECORDS_READ)) {
       tasks.push(
         (async () => {
+          const pendingSts = [SessionStatus.SCHEDULED, SessionStatus.OPEN];
           const qb = this.sessions
             .createQueryBuilder('cs')
+            .select("COUNT(*) FILTER (WHERE cs.date = :today AND cs.status = :confirmed)", 'confirmed')
+            .addSelect("COUNT(*) FILTER (WHERE cs.date = :today AND cs.status = :cancelled)", 'cancelled')
+            .addSelect("COUNT(*) FILTER (WHERE cs.date = :today AND cs.status IN (:...pendingSts))", 'pending')
+            .addSelect("COUNT(*) FILTER (WHERE cs.date <= :today AND cs.status IN (:...pendingSts))", 'unconfirmed')
             .where('cs.deleted_at IS NULL')
-            .andWhere('cs.date <= :today AND cs.date >= (CURRENT_DATE - INTERVAL \'7 days\')', { today })
-            .andWhere('cs.status IN (:...sts)', { sts: [SessionStatus.SCHEDULED, SessionStatus.OPEN] });
+            .andWhere("cs.date >= (CURRENT_DATE - INTERVAL '7 days')")
+            .andWhere('cs.date <= :today')
+            .setParameters({
+              today,
+              confirmed: SessionStatus.CONFIRMED,
+              cancelled: SessionStatus.CANCELLED,
+              pendingSts,
+            });
           applyTenantScope(qb, 'cs', this.tenant, { branch: true });
-          const count = await qb.getCount();
-          if (count > 0) result.actionCenter.push({ key: 'unconfirmed_sessions', count });
-        })(),
-      );
-
-      // BUGUN paneli: bugungi sessiyalar holati (o'tildi/bekor/kutmoqda).
-      tasks.push(
-        (async () => {
-          const qb = this.sessions
-            .createQueryBuilder('cs')
-            .select('cs.status', 'status')
-            .addSelect('COUNT(*)', 'cnt')
-            .where('cs.deleted_at IS NULL')
-            .andWhere('cs.date = :today', { today })
-            .groupBy('cs.status');
-          applyTenantScope(qb, 'cs', this.tenant, { branch: true });
-          const rows = await qb.getRawMany<{ status: SessionStatus; cnt: string }>();
-          const by = new Map(rows.map((r) => [r.status, Number(r.cnt)]));
-          const confirmed = by.get(SessionStatus.CONFIRMED) ?? 0;
-          const cancelled = by.get(SessionStatus.CANCELLED) ?? 0;
-          const pending = (by.get(SessionStatus.SCHEDULED) ?? 0) + (by.get(SessionStatus.OPEN) ?? 0);
+          const row = await qb.getRawOne<{
+            confirmed: string;
+            cancelled: string;
+            pending: string;
+            unconfirmed: string;
+          }>();
+          const confirmed = Number(row?.confirmed ?? 0);
+          const cancelled = Number(row?.cancelled ?? 0);
+          const pending = Number(row?.pending ?? 0);
           result.sessionsToday = { total: confirmed + cancelled + pending, confirmed, cancelled, pending };
+
+          const unconfirmed = Number(row?.unconfirmed ?? 0);
+          if (unconfirmed > 0) result.actionCenter.push({ key: 'unconfirmed_sessions', count: unconfirmed });
         })(),
       );
 

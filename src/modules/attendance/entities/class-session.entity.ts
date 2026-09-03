@@ -16,6 +16,7 @@ import { SessionType } from '../../../common/enums/session-type.enum';
 })
 @Index('idx_class_sessions_class_date', ['classId', 'date'])
 @Index('idx_class_sessions_teacher_date', ['teacherId', 'date'])
+@Index('idx_class_sessions_school_date_status', ['schoolId', 'date', 'status'])
 export class ClassSession extends UuidAuditEntity {
   @Column({ name: 'school_id', type: 'uuid', nullable: true })
   schoolId?: string | null;

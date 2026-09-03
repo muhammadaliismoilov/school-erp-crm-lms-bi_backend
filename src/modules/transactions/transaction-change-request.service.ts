@@ -322,7 +322,8 @@ export class TransactionChangeRequestService {
     personId: string | null,
   ): Promise<{ id: string; name: string; role: string | null } | null> {
     if (!personId) return null;
-    const user = await this.users.findOne({ where: tenantWhere<User>(this.tenant, { id: personId }, { branch: true }), relations: { roles: true } });
+    // roles eager:true, qayta so'ramaymiz (ikki marta join — kombinatorial portlash).
+    const user = await this.users.findOne({ where: tenantWhere<User>(this.tenant, { id: personId }, { branch: true }) });
     if (!user) throw new NotFoundException('Shaxs (foydalanuvchi) topilmadi');
     const name = `${user.lastName ?? ''} ${user.firstName ?? ''}`.trim() || user.username || personId;
     return { id: user.id, name, role: user.roles?.[0]?.name ?? null };

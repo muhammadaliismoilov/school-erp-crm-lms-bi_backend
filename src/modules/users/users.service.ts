@@ -262,10 +262,9 @@ export class UsersService {
 
   /** Resolves a user that must carry the PARENT role; throws otherwise. */
   async findParentUser(id: string): Promise<User> {
-    const user = await this.users.findOne({
-      where: { id },
-      relations: { roles: true },
-    });
+    // `roles` qo'shilmaydi — User.roles eager:true, qo'shsak TypeORM ikki mustaqil
+    // JOIN yo'lagi ochadi va natija kombinatorial ko'payadi.
+    const user = await this.users.findOne({ where: { id } });
     if (!user) {
       throw new NotFoundException('Parent user not found');
     }
@@ -587,7 +586,7 @@ export class UsersService {
         'Foydalanuvchini boshqa maktabga faqat super-admin ko\'chira oladi.',
       );
     }
-    const user = await this.users.findOne({ where: { id }, relations: { roles: true } });
+    const user = await this.users.findOne({ where: { id } }); // roles eager:true, qayta so'ramaymiz
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -609,9 +608,9 @@ export class UsersService {
   }
 
   private async findUserEntity(id: string): Promise<User> {
+    // roles eager:true, qayta so'ramaymiz (ikki marta join — kombinatorial portlash).
     const user = await this.users.findOne({
       where: tenantWhere<User>(this.tenant, { id }, { branch: true }),
-      relations: { roles: true },
     });
 
     if (!user) {
